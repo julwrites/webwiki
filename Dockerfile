@@ -1,0 +1,40 @@
+# Stage 1: Build Frontend
+FROM rust:1.83 as frontend-builder
+
+# Install wasm-pack
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+WORKDIR /app
+COPY . .
+
+# Build frontend
+WORKDIR /app/frontend
+RUN wasm-pack build --target web --out-name wasm --out-dir ./static
+
+# Stage 2: Build Backend
+FROM rust:1.83 as backend-builder
+
+WORKDIR /app
+COPY . .
+
+# Build backend
+WORKDIR /app/backend
+RUN cargo build --release
+
+# Stage 3: Runtime
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Copy backend binary
+COPY --from=backend-builder /app/backend/target/release/backend /app/backend_bin
+
+# Copy frontend static files
+COPY --from=frontend-builder /app/frontend/static /app/static
+COPY --from=frontend-builder /app/frontend/index.html /app/static/index.html
+
+# Expose port
+EXPOSE 3000
+
+# Run
+CMD ["/app/backend_bin"]
