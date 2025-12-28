@@ -3,6 +3,10 @@ name = "backend"
 version = "0.1.0"
 edition = "2021"
 
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+
 [dependencies]
 axum = { version = "0.8", features = ["form", "http1", "json", "matched-path", "original-uri", "query", "tokio", "tower-log", "tracing"] }
 tokio = { version = "1.0", features = ["full"] }

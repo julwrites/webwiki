@@ -6,6 +6,9 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
 [dependencies]
 yew = { version = "0.22", features = ["csr"] }
 yew-router = "0.19"
