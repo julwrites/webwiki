@@ -52,7 +52,7 @@ fn switch(routes: Route) -> Html {
 
 #[function_component(FileTree)]
 fn file_tree() -> Html {
-    let tree = use_state(|| Vec::<FileNode>::new());
+    let tree = use_state(Vec::<FileNode>::new);
     {
         let tree = tree.clone();
         use_effect_with((), move |_| {
@@ -118,7 +118,7 @@ struct WikiViewerProps {
 
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
-    let content = use_state(|| String::new());
+    let content = use_state(String::new);
     let is_editing = use_state(|| false);
     let path = props.path.clone();
 
@@ -201,7 +201,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             options.insert(Options::ENABLE_STRIKETHROUGH);
             options.insert(Options::ENABLE_TASKLISTS);
 
-            let parser = Parser::new_ext(&*content, options);
+            let parser = Parser::new_ext(&content, options);
             let mut html_output = String::new();
             html::push_html(&mut html_output, parser);
             html_output
@@ -287,7 +287,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_markdown_rendering() {
          let content = "# Hello";
-         let mut options = Options::empty();
+         let options = Options::empty();
          let parser = Parser::new_ext(content, options);
          let mut html_output = String::new();
          html::push_html(&mut html_output, parser);

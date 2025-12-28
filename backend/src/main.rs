@@ -8,7 +8,6 @@ use axum::{
 use common::{FileNode, WikiPage};
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::ServeDir;
-use walkdir::WalkDir;
 
 struct AppState {
     wiki_path: PathBuf,
@@ -90,7 +89,7 @@ async fn write_page(
 
     // Ensure parent directory exists
     if let Some(parent) = file_path.parent() {
-        if let Err(_) = fs::create_dir_all(parent) {
+        if fs::create_dir_all(parent).is_err() {
              return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create directory").into_response();
         }
     }
