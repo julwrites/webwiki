@@ -9,7 +9,7 @@ Vimwiki-Web is a self-hosted web interface for Vimwiki, designed to replicate th
 *   **Language:** Rust (2021 edition)
 *   **Backend Framework:** Axum
 *   **Frontend Framework:** Yew (WebAssembly)
-*   **Git Integration:** `git2` crate (libgit2 bindings) or direct CLI calls (TBD based on performance/complexity trade-offs, likely `git2` for robustness).
+*   **Git Integration:** `git2` crate (libgit2 bindings) is used for robust Git operations.
 
 ### Infrastructure
 *   **Containerization:** Docker
