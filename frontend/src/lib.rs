@@ -1,9 +1,9 @@
+use common::{FileNode, WikiPage};
+use gloo_net::http::Request;
+use pulldown_cmark::{html, Options, Parser};
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew_router::prelude::*;
-use gloo_net::http::Request;
-use common::{WikiPage, FileNode};
-use pulldown_cmark::{Parser, Options, html};
 
 #[wasm_bindgen]
 extern "C" {
@@ -135,7 +135,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     Ok(r) if r.ok() => {
                         let page: WikiPage = r.json().await.unwrap_or_else(|_| WikiPage {
                             path: path.clone(),
-                            content: "Error parsing JSON".to_string()
+                            content: "Error parsing JSON".to_string(),
                         });
                         content.set(page.content);
                     }
@@ -171,12 +171,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 if let Ok(req) = req {
                     let resp = req.send().await;
                     if let Ok(r) = resp {
-                         if r.ok() {
-                             content_state.set(new_content);
-                             is_editing.set(false);
-                         } else {
-                             gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
-                         }
+                        if r.ok() {
+                            content_state.set(new_content);
+                            is_editing.set(false);
+                        } else {
+                            gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
+                        }
                     }
                 }
             });
@@ -265,8 +265,8 @@ fn editor(props: &EditorProps) -> Html {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasm_bindgen_test::*;
     use pulldown_cmark::{html, Options, Parser};
+    use wasm_bindgen_test::*;
 
     wasm_bindgen_test_configure!(run_in_browser);
 
@@ -286,12 +286,12 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_markdown_rendering() {
-         let content = "# Hello";
-         let options = Options::empty();
-         let parser = Parser::new_ext(content, options);
-         let mut html_output = String::new();
-         html::push_html(&mut html_output, parser);
+        let content = "# Hello";
+        let options = Options::empty();
+        let parser = Parser::new_ext(content, options);
+        let mut html_output = String::new();
+        html::push_html(&mut html_output, parser);
 
-         assert!(html_output.contains("<h1>Hello</h1>"));
+        assert!(html_output.contains("<h1>Hello</h1>"));
     }
 }

@@ -27,10 +27,13 @@ mod tests {
         };
 
         let serialized = serde_json::to_value(&page).unwrap();
-        assert_eq!(serialized, json!({
-            "path": "foo/bar.md",
-            "content": "# Hello"
-        }));
+        assert_eq!(
+            serialized,
+            json!({
+                "path": "foo/bar.md",
+                "content": "# Hello"
+            })
+        );
     }
 
     #[test]
