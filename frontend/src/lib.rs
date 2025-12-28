@@ -1,9 +1,9 @@
+use common::{FileNode, WikiPage};
+use gloo_net::http::Request;
+use pulldown_cmark::{html, Options, Parser};
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew_router::prelude::*;
-use gloo_net::http::Request;
-use common::{WikiPage, FileNode};
-use pulldown_cmark::{Parser, Options, html};
 
 #[wasm_bindgen]
 extern "C" {
@@ -52,7 +52,7 @@ fn switch(routes: Route) -> Html {
 
 #[function_component(FileTree)]
 fn file_tree() -> Html {
-    let tree = use_state(|| Vec::<FileNode>::new());
+    let tree = use_state(Vec::<FileNode>::new);
     {
         let tree = tree.clone();
         use_effect_with((), move |_| {
@@ -118,7 +118,7 @@ struct WikiViewerProps {
 
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
-    let content = use_state(|| String::new());
+    let content = use_state(String::new);
     let is_editing = use_state(|| false);
     let path = props.path.clone();
 
@@ -135,7 +135,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     Ok(r) if r.ok() => {
                         let page: WikiPage = r.json().await.unwrap_or_else(|_| WikiPage {
                             path: path.clone(),
-                            content: "Error parsing JSON".to_string()
+                            content: "Error parsing JSON".to_string(),
                         });
                         content.set(page.content);
                     }
@@ -171,12 +171,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 if let Ok(req) = req {
                     let resp = req.send().await;
                     if let Ok(r) = resp {
-                         if r.ok() {
-                             content_state.set(new_content);
-                             is_editing.set(false);
-                         } else {
-                             gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
-                         }
+                        if r.ok() {
+                            content_state.set(new_content);
+                            is_editing.set(false);
+                        } else {
+                            gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
+                        }
                     }
                 }
             });
@@ -201,7 +201,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             options.insert(Options::ENABLE_STRIKETHROUGH);
             options.insert(Options::ENABLE_TASKLISTS);
 
-            let parser = Parser::new_ext(&*content, options);
+            let parser = Parser::new_ext(&content, options);
             let mut html_output = String::new();
             html::push_html(&mut html_output, parser);
             html_output
@@ -259,5 +259,39 @@ fn editor(props: &EditorProps) -> Html {
             <textarea id="code-editor" />
             <p class="editor-help">{ "Vim Mode: :w to save, or Ctrl+S" }</p>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pulldown_cmark::{html, Options, Parser};
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn test_file_tree_node_render() {
+        let node = FileNode {
+            name: "test.md".to_string(),
+            path: "test.md".to_string(),
+            is_dir: false,
+            children: None,
+        };
+
+        // This is a smoke test to ensure the component can at least be instantiated
+        // Real DOM testing with Yew in wasm-bindgen-test is tricky without extra setup
+        let _html = html! { <FileTreeNode node={node} /> };
+    }
+
+    #[wasm_bindgen_test]
+    fn test_markdown_rendering() {
+        let content = "# Hello";
+        let options = Options::empty();
+        let parser = Parser::new_ext(content, options);
+        let mut html_output = String::new();
+        html::push_html(&mut html_output, parser);
+
+        assert!(html_output.contains("<h1>Hello</h1>"));
     }
 }
