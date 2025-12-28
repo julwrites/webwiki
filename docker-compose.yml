@@ -1,0 +1,9 @@
+services:
+  vimwiki-web:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./wiki_data:/wiki
+    environment:
+      - WIKI_PATH=/wiki

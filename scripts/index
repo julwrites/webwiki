@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Ensure python3 is available
+if ! command -v python3 &> /dev/null; then
+    echo "Error: python3 is required but not found."
+    exit 1
+fi
+
+# Get the directory of this script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Execute the python script
+exec python3 "$DIR/index.py" "$@"
