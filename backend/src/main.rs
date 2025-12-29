@@ -8,9 +8,9 @@ use axum::{
     Json, Router,
 };
 use common::{FileNode, WikiPage};
+use git::{git_routes, GitState};
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::ServeDir;
-use git::{GitState, git_routes};
 
 struct AppState {
     wiki_path: PathBuf,
@@ -187,8 +187,12 @@ mod tests {
         let file_path = temp_dir.path().join("test.md");
         fs::write(&file_path, "# Hello World").unwrap();
 
+        let git_state = Arc::new(GitState {
+            repo_path: temp_dir.path().to_path_buf(),
+        });
         let state = Arc::new(AppState {
             wiki_path: temp_dir.path().to_path_buf(),
+            git_state,
         });
         let app = app(state);
 
@@ -215,8 +219,12 @@ mod tests {
     #[tokio::test]
     async fn test_read_page_not_found() {
         let temp_dir = TempDir::new().unwrap();
+        let git_state = Arc::new(GitState {
+            repo_path: temp_dir.path().to_path_buf(),
+        });
         let state = Arc::new(AppState {
             wiki_path: temp_dir.path().to_path_buf(),
+            git_state,
         });
         let app = app(state);
 
@@ -236,8 +244,12 @@ mod tests {
     #[tokio::test]
     async fn test_write_page() {
         let temp_dir = TempDir::new().unwrap();
+        let git_state = Arc::new(GitState {
+            repo_path: temp_dir.path().to_path_buf(),
+        });
         let state = Arc::new(AppState {
             wiki_path: temp_dir.path().to_path_buf(),
+            git_state,
         });
         let app = app(state);
 
@@ -274,8 +286,12 @@ mod tests {
         fs::write(temp_dir.path().join("root.md"), "").unwrap();
         fs::write(temp_dir.path().join("folder/child.md"), "").unwrap();
 
+        let git_state = Arc::new(GitState {
+            repo_path: temp_dir.path().to_path_buf(),
+        });
         let state = Arc::new(AppState {
             wiki_path: temp_dir.path().to_path_buf(),
+            git_state,
         });
         let app = app(state);
 
@@ -306,8 +322,12 @@ mod tests {
     #[tokio::test]
     async fn test_path_traversal() {
         let temp_dir = TempDir::new().unwrap();
+        let git_state = Arc::new(GitState {
+            repo_path: temp_dir.path().to_path_buf(),
+        });
         let state = Arc::new(AppState {
             wiki_path: temp_dir.path().to_path_buf(),
+            git_state,
         });
         let app = app(state);
 

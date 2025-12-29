@@ -1,8 +1,8 @@
-use yew::prelude::*;
 use gloo_net::http::Request;
-use wasm_bindgen_futures::spawn_local;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
+use yew::prelude::*;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CommitRequest {

@@ -1,12 +1,11 @@
 use axum::{
-    routing::{get, post},
-    Router,
-    Json,
     extract::State,
     http::StatusCode,
+    routing::{get, post},
+    Json, Router,
 };
+use git2::{Repository, Status, StatusOptions};
 use serde::{Deserialize, Serialize};
-use git2::{Repository, StatusOptions, Status, IndexAddOption};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -35,12 +34,16 @@ pub fn git_routes() -> Router<Arc<GitState>> {
         .route("/commit", post(commit_changes))
 }
 
-async fn get_status(State(state): State<Arc<GitState>>) -> Result<Json<Vec<FileStatus>>, StatusCode> {
+async fn get_status(
+    State(state): State<Arc<GitState>>,
+) -> Result<Json<Vec<FileStatus>>, StatusCode> {
     let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
 
-    let statuses = repo.statuses(Some(&mut opts)).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let statuses = repo
+        .statuses(Some(&mut opts))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut file_statuses = Vec::new();
     for entry in statuses.iter() {
@@ -73,17 +76,27 @@ async fn commit_changes(
     Json(payload): Json<CommitRequest>,
 ) -> Result<StatusCode, StatusCode> {
     let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut index = repo.index().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut index = repo
+        .index()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     for file in payload.files {
         let path = std::path::Path::new(&file);
-        index.add_path(path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        index
+            .add_path(path)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     }
 
-    index.write().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    index
+        .write()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let tree_id = index.write_tree().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let tree = repo.find_tree(tree_id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let tree_id = index
+        .write_tree()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let tree = repo
+        .find_tree(tree_id)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let signature = git2::Signature::now(&payload.author_name, &payload.author_email)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -92,7 +105,7 @@ async fn commit_changes(
         Ok(head) => {
             let target = head.target().unwrap();
             Some(repo.find_commit(target).unwrap())
-        },
+        }
         Err(_) => None,
     };
 
@@ -109,7 +122,8 @@ async fn commit_changes(
         &payload.message,
         &tree,
         &parents,
-    ).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
