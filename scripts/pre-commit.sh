@@ -3,10 +3,13 @@ set -e
 
 echo "Running pre-commit checks..."
 
+# Format check
+echo "Checking Formatting..."
+cargo fmt --all -- --check
+
 # Backend
 echo "Checking Backend..."
 cd backend
-cargo fmt -- --check
 cargo clippy -- -D warnings
 cargo test
 cd ..
@@ -14,7 +17,6 @@ cd ..
 # Frontend
 echo "Checking Frontend..."
 cd frontend
-cargo fmt -- --check
 cargo clippy --target wasm32-unknown-unknown -- -D warnings
 cd ..
 
