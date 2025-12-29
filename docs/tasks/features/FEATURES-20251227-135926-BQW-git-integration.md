@@ -1,7 +1,7 @@
 ---
 id: FEATURES-20251227-135926-BQW
 title: Git Integration
-status: pending
+status: completed
 priority: medium
 dependencies: [FEATURES-20251227-135925-BXW]
 type: task

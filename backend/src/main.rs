@@ -343,4 +343,90 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
+
+    #[tokio::test]
+    async fn test_git_status_and_commit() {
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path().to_path_buf();
+
+        // Initialize git repo
+        let repo = git2::Repository::init(&repo_path).unwrap();
+
+        // Configure user for the repo (required for commits)
+        {
+            let mut config = repo.config().unwrap();
+            config.set_str("user.name", "Test User").unwrap();
+            config.set_str("user.email", "test@example.com").unwrap();
+        }
+
+        // Create a file
+        let file_path = repo_path.join("test.md");
+        fs::write(&file_path, "initial content").unwrap();
+
+        let git_state = Arc::new(GitState {
+            repo_path: repo_path.clone(),
+        });
+        let state = Arc::new(AppState {
+            wiki_path: repo_path.clone(),
+            git_state,
+        });
+        let app = app(state);
+
+        // Check status - should be new/untracked
+        let response = app.clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/git/status")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let statuses: Vec<git::FileStatus> = serde_json::from_slice(&body_bytes).unwrap();
+
+        assert!(!statuses.is_empty());
+        assert_eq!(statuses[0].path, "test.md");
+        assert_eq!(statuses[0].status, "New");
+
+        // Commit changes
+        let commit_req = git::CommitRequest {
+            message: "First commit".to_string(),
+            files: vec!["test.md".to_string()],
+            author_name: "Tester".to_string(),
+            author_email: "tester@example.com".to_string(),
+        };
+
+        let response = app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/git/commit")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&commit_req).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Check status again - should be empty or clean
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/git/status")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let statuses: Vec<git::FileStatus> = serde_json::from_slice(&body_bytes).unwrap();
+        assert!(statuses.is_empty());
+    }
 }
