@@ -373,7 +373,8 @@ mod tests {
         let app = app(state);
 
         // Check status - should be new/untracked
-        let response = app.clone()
+        let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .uri("/api/git/status")
@@ -384,7 +385,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let statuses: Vec<git::FileStatus> = serde_json::from_slice(&body_bytes).unwrap();
 
         assert!(!statuses.is_empty());
@@ -399,7 +402,8 @@ mod tests {
             author_email: "tester@example.com".to_string(),
         };
 
-        let response = app.clone()
+        let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("POST")
@@ -425,7 +429,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let statuses: Vec<git::FileStatus> = serde_json::from_slice(&body_bytes).unwrap();
         assert!(statuses.is_empty());
     }
