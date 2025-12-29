@@ -1,4 +1,7 @@
+mod commit_modal;
+
 use common::{FileNode, WikiPage};
+use commit_modal::CommitModal;
 use gloo_net::http::Request;
 use pulldown_cmark::{html, Options, Parser};
 use wasm_bindgen::prelude::*;
@@ -23,15 +26,33 @@ enum Route {
 
 #[function_component(App)]
 pub fn app() -> Html {
+    let show_commit_modal = use_state(|| false);
+
+    let on_commit_click = {
+        let show_commit_modal = show_commit_modal.clone();
+        Callback::from(move |_| show_commit_modal.set(true))
+    };
+
+    let on_close_commit_modal = {
+        let show_commit_modal = show_commit_modal.clone();
+        Callback::from(move |_| show_commit_modal.set(false))
+    };
+
     html! {
         <BrowserRouter>
             <div class="container">
                 <nav class="sidebar">
+                    <div class="sidebar-header">
+                        <button onclick={on_commit_click}>{"Commit Changes"}</button>
+                    </div>
                     <FileTree />
                 </nav>
                 <main class="content">
                     <Switch<Route> render={switch} />
                 </main>
+                if *show_commit_modal {
+                    <CommitModal on_close={on_close_commit_modal} />
+                }
             </div>
         </BrowserRouter>
     }

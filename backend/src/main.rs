@@ -1,3 +1,5 @@
+pub mod git;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -8,16 +10,24 @@ use axum::{
 use common::{FileNode, WikiPage};
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::ServeDir;
+use git::{GitState, git_routes};
 
 struct AppState {
     wiki_path: PathBuf,
+    git_state: Arc<GitState>,
 }
 
 #[tokio::main]
 async fn main() {
     let wiki_path = std::env::var("WIKI_PATH").unwrap_or_else(|_| "wiki_data".to_string());
+    let wiki_path_buf = PathBuf::from(wiki_path);
+    let git_state = Arc::new(GitState {
+        repo_path: wiki_path_buf.clone(),
+    });
+
     let state = Arc::new(AppState {
-        wiki_path: PathBuf::from(wiki_path),
+        wiki_path: wiki_path_buf,
+        git_state,
     });
 
     let app = app(state);
@@ -34,6 +44,7 @@ fn app(state: Arc<AppState>) -> Router {
         .route("/api/wiki/{*path}", get(read_page))
         .route("/api/wiki/{*path}", put(write_page))
         .route("/api/tree", get(get_tree))
+        .nest("/api/git", git_routes().with_state(state.git_state.clone()))
         .fallback_service(ServeDir::new("static"))
         .with_state(state)
 }

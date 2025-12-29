@@ -14,5 +14,14 @@
     <!-- Custom Interop -->
     <script src="/editor_interop.js"></script>
   </head>
-  <body></body>
+  <body>
+    <script type="module">
+        import init, { run_app } from '/wasm.js';
+        async function main() {
+            await init('/wasm_bg.wasm');
+            run_app();
+        }
+        main();
+    </script>
+  </body>
 </html>
