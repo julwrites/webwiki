@@ -1,16 +1,27 @@
 pub mod git;
 
 use axum::{
+    body::Body,
     extract::{Path, State},
-    http::StatusCode,
+    http::{Request, StatusCode},
     response::IntoResponse,
     routing::{get, put},
     Json, Router,
 };
+use tower::ServiceExt; // Ensure this is brought into scope
 use common::{FileNode, WikiPage};
+use axum::extract::Query;
 use git::{git_routes, GitState};
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::ServeDir;
+
+mod search;
+use search::search_wiki;
+
+#[derive(serde::Deserialize)]
+struct SearchParams {
+    q: String,
+}
 
 struct AppState {
     wiki_path: PathBuf,
@@ -44,9 +55,38 @@ fn app(state: Arc<AppState>) -> Router {
         .route("/api/wiki/{*path}", get(read_page))
         .route("/api/wiki/{*path}", put(write_page))
         .route("/api/tree", get(get_tree))
+        .route("/api/search", get(search_handler))
         .nest("/api/git", git_routes().with_state(state.git_state.clone()))
-        .fallback_service(ServeDir::new("static"))
+        .nest_service("/assets", ServeDir::new(state.wiki_path.join("assets")))
+        .fallback(index_handler)
         .with_state(state)
+}
+
+async fn index_handler(uri: axum::http::Uri) -> impl IntoResponse {
+    // Try to serve static file first
+    let path = uri.path().trim_start_matches('/');
+    let static_path = PathBuf::from("static").join(path);
+
+    if !path.is_empty() && static_path.exists() && static_path.is_file() {
+         match ServeDir::new("static").oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap()).await {
+            Ok(res) => return res.into_response(),
+            Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Static file error: {}", err)).into_response(),
+        }
+    }
+
+    // Fallback to index.html
+    match fs::read_to_string("static/index.html") {
+        Ok(content) => (axum::http::StatusCode::OK, axum::response::Html(content)).into_response(),
+        Err(_) => (axum::http::StatusCode::NOT_FOUND, "index.html not found").into_response(),
+    }
+}
+
+async fn search_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<SearchParams>,
+) -> impl IntoResponse {
+    let results = search_wiki(&state.wiki_path, &params.q);
+    Json(results)
 }
 
 async fn read_page(
@@ -174,6 +214,7 @@ fn build_file_tree(root: &PathBuf, current: &PathBuf) -> Vec<FileNode> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search::SearchResult;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -342,6 +383,43 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_search() {
+        let temp_dir = TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("a.md"), "hello world").unwrap();
+        fs::write(temp_dir.path().join("b.md"), "goodbye world").unwrap();
+        fs::write(temp_dir.path().join("c.txt"), "hello world").unwrap(); // Should be ignored
+
+        let git_state = Arc::new(GitState {
+            repo_path: temp_dir.path().to_path_buf(),
+        });
+        let state = Arc::new(AppState {
+            wiki_path: temp_dir.path().to_path_buf(),
+            git_state,
+        });
+        let app = app(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/search?q=hello")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let results: Vec<SearchResult> = serde_json::from_slice(&body_bytes).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, "a.md");
+        assert!(results[0].matches[0].contains("hello"));
     }
 
     #[tokio::test]

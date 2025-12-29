@@ -17,3 +17,4 @@ walkdir = "2.0"
 mime_guess = "2.0"
 git2 = "0.19"
 common = { path = "../common" }
+tower = { version = "0.5", features = ["util"] }
