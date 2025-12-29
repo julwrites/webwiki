@@ -1,7 +1,7 @@
 mod commit_modal;
 
-use common::{FileNode, WikiPage};
 use commit_modal::CommitModal;
+use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
 use pulldown_cmark::{html, Options, Parser};
 use wasm_bindgen::prelude::*;
