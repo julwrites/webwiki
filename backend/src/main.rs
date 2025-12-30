@@ -1,5 +1,6 @@
 pub mod git;
 
+use axum::extract::Query;
 use axum::{
     body::Body,
     extract::{Path, State},
@@ -8,11 +9,10 @@ use axum::{
     routing::{get, put},
     Json, Router,
 };
-use tower::ServiceExt; // Ensure this is brought into scope
 use common::{FileNode, WikiPage};
-use axum::extract::Query;
 use git::{git_routes, GitState};
 use std::{fs, path::PathBuf, sync::Arc};
+use tower::ServiceExt; // Ensure this is brought into scope
 use tower_http::services::ServeDir;
 
 mod search;
@@ -68,9 +68,18 @@ async fn index_handler(uri: axum::http::Uri) -> impl IntoResponse {
     let static_path = PathBuf::from("static").join(path);
 
     if !path.is_empty() && static_path.exists() && static_path.is_file() {
-         match ServeDir::new("static").oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap()).await {
+        match ServeDir::new("static")
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+        {
             Ok(res) => return res.into_response(),
-            Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Static file error: {}", err)).into_response(),
+            Err(err) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Static file error: {}", err),
+                )
+                    .into_response()
+            }
         }
     }
 
@@ -85,7 +94,13 @@ async fn search_handler(
     State(state): State<Arc<AppState>>,
     Query(params): Query<SearchParams>,
 ) -> impl IntoResponse {
-    let results = search_wiki(&state.wiki_path, &params.q);
+    let wiki_path = state.wiki_path.clone();
+    let query = params.q.clone();
+
+    let results = tokio::task::spawn_blocking(move || search_wiki(&wiki_path, &query))
+        .await
+        .unwrap_or_default();
+
     Json(results)
 }
 
