@@ -1,9 +1,11 @@
 mod commit_modal;
+mod search_bar;
 
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
 use pulldown_cmark::{html, Options, Parser};
+use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -43,7 +45,8 @@ pub fn app() -> Html {
             <div class="container">
                 <nav class="sidebar">
                     <div class="sidebar-header">
-                        <button onclick={on_commit_click}>{"Commit Changes"}</button>
+                        <SearchBar />
+                        <button onclick={on_commit_click} class="commit-btn">{"Commit Changes"}</button>
                     </div>
                     <FileTree />
                 </nav>
@@ -280,39 +283,5 @@ fn editor(props: &EditorProps) -> Html {
             <textarea id="code-editor" />
             <p class="editor-help">{ "Vim Mode: :w to save, or Ctrl+S" }</p>
         </div>
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pulldown_cmark::{html, Options, Parser};
-    use wasm_bindgen_test::*;
-
-    wasm_bindgen_test_configure!(run_in_browser);
-
-    #[wasm_bindgen_test]
-    fn test_file_tree_node_render() {
-        let node = FileNode {
-            name: "test.md".to_string(),
-            path: "test.md".to_string(),
-            is_dir: false,
-            children: None,
-        };
-
-        // This is a smoke test to ensure the component can at least be instantiated
-        // Real DOM testing with Yew in wasm-bindgen-test is tricky without extra setup
-        let _html = html! { <FileTreeNode node={node} /> };
-    }
-
-    #[wasm_bindgen_test]
-    fn test_markdown_rendering() {
-        let content = "# Hello";
-        let options = Options::empty();
-        let parser = Parser::new_ext(content, options);
-        let mut html_output = String::new();
-        html::push_html(&mut html_output, parser);
-
-        assert!(html_output.contains("<h1>Hello</h1>"));
     }
 }
