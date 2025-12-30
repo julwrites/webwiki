@@ -2,10 +2,10 @@ mod commit_modal;
 mod search_bar;
 
 use commit_modal::CommitModal;
-use search_bar::SearchBar;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
 use pulldown_cmark::{html, Options, Parser};
+use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew_router::prelude::*;
