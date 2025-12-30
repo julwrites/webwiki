@@ -1,5 +1,4 @@
 use gloo_net::http::Request;
-use gloo_utils::format::JsValueSerdeExt;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
