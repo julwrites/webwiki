@@ -225,6 +225,7 @@ dependencies = [
  "gloo-dialogs",
  "gloo-net 0.6.0",
  "gloo-utils",
+ "js-sys",
  "pulldown-cmark",
  "serde",
  "serde_json",

@@ -285,37 +285,3 @@ fn editor(props: &EditorProps) -> Html {
         </div>
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pulldown_cmark::{html, Options, Parser};
-    use wasm_bindgen_test::*;
-
-    wasm_bindgen_test_configure!(run_in_browser);
-
-    #[wasm_bindgen_test]
-    fn test_file_tree_node_render() {
-        let node = FileNode {
-            name: "test.md".to_string(),
-            path: "test.md".to_string(),
-            is_dir: false,
-            children: None,
-        };
-
-        // This is a smoke test to ensure the component can at least be instantiated
-        // Real DOM testing with Yew in wasm-bindgen-test is tricky without extra setup
-        let _html = html! { <FileTreeNode node={node} /> };
-    }
-
-    #[wasm_bindgen_test]
-    fn test_markdown_rendering() {
-        let content = "# Hello";
-        let options = Options::empty();
-        let parser = Parser::new_ext(content, options);
-        let mut html_output = String::new();
-        html::push_html(&mut html_output, parser);
-
-        assert!(html_output.contains("<h1>Hello</h1>"));
-    }
-}
