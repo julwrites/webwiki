@@ -10,6 +10,7 @@ Vimwiki Web is a modern, self-hosted web interface for [Vimwiki](https://github.
 -   **Git Integration**:
     -   **Draft Workflow**: Save changes to disk instantly.
     -   **Commit Control**: Manually commit changes with custom messages and authorship.
+-   **Search**: Full-text search across your wiki pages.
 -   **Fast & Efficient**: Built with Rust (Axum for backend, Yew for frontend) and WebAssembly.
 -   **Dockerized**: Easy deployment using Docker and Docker Compose.
 

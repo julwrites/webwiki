@@ -18,6 +18,10 @@ use tower_http::services::ServeDir;
 mod search;
 use search::search_wiki;
 
+#[cfg(test)]
+#[path = "tests/test_assets.rs"]
+mod test_assets;
+
 #[derive(serde::Deserialize)]
 struct SearchParams {
     q: String,

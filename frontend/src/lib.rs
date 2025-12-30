@@ -1,6 +1,8 @@
 mod commit_modal;
+mod search_bar;
 
 use commit_modal::CommitModal;
+use search_bar::SearchBar;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
 use pulldown_cmark::{html, Options, Parser};
@@ -43,7 +45,8 @@ pub fn app() -> Html {
             <div class="container">
                 <nav class="sidebar">
                     <div class="sidebar-header">
-                        <button onclick={on_commit_click}>{"Commit Changes"}</button>
+                        <SearchBar />
+                        <button onclick={on_commit_click} class="commit-btn">{"Commit Changes"}</button>
                     </div>
                     <FileTree />
                 </nav>
