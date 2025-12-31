@@ -4,6 +4,7 @@ mod search_bar;
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
+use gloo_storage::Storage;
 use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd, CowStr, LinkType};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
@@ -29,6 +30,31 @@ enum Route {
 #[function_component(App)]
 pub fn app() -> Html {
     let show_commit_modal = use_state(|| false);
+
+    // Theme state
+    let theme = use_state(|| {
+        let storage = gloo_storage::LocalStorage::get("theme");
+        storage.unwrap_or_else(|_| "dark".to_string())
+    });
+
+    {
+        let theme = theme.clone();
+        use_effect_with((*theme).clone(), move |theme_val| {
+            let _ = gloo_utils::document()
+                .document_element()
+                .map(|el| el.set_attribute("data-theme", theme_val));
+            || ()
+        });
+    }
+
+    let toggle_theme = {
+        let theme = theme.clone();
+        Callback::from(move |_| {
+            let new_theme = if *theme == "dark" { "light" } else { "dark" };
+            let _ = gloo_storage::LocalStorage::set("theme", new_theme);
+            theme.set(new_theme.to_string());
+        })
+    };
 
     let on_commit_click = {
         let show_commit_modal = show_commit_modal.clone();
@@ -59,10 +85,15 @@ pub fn app() -> Html {
             <div class="container">
                 <nav class="sidebar">
                     <div class="sidebar-header">
-                        <SearchBar />
-                        <div class="action-buttons">
-                            <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
-                            <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                        <div class="sidebar-controls">
+                            <SearchBar />
+                            <div class="action-buttons">
+                                <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
+                                <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                            </div>
+                            <button onclick={toggle_theme} class="theme-btn">
+                                { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
+                            </button>
                         </div>
                     </div>
                     <FileTree />

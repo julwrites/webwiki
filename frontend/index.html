@@ -13,6 +13,14 @@
 
     <!-- Custom Interop -->
     <script src="/editor_interop.js"></script>
+
+    <!-- Theme Initialization to prevent flash -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <script type="module">
