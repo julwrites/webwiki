@@ -4,5 +4,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn test_basic_math() {
-    assert_eq!(1 + 1, 2);
+    let a = 1;
+    let b = 1;
+    assert_eq!(a + b, 2);
 }
