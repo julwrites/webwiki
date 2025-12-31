@@ -12,8 +12,7 @@ use axum::{
 use common::{FileNode, WikiPage};
 use git::{git_routes, GitState};
 use std::{fs, path::PathBuf, sync::Arc};
-use tower::ServiceExt;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 
 pub mod search;
 use search::search_wiki;
@@ -29,43 +28,21 @@ pub struct AppState {
 }
 
 pub fn app(state: Arc<AppState>) -> Router {
+    let assets_path = state.wiki_path.join("assets");
+
     Router::new()
         .route("/api/wiki/{*path}", get(read_page))
         .route("/api/wiki/{*path}", put(write_page))
         .route("/api/tree", get(get_tree))
         .route("/api/search", get(search_handler))
         .nest("/api/git", git_routes().with_state(state.git_state.clone()))
-        .nest_service("/assets", ServeDir::new(state.wiki_path.join("assets")))
-        .fallback(index_handler)
+        // Serve "assets" from the wiki directory
+        .nest_service("/assets", ServeDir::new(assets_path))
+        // Serve all other static files from "static" dir, falling back to index.html for SPA routing
+        .fallback_service(
+            ServeDir::new("static").fallback(ServeFile::new("static/index.html")),
+        )
         .with_state(state)
-}
-
-async fn index_handler(uri: axum::http::Uri) -> impl IntoResponse {
-    // Try to serve static file first
-    let path = uri.path().trim_start_matches('/');
-    let static_path = PathBuf::from("static").join(path);
-
-    if !path.is_empty() && static_path.exists() && static_path.is_file() {
-        match ServeDir::new("static")
-            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
-            .await
-        {
-            Ok(res) => return res.into_response(),
-            Err(err) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Static file error: {}", err),
-                )
-                    .into_response()
-            }
-        }
-    }
-
-    // Fallback to index.html
-    match fs::read_to_string("static/index.html") {
-        Ok(content) => (axum::http::StatusCode::OK, axum::response::Html(content)).into_response(),
-        Err(_) => (axum::http::StatusCode::NOT_FOUND, "index.html not found").into_response(),
-    }
 }
 
 async fn search_handler(

@@ -16,12 +16,11 @@
   </head>
   <body>
     <script type="module">
-        import init, { run_app } from '/wasm.js';
-        async function main() {
-            await init('/wasm_bg.wasm');
-            run_app();
-        }
-        main();
+        // Cache busting to prevent LinkErrors
+        const v = Date.now();
+        const { default: init, run_app } = await import(`/wasm.js?v=${v}`);
+        await init(`/wasm_bg.wasm?v=${v}`);
+        run_app();
     </script>
   </body>
 </html>

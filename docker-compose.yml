@@ -1,9 +1,19 @@
 services:
-  vimwiki-web:
+  webwiki:
+    container_name: webwiki
     build: .
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
-      - ./wiki_data:/wiki
+      - /Users/julianteh/julwrites/wiki:/wiki
     environment:
       - WIKI_PATH=/wiki
+      - GIT_TOKEN=${GIT_TOKEN}
+      - GIT_USERNAME=${GIT_USERNAME}
+    networks:
+      - rw_service_network
+
+networks:
+  rw_service_network:
+    external: true

@@ -24,6 +24,11 @@ RUN cargo build --release
 # Stage 3: Runtime
 FROM debian:bookworm-slim
 
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy backend binary
