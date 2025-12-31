@@ -3,7 +3,7 @@ pub mod git;
 use axum::extract::Query;
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, StatusCode},
     response::IntoResponse,
     routing::{get, put},
     Json, Router,
@@ -79,9 +79,36 @@ async fn read_page(
         return (StatusCode::FORBIDDEN, "Access denied").into_response();
     }
 
-    match fs::read_to_string(&file_path) {
-        Ok(content) => Json(WikiPage { path, content }).into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Page not found").into_response(),
+    if !file_path.exists() {
+        return (StatusCode::NOT_FOUND, "Page not found").into_response();
+    }
+
+    let mime = mime_guess::from_path(&file_path).first_or_text_plain();
+
+    // If it looks like a markdown file or text, try to read as string and return WikiPage.
+    // We treat .md explicitly as WikiPage source.
+    let is_markdown = file_path.extension().map_or(false, |e| e == "md");
+    // Also support other text types if they are editable, but primarily we want to distinguish
+    // between "Page content" (JSON) and "Raw Asset" (Bytes).
+    // For now, only .md files return WikiPage JSON. Everything else returns raw bytes.
+    // This simplifies the frontend logic: JSON = WikiPage, anything else = Asset.
+    // However, what about text files that are not markdown? The editor currently expects markdown.
+    // Let's stick to .md -> WikiPage, everything else -> Raw.
+
+    if is_markdown {
+        match fs::read_to_string(&file_path) {
+            Ok(content) => Json(WikiPage { path, content }).into_response(),
+            Err(_) => (StatusCode::NOT_FOUND, "Page not found").into_response(),
+        }
+    } else {
+        // Binary / Image / PDF / Other Text
+        match fs::read(&file_path) {
+            Ok(bytes) => (
+                [(header::CONTENT_TYPE, mime.to_string())],
+                bytes
+            ).into_response(),
+            Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
+        }
     }
 }
 

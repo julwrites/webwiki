@@ -1,6 +1,6 @@
 ---
 id: FEATURES-20251231-162026-IMC
-status: pending
+status: completed
 title: Support Opening Images and PDF Files
 priority: medium
 created: 2025-12-31 16:20:26
