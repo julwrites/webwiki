@@ -136,7 +136,7 @@ async fn push_changes(State(state): State<Arc<GitState>>) -> Result<StatusCode, 
     let mut remote = repo
         .find_remote("origin")
         .map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
-    
+
     let mut callbacks = git2::RemoteCallbacks::new();
 
     let env_token = std::env::var("GIT_TOKEN").ok();
@@ -148,11 +148,13 @@ async fn push_changes(State(state): State<Arc<GitState>>) -> Result<StatusCode, 
             .as_deref()
             .or(username_from_url)
             .unwrap_or("git");
-        
+
         if let Some(token) = &env_token {
             git2::Cred::userpass_plaintext(username, token.trim())
         } else {
-            Err(git2::Error::from_str("No GIT_TOKEN provided in environment"))
+            Err(git2::Error::from_str(
+                "No GIT_TOKEN provided in environment",
+            ))
         }
     });
 
@@ -163,10 +165,8 @@ async fn push_changes(State(state): State<Arc<GitState>>) -> Result<StatusCode, 
     let head = repo
         .head()
         .map_err(|e| format!("Failed to get HEAD: {}", e))?;
-    let branch_name = head
-        .shorthand()
-        .ok_or("Failed to get branch name")?;
-    
+    let branch_name = head.shorthand().ok_or("Failed to get branch name")?;
+
     let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
 
     remote

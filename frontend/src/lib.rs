@@ -4,7 +4,8 @@ mod search_bar;
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
-use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd, CowStr, LinkType};
+use gloo_storage::Storage;
+use pulldown_cmark::{html, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
@@ -29,6 +30,31 @@ enum Route {
 #[function_component(App)]
 pub fn app() -> Html {
     let show_commit_modal = use_state(|| false);
+
+    // Theme state
+    let theme = use_state(|| {
+        let storage = gloo_storage::LocalStorage::get("theme");
+        storage.unwrap_or_else(|_| "dark".to_string())
+    });
+
+    {
+        let theme = theme.clone();
+        use_effect_with((*theme).clone(), move |theme_val| {
+            let _ = gloo_utils::document()
+                .document_element()
+                .map(|el| el.set_attribute("data-theme", theme_val));
+            || ()
+        });
+    }
+
+    let toggle_theme = {
+        let theme = theme.clone();
+        Callback::from(move |_| {
+            let new_theme = if *theme == "dark" { "light" } else { "dark" };
+            let _ = gloo_storage::LocalStorage::set("theme", new_theme);
+            theme.set(new_theme.to_string());
+        })
+    };
 
     let on_commit_click = {
         let show_commit_modal = show_commit_modal.clone();
@@ -59,10 +85,15 @@ pub fn app() -> Html {
             <div class="container">
                 <nav class="sidebar">
                     <div class="sidebar-header">
-                        <SearchBar />
-                        <div class="action-buttons">
-                            <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
-                            <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                        <div class="sidebar-controls">
+                            <SearchBar />
+                            <div class="action-buttons">
+                                <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
+                                <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                            </div>
+                            <button onclick={toggle_theme} class="theme-btn">
+                                { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
+                            </button>
                         </div>
                     </div>
                     <FileTree />
@@ -187,7 +218,7 @@ impl<'a> Iterator for WikiLinkParser<'a> {
             let mut buffer = String::from(text.as_ref());
             let mut next_non_text: Option<Event<'a>> = None;
 
-            while let Some(next_event) = self.parser.next() {
+            for next_event in self.parser.by_ref() {
                 match next_event {
                     Event::Text(t) => {
                         buffer.push_str(t.as_ref());
@@ -214,7 +245,9 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                     found_wikilink = true;
 
                     if absolute_open_idx > start_idx {
-                        self.events.push_back(Event::Text(CowStr::from(text_str[start_idx..absolute_open_idx].to_string())));
+                        self.events.push_back(Event::Text(CowStr::from(
+                            text_str[start_idx..absolute_open_idx].to_string(),
+                        )));
                     }
 
                     let content = &text_str[absolute_open_idx + 2..absolute_close_idx];
@@ -244,7 +277,8 @@ impl<'a> Iterator for WikiLinkParser<'a> {
 
             if found_wikilink {
                 if start_idx < text_str.len() {
-                    self.events.push_back(Event::Text(CowStr::from(text_str[start_idx..].to_string())));
+                    self.events
+                        .push_back(Event::Text(CowStr::from(text_str[start_idx..].to_string())));
                 }
             } else {
                 // No wikilinks found, emit the whole merged text
