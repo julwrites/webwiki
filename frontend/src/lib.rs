@@ -4,7 +4,7 @@ mod search_bar;
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd, CowStr, LinkType};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
@@ -140,6 +140,112 @@ struct WikiViewerProps {
     path: String,
 }
 
+/// A wrapper around pulldown_cmark::Parser to handle WikiLinks.
+struct WikiLinkParser<'a> {
+    parser: Parser<'a>,
+    events: std::collections::VecDeque<Event<'a>>,
+}
+
+impl<'a> WikiLinkParser<'a> {
+    fn new(parser: Parser<'a>) -> Self {
+        Self {
+            parser,
+            events: std::collections::VecDeque::new(),
+        }
+    }
+}
+
+impl<'a> Iterator for WikiLinkParser<'a> {
+    type Item = Event<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(event) = self.events.pop_front() {
+            return Some(event);
+        }
+
+        let event = self.parser.next()?;
+
+        // If it's text, try to merge with subsequent text events
+        if let Event::Text(text) = event {
+            let mut buffer = String::from(text.as_ref());
+            let mut next_non_text: Option<Event<'a>> = None;
+
+            while let Some(next_event) = self.parser.next() {
+                match next_event {
+                    Event::Text(t) => {
+                        buffer.push_str(t.as_ref());
+                    }
+                    other => {
+                        next_non_text = Some(other);
+                        break;
+                    }
+                }
+            }
+
+            // Now `buffer` contains all merged text.
+            // Process `buffer` for wikilinks.
+
+            let mut start_idx = 0;
+            let text_str = buffer.as_str();
+            let mut found_wikilink = false;
+
+            while let Some(open_idx) = text_str[start_idx..].find("[[") {
+                let absolute_open_idx = start_idx + open_idx;
+                if let Some(close_idx) = text_str[absolute_open_idx..].find("]]") {
+                    let absolute_close_idx = absolute_open_idx + close_idx;
+
+                    found_wikilink = true;
+
+                    if absolute_open_idx > start_idx {
+                        self.events.push_back(Event::Text(CowStr::from(text_str[start_idx..absolute_open_idx].to_string())));
+                    }
+
+                    let content = &text_str[absolute_open_idx + 2..absolute_close_idx];
+                    let (link, label) = if let Some(pipe_idx) = content.find('|') {
+                        (&content[..pipe_idx], &content[pipe_idx + 1..])
+                    } else {
+                        (content, content)
+                    };
+
+                    let link_url = format!("/wiki/{}", link.trim());
+                    let label_text = label.trim().to_string();
+
+                    self.events.push_back(Event::Start(Tag::Link {
+                        link_type: LinkType::Inline,
+                        dest_url: CowStr::from(link_url),
+                        title: CowStr::from(""),
+                        id: "".into(),
+                    }));
+                    self.events.push_back(Event::Text(CowStr::from(label_text)));
+                    self.events.push_back(Event::End(TagEnd::Link));
+
+                    start_idx = absolute_close_idx + 2;
+                } else {
+                    break;
+                }
+            }
+
+            if found_wikilink {
+                if start_idx < text_str.len() {
+                    self.events.push_back(Event::Text(CowStr::from(text_str[start_idx..].to_string())));
+                }
+            } else {
+                // No wikilinks found, emit the whole merged text
+                self.events.push_back(Event::Text(CowStr::from(buffer)));
+            }
+
+            // Finally, append the non-text event if we found one
+            if let Some(e) = next_non_text {
+                self.events.push_back(e);
+            }
+
+            return self.events.pop_front();
+        }
+
+        Some(event)
+    }
+}
+
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let content = use_state(String::new);
@@ -226,8 +332,10 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             options.insert(Options::ENABLE_TASKLISTS);
 
             let parser = Parser::new_ext(&content, options);
+            let wiki_parser = WikiLinkParser::new(parser);
+
             let mut html_output = String::new();
-            html::push_html(&mut html_output, parser);
+            html::push_html(&mut html_output, wiki_parser);
             html_output
         };
 
