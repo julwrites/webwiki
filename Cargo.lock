@@ -224,6 +224,7 @@ dependencies = [
  "common",
  "gloo-dialogs",
  "gloo-net 0.6.0",
+ "gloo-storage",
  "gloo-utils",
  "js-sys",
  "pulldown-cmark",

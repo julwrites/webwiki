@@ -1,4 +1,5 @@
 use gloo_net::http::Request;
+use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
@@ -26,8 +27,12 @@ pub struct CommitModalProps {
 #[function_component(CommitModal)]
 pub fn commit_modal(props: &CommitModalProps) -> Html {
     let message = use_state(String::new);
-    let author_name = use_state(|| "Wiki User".to_string());
-    let author_email = use_state(|| "user@example.com".to_string());
+    let author_name = use_state(|| {
+        LocalStorage::get("author_name").unwrap_or_else(|_| "Wiki User".to_string())
+    });
+    let author_email = use_state(|| {
+        LocalStorage::get("author_email").unwrap_or_else(|_| "user@example.com".to_string())
+    });
     let files = use_state(Vec::new);
     let selected_files = use_state(std::collections::HashSet::new);
     let is_loading = use_state(|| true);
@@ -123,14 +128,28 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     <label>{"Name"}</label>
                     <input
                         value={(*author_name).clone()}
-                        oninput={let n = author_name.clone(); move |e: InputEvent| n.set(e.target_unchecked_into::<HtmlInputElement>().value())}
+                        oninput={
+                            let n = author_name.clone();
+                            move |e: InputEvent| {
+                                let val = e.target_unchecked_into::<HtmlInputElement>().value();
+                                let _ = LocalStorage::set("author_name", &val);
+                                n.set(val);
+                            }
+                        }
                     />
                 </div>
                 <div class="field">
                     <label>{"Email"}</label>
                     <input
                         value={(*author_email).clone()}
-                        oninput={let e = author_email.clone(); move |ev: InputEvent| e.set(ev.target_unchecked_into::<HtmlInputElement>().value())}
+                        oninput={
+                            let e = author_email.clone();
+                            move |ev: InputEvent| {
+                                let val = ev.target_unchecked_into::<HtmlInputElement>().value();
+                                let _ = LocalStorage::set("author_email", &val);
+                                e.set(val);
+                            }
+                        }
                     />
                 </div>
 
