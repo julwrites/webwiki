@@ -27,9 +27,8 @@ pub struct CommitModalProps {
 #[function_component(CommitModal)]
 pub fn commit_modal(props: &CommitModalProps) -> Html {
     let message = use_state(String::new);
-    let author_name = use_state(|| {
-        LocalStorage::get("author_name").unwrap_or_else(|_| "Wiki User".to_string())
-    });
+    let author_name =
+        use_state(|| LocalStorage::get("author_name").unwrap_or_else(|_| "Wiki User".to_string()));
     let author_email = use_state(|| {
         LocalStorage::get("author_email").unwrap_or_else(|_| "user@example.com".to_string())
     });
