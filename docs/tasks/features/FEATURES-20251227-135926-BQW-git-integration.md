@@ -15,9 +15,9 @@ updated: 2025-12-27T13:59:26Z
 Implement the Git workflow for version control.
 
 ## Subtasks
-- [ ] Add `git2` crate to backend.
-- [ ] Implement `GET /api/git/status` to check file status.
-- [ ] Implement `POST /api/git/commit` to stage and commit.
-- [ ] Frontend: Add "Commit" button/modal.
-- [ ] Frontend: File selection checklist in Commit Modal.
-- [ ] Backend: Handle `user.name` and `user.email` configuration.
+- [x] Add `git2` crate to backend.
+- [x] Implement `GET /api/git/status` to check file status.
+- [x] Implement `POST /api/git/commit` to stage and commit.
+- [x] Frontend: Add "Commit" button/modal.
+- [x] Frontend: File selection checklist in Commit Modal.
+- [x] Backend: Handle `user.name` and `user.email` configuration.

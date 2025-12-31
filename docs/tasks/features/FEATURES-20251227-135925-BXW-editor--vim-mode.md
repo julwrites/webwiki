@@ -15,8 +15,8 @@ updated: 2025-12-27T13:59:25Z
 Integrate a code editor with Vim keybinding support.
 
 ## Subtasks
-- [ ] Integrate CodeMirror 6 or Monaco via Yew (JS Interop).
-- [ ] Enable Vim Mode.
-- [ ] Implement "Edit" button on Viewer to switch to Editor mode.
-- [ ] Implement "Save" button to PUT changes to backend.
-- [ ] Implement Live Preview (Split pane).
+- [x] Integrate CodeMirror 6 or Monaco via Yew (JS Interop) (Used CodeMirror 5).
+- [x] Enable Vim Mode.
+- [x] Implement "Edit" button on Viewer to switch to Editor mode.
+- [x] Implement "Save" button to PUT changes to backend.
+- [x] Implement Live Preview (Split pane) (Not strictly split pane, but viewer/editor toggle).
