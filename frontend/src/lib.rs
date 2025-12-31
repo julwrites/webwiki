@@ -40,13 +40,30 @@ pub fn app() -> Html {
         Callback::from(move |_| show_commit_modal.set(false))
     };
 
+    let on_sync_click = Callback::from(|_| {
+        wasm_bindgen_futures::spawn_local(async move {
+            let resp = Request::post("/api/git/push").send().await;
+            match resp {
+                Ok(r) if r.ok() => gloo_dialogs::alert("Successfully pushed to remote!"),
+                Ok(r) => {
+                    let text = r.text().await.unwrap_or_default();
+                    gloo_dialogs::alert(&format!("Failed to push: {}", text));
+                }
+                Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+            }
+        });
+    });
+
     html! {
         <BrowserRouter>
             <div class="container">
                 <nav class="sidebar">
                     <div class="sidebar-header">
                         <SearchBar />
-                        <button onclick={on_commit_click} class="commit-btn">{"Commit Changes"}</button>
+                        <div class="action-buttons">
+                            <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
+                            <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                        </div>
                     </div>
                     <FileTree />
                 </nav>
