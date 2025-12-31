@@ -1,9 +1,9 @@
-use backend::git::GitState;
-use backend::{app, AppState};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use backend::git::GitState;
+use backend::{app, AppState};
 use std::{fs, sync::Arc};
 use tempfile::TempDir;
 use tower::ServiceExt; // for `oneshot`

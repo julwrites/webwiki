@@ -1,10 +1,11 @@
-use backend::git::{self, GitState};
-use backend::{app, AppState};
-use common::{FileNode, WikiPage};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use backend::git::{self, GitState};
+use backend::search::SearchResult;
+use backend::{app, AppState};
+use common::{FileNode, WikiPage};
 use std::{fs, sync::Arc};
 use tempfile::TempDir;
 use tower::ServiceExt; // for `oneshot`
@@ -202,16 +203,11 @@ async fn test_search() {
     let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .unwrap();
-    let results: Vec<serde_json::Value> = serde_json::from_slice(&body_bytes).unwrap();
-
-    // Note: SearchResult struct is private in backend::search, so we use serde_json::Value
-    // or we should export SearchResult.
-    // Let's assume we check fields loosely or export it.
-    // For now I'll check existence.
+    let results: Vec<SearchResult> = serde_json::from_slice(&body_bytes).unwrap();
 
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["path"], "a.md");
-    // assert!(results[0]["matches"][0].as_str().unwrap().contains("hello"));
+    assert_eq!(results[0].path, "a.md");
+    assert!(results[0].matches[0].contains("hello"));
 }
 
 #[tokio::test]
@@ -281,9 +277,9 @@ async fn test_git_status_and_commit() {
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&commit_req).unwrap()))
                 .unwrap(),
-            )
-            .await
-            .unwrap();
+        )
+        .await
+        .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
 

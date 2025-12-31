@@ -15,7 +15,7 @@ use std::{fs, path::PathBuf, sync::Arc};
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
-mod search;
+pub mod search;
 use search::search_wiki;
 
 #[derive(serde::Deserialize)]
