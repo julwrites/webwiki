@@ -2,9 +2,8 @@ pub mod git;
 
 use axum::extract::Query;
 use axum::{
-    body::Body,
     extract::{Path, State},
-    http::{Request, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
     routing::{get, put},
     Json, Router,
@@ -39,9 +38,7 @@ pub fn app(state: Arc<AppState>) -> Router {
         // Serve "assets" from the wiki directory
         .nest_service("/assets", ServeDir::new(assets_path))
         // Serve all other static files from "static" dir, falling back to index.html for SPA routing
-        .fallback_service(
-            ServeDir::new("static").fallback(ServeFile::new("static/index.html")),
-        )
+        .fallback_service(ServeDir::new("static").fallback(ServeFile::new("static/index.html")))
         .with_state(state)
 }
 

@@ -5,7 +5,7 @@ use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use gloo_net::http::Request;
 use gloo_storage::Storage;
-use pulldown_cmark::{html, Event, Options, Parser, Tag, TagEnd, CowStr, LinkType};
+use pulldown_cmark::{html, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
@@ -218,7 +218,7 @@ impl<'a> Iterator for WikiLinkParser<'a> {
             let mut buffer = String::from(text.as_ref());
             let mut next_non_text: Option<Event<'a>> = None;
 
-            while let Some(next_event) = self.parser.next() {
+            for next_event in self.parser.by_ref() {
                 match next_event {
                     Event::Text(t) => {
                         buffer.push_str(t.as_ref());
@@ -245,7 +245,9 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                     found_wikilink = true;
 
                     if absolute_open_idx > start_idx {
-                        self.events.push_back(Event::Text(CowStr::from(text_str[start_idx..absolute_open_idx].to_string())));
+                        self.events.push_back(Event::Text(CowStr::from(
+                            text_str[start_idx..absolute_open_idx].to_string(),
+                        )));
                     }
 
                     let content = &text_str[absolute_open_idx + 2..absolute_close_idx];
@@ -275,7 +277,8 @@ impl<'a> Iterator for WikiLinkParser<'a> {
 
             if found_wikilink {
                 if start_idx < text_str.len() {
-                    self.events.push_back(Event::Text(CowStr::from(text_str[start_idx..].to_string())));
+                    self.events
+                        .push_back(Event::Text(CowStr::from(text_str[start_idx..].to_string())));
                 }
             } else {
                 // No wikilinks found, emit the whole merged text
