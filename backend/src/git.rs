@@ -20,6 +20,12 @@ pub struct FileStatus {
     pub status: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GitStatusResponse {
+    pub files: Vec<FileStatus>,
+    pub commits_ahead: usize,
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CommitRequest {
     pub message: String,
@@ -28,16 +34,22 @@ pub struct CommitRequest {
     pub author_email: String,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct RestoreRequest {
+    pub files: Vec<String>,
+}
+
 pub fn git_routes() -> Router<Arc<GitState>> {
     Router::new()
         .route("/status", get(get_status))
         .route("/commit", post(commit_changes))
         .route("/push", post(push_changes))
+        .route("/restore", post(restore_changes))
 }
 
 async fn get_status(
     State(state): State<Arc<GitState>>,
-) -> Result<Json<Vec<FileStatus>>, StatusCode> {
+) -> Result<Json<GitStatusResponse>, StatusCode> {
     let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
@@ -69,7 +81,42 @@ async fn get_status(
         });
     }
 
-    Ok(Json(file_statuses))
+    // Calculate commits ahead
+    let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
+
+    Ok(Json(GitStatusResponse {
+        files: file_statuses,
+        commits_ahead,
+    }))
+}
+
+fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
+    let head = repo.head()?;
+    let head_oid = head
+        .target()
+        .ok_or_else(|| git2::Error::from_str("HEAD not a ref"))?;
+
+    let head_name = head
+        .name()
+        .ok_or_else(|| git2::Error::from_str("HEAD has no name"))?;
+
+    let upstream_name_buf = match repo.branch_upstream_name(head_name) {
+        Ok(name) => name,
+        Err(_) => return Ok(0),
+    };
+
+    let upstream_name = upstream_name_buf
+        .as_str()
+        .ok_or_else(|| git2::Error::from_str("Upstream name not valid UTF-8"))?;
+
+    let upstream = repo.find_reference(upstream_name)?;
+
+    let upstream_oid = upstream
+        .target()
+        .ok_or_else(|| git2::Error::from_str("Upstream not a ref"))?;
+
+    let (ahead, _) = repo.graph_ahead_behind(head_oid, upstream_oid)?;
+    Ok(ahead)
 }
 
 async fn commit_changes(
@@ -125,6 +172,26 @@ async fn commit_changes(
         &parents,
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::OK)
+}
+
+async fn restore_changes(
+    State(state): State<Arc<GitState>>,
+    Json(payload): Json<RestoreRequest>,
+) -> Result<StatusCode, StatusCode> {
+    let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.force(); // Overwrite working directory changes
+
+    for file in &payload.files {
+        checkout_builder.path(file);
+    }
+
+    // Checkout HEAD to restore files
+    repo.checkout_head(Some(&mut checkout_builder))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
