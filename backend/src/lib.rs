@@ -87,7 +87,7 @@ async fn read_page(
 
     // If it looks like a markdown file or text, try to read as string and return WikiPage.
     // We treat .md explicitly as WikiPage source.
-    let is_markdown = file_path.extension().map_or(false, |e| e == "md");
+    let is_markdown = file_path.extension().is_some_and(|e| e == "md");
     // Also support other text types if they are editable, but primarily we want to distinguish
     // between "Page content" (JSON) and "Raw Asset" (Bytes).
     // For now, only .md files return WikiPage JSON. Everything else returns raw bytes.
@@ -103,10 +103,7 @@ async fn read_page(
     } else {
         // Binary / Image / PDF / Other Text
         match fs::read(&file_path) {
-            Ok(bytes) => (
-                [(header::CONTENT_TYPE, mime.to_string())],
-                bytes
-            ).into_response(),
+            Ok(bytes) => ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response(),
             Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
         }
     }

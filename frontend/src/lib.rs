@@ -299,6 +299,7 @@ impl<'a> Iterator for WikiLinkParser<'a> {
 
 #[derive(PartialEq)]
 enum ViewMode {
+    Loading,
     Markdown(String),
     Image(String),
     Pdf(String),
@@ -307,7 +308,7 @@ enum ViewMode {
 
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
-    let view_mode = use_state(|| ViewMode::Markdown(String::new()));
+    let view_mode = use_state(|| ViewMode::Loading);
     let is_editing = use_state(|| false);
     let path = props.path.clone();
 
@@ -403,6 +404,14 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         }
     } else {
         match &*view_mode {
+            ViewMode::Loading => html! {
+                <div class="wiki-viewer">
+                    <div class="toolbar">
+                        <span class="path">{ &path }</span>
+                    </div>
+                    <div class="loading">{ "Loading..." }</div>
+                </div>
+            },
             ViewMode::Markdown(content) => {
                 let html_output = {
                     let mut options = Options::empty();
