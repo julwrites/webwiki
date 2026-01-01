@@ -96,10 +96,20 @@ fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
         .target()
         .ok_or_else(|| git2::Error::from_str("HEAD not a ref"))?;
 
-    let upstream = match repo.branch_upstream_name(head.name().unwrap()) {
-        Ok(name) => repo.find_reference(name.as_str().unwrap())?,
+    let head_name = head
+        .name()
+        .ok_or_else(|| git2::Error::from_str("HEAD has no name"))?;
+
+    let upstream_name_buf = match repo.branch_upstream_name(head_name) {
+        Ok(name) => name,
         Err(_) => return Ok(0),
     };
+
+    let upstream_name = upstream_name_buf
+        .as_str()
+        .ok_or_else(|| git2::Error::from_str("Upstream name not valid UTF-8"))?;
+
+    let upstream = repo.find_reference(upstream_name)?;
 
     let upstream_oid = upstream
         .target()

@@ -414,7 +414,7 @@ async fn test_git_commits_ahead() {
     let repo_path_local = temp_dir_local.path().to_path_buf();
 
     // Init origin
-    let repo_origin = git2::Repository::init_bare(&repo_path_origin).unwrap();
+    let _repo_origin = git2::Repository::init_bare(&repo_path_origin).unwrap();
 
     // Clone to local (simulating by init and adding remote)
     let repo_local = git2::Repository::init(&repo_path_local).unwrap();
@@ -441,7 +441,7 @@ async fn test_git_commits_ahead() {
     repo_local
         .remote("origin", repo_path_origin.to_str().unwrap())
         .unwrap();
-    let mut remote = repo_local.find_remote("origin").unwrap();
+    let _remote = repo_local.find_remote("origin").unwrap();
     // We can't easily push in test without setting up more callbacks or using file protocol which might need bare repo setup correctly.
     // Instead, let's just use two local repos and set up upstream manually if possible.
 
