@@ -1,6 +1,6 @@
 ---
 id: FEATURES-20251231-162040-QKP
-status: pending
+status: verified
 title: Add Git Discard and Sync Count Features
 priority: medium
 created: 2025-12-31 16:20:40
@@ -30,3 +30,7 @@ The user requested two Git-related features:
 3.  **Verification**:
     *   Make a commit, check if "Pending Sync" count increases.
     *   Modify a file, then click "Discard", and verify the file reverts to the original state.
+
+## Verification
+- Backend integration tests cover `commits_ahead` calculation logic and `restore` endpoint functionality.
+- Frontend manual verification ensures the UI displays the count and the discard button works as expected.

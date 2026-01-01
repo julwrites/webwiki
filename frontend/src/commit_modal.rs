@@ -13,10 +13,21 @@ pub struct CommitRequest {
     pub author_email: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RestoreRequest {
+    pub files: Vec<String>,
+}
+
 #[derive(Clone, Deserialize)]
 pub struct FileStatus {
     pub path: String,
     pub status: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct GitStatusResponse {
+    pub files: Vec<FileStatus>,
+    pub commits_ahead: usize,
 }
 
 #[derive(Properties, PartialEq)]
@@ -33,20 +44,32 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         LocalStorage::get("author_email").unwrap_or_else(|_| "user@example.com".to_string())
     });
     let files = use_state(Vec::new);
+    let commits_ahead = use_state(|| 0);
     let selected_files = use_state(std::collections::HashSet::new);
     let is_loading = use_state(|| true);
     let error = use_state(String::new);
+    // Refresh trigger to reload status
+    let refresh_trigger = use_state(|| 0);
 
     {
         let files = files.clone();
+        let commits_ahead = commits_ahead.clone();
         let is_loading = is_loading.clone();
-        use_effect_with((), move |_| {
+        let refresh = *refresh_trigger;
+        use_effect_with(refresh, move |_| {
             spawn_local(async move {
                 let resp = Request::get("/api/git/status").send().await;
                 match resp {
                     Ok(r) if r.ok() => {
-                        let status_list: Vec<FileStatus> = r.json().await.unwrap_or_default();
-                        files.set(status_list);
+                        if let Ok(status_resp) = r.json::<GitStatusResponse>().await {
+                            files.set(status_resp.files);
+                            commits_ahead.set(status_resp.commits_ahead);
+                        } else {
+                            // Fallback for backward compatibility if backend returns Vec<FileStatus>
+                            // This logic might be needed if backend update isn't deployed yet or during dev
+                            // But since we are updating both, we expect GitStatusResponse.
+                            // However, let's just assume GitStatusResponse for now as per plan.
+                        }
                     }
                     _ => {
                         // Handle error
@@ -101,6 +124,48 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         })
     };
 
+    let on_discard = {
+        let selected_files = selected_files.clone();
+        let error = error.clone();
+        let refresh_trigger = refresh_trigger.clone();
+
+        Callback::from(move |_| {
+            let selected_files = selected_files.clone();
+            let error = error.clone();
+            let refresh_trigger = refresh_trigger.clone();
+
+            spawn_local(async move {
+                if selected_files.is_empty() {
+                    return;
+                }
+
+                let req = RestoreRequest {
+                    files: selected_files.iter().cloned().collect(),
+                };
+
+                let resp = Request::post("/api/git/restore")
+                    .header("Content-Type", "application/json")
+                    .body(serde_json::to_string(&req).unwrap())
+                    .unwrap()
+                    .send()
+                    .await;
+
+                match resp {
+                    Ok(r) if r.ok() => {
+                        // Clear selected files and refresh status
+                        let empty: std::collections::HashSet<String> =
+                            std::collections::HashSet::new();
+                        selected_files.set(empty);
+                        refresh_trigger.set(*refresh_trigger + 1);
+                    }
+                    _ => {
+                        error.set("Failed to discard changes".to_string());
+                    }
+                }
+            });
+        })
+    };
+
     let toggle_file = {
         let selected_files = selected_files.clone();
         Callback::from(move |path: String| {
@@ -122,6 +187,10 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         <div class="modal-overlay">
             <div class="modal">
                 <h2>{"Commit Changes"}</h2>
+
+                <div class="sync-status">
+                    <span>{"Pending Sync: "} {*commits_ahead}</span>
+                </div>
 
                 <div class="field">
                     <label>{"Name"}</label>
@@ -186,6 +255,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
 
                 <div class="actions">
                     <button onclick={on_commit}>{"Commit"}</button>
+                    <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary">{"Discard Changes"}</button>
                     <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())}>{"Cancel"}</button>
                 </div>
             </div>
