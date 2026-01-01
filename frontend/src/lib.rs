@@ -297,30 +297,53 @@ impl<'a> Iterator for WikiLinkParser<'a> {
     }
 }
 
+#[derive(PartialEq)]
+enum ViewMode {
+    Loading,
+    Markdown(String),
+    Image(String),
+    Pdf(String),
+    Error(String),
+}
+
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
-    let content = use_state(String::new);
+    let view_mode = use_state(|| ViewMode::Loading);
     let is_editing = use_state(|| false);
     let path = props.path.clone();
 
     {
-        let content = content.clone();
+        let view_mode = view_mode.clone();
         let path = path.clone();
         use_effect_with(path.clone(), move |_| {
-            let content = content.clone();
+            let view_mode = view_mode.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let url = format!("/api/wiki/{}", path);
                 let resp = Request::get(&url).send().await;
 
                 match resp {
                     Ok(r) if r.ok() => {
-                        let page: WikiPage = r.json().await.unwrap_or_else(|_| WikiPage {
-                            path: path.clone(),
-                            content: "Error parsing JSON".to_string(),
-                        });
-                        content.set(page.content);
+                        let content_type = r.headers().get("Content-Type").unwrap_or_default();
+                        if content_type.contains("application/json") {
+                            let page: WikiPage = r.json().await.unwrap_or_else(|_| WikiPage {
+                                path: path.clone(),
+                                content: "Error parsing JSON".to_string(),
+                            });
+                            view_mode.set(ViewMode::Markdown(page.content));
+                        } else if content_type.starts_with("image/") {
+                            view_mode.set(ViewMode::Image(url));
+                        } else if content_type == "application/pdf" {
+                            view_mode.set(ViewMode::Pdf(url));
+                        } else {
+                            view_mode.set(ViewMode::Error(format!(
+                                "Unsupported file type: {}",
+                                content_type
+                            )));
+                        }
                     }
-                    _ => content.set("# Page Not Found\n\nClick edit to create it.".to_string()),
+                    _ => view_mode.set(ViewMode::Markdown(
+                        "# Page Not Found\n\nClick edit to create it.".to_string(),
+                    )),
                 }
             });
             || ()
@@ -334,11 +357,11 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 
     let on_save = {
         let path = path.clone();
-        let content_state = content.clone();
+        let view_mode = view_mode.clone();
         let is_editing = is_editing.clone();
         Callback::from(move |new_content: String| {
             let path = path.clone();
-            let content_state = content_state.clone();
+            let view_mode = view_mode.clone();
             let is_editing = is_editing.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let page = WikiPage {
@@ -353,7 +376,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     let resp = req.send().await;
                     if let Ok(r) = resp {
                         if r.ok() {
-                            content_state.set(new_content);
+                            view_mode.set(ViewMode::Markdown(new_content));
                             is_editing.set(false);
                         } else {
                             gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
@@ -365,46 +388,89 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     };
 
     if *is_editing {
+        let current_content = match &*view_mode {
+            ViewMode::Markdown(c) => c.clone(),
+            _ => String::new(),
+        };
+
         html! {
              <div class="wiki-editor">
                 <div class="toolbar">
                     <span class="path">{ &path }</span>
                     <button onclick={let is_editing = is_editing.clone(); move |_| is_editing.set(false)}>{ "Cancel" }</button>
                 </div>
-                <Editor content={(*content).clone()} on_save={on_save} />
+                <Editor content={current_content} on_save={on_save} />
              </div>
         }
     } else {
-        let html_output = {
-            let mut options = Options::empty();
-            options.insert(Options::ENABLE_TABLES);
-            options.insert(Options::ENABLE_FOOTNOTES);
-            options.insert(Options::ENABLE_STRIKETHROUGH);
-            options.insert(Options::ENABLE_TASKLISTS);
-
-            let parser = Parser::new_ext(&content, options);
-            let wiki_parser = WikiLinkParser::new(parser);
-
-            let mut html_output = String::new();
-            html::push_html(&mut html_output, wiki_parser);
-            html_output
-        };
-
-        // Use a wrapper to inject HTML safely
-        let div = gloo_utils::document().create_element("div").unwrap();
-        div.set_inner_html(&html_output);
-        let node = Html::VRef(div.into());
-
-        html! {
-            <div class="wiki-viewer">
-                <div class="toolbar">
-                    <span class="path">{ &path }</span>
-                    <button onclick={on_edit_click}>{ "Edit" }</button>
+        match &*view_mode {
+            ViewMode::Loading => html! {
+                <div class="wiki-viewer">
+                    <div class="toolbar">
+                        <span class="path">{ &path }</span>
+                    </div>
+                    <div class="loading">{ "Loading..." }</div>
                 </div>
-                <div class="markdown-body">
-                    { node }
+            },
+            ViewMode::Markdown(content) => {
+                let html_output = {
+                    let mut options = Options::empty();
+                    options.insert(Options::ENABLE_TABLES);
+                    options.insert(Options::ENABLE_FOOTNOTES);
+                    options.insert(Options::ENABLE_STRIKETHROUGH);
+                    options.insert(Options::ENABLE_TASKLISTS);
+
+                    let parser = Parser::new_ext(content, options);
+                    let wiki_parser = WikiLinkParser::new(parser);
+
+                    let mut html_output = String::new();
+                    html::push_html(&mut html_output, wiki_parser);
+                    html_output
+                };
+
+                // Use a wrapper to inject HTML safely
+                let div = gloo_utils::document().create_element("div").unwrap();
+                div.set_inner_html(&html_output);
+                let node = Html::VRef(div.into());
+
+                html! {
+                    <div class="wiki-viewer">
+                        <div class="toolbar">
+                            <span class="path">{ &path }</span>
+                            <button onclick={on_edit_click}>{ "Edit" }</button>
+                        </div>
+                        <div class="markdown-body">
+                            { node }
+                        </div>
+                    </div>
+                }
+            }
+            ViewMode::Image(url) => html! {
+                <div class="wiki-viewer">
+                    <div class="toolbar">
+                        <span class="path">{ &path }</span>
+                    </div>
+                    <div class="image-viewer">
+                        <img src={url.clone()} alt={path.clone()} />
+                    </div>
                 </div>
-            </div>
+            },
+            ViewMode::Pdf(url) => html! {
+                <div class="wiki-viewer">
+                     <div class="toolbar">
+                        <span class="path">{ &path }</span>
+                    </div>
+                    <div class="pdf-viewer">
+                        <embed src={url.clone()} type="application/pdf" width="100%" height="800px" />
+                    </div>
+                </div>
+            },
+            ViewMode::Error(msg) => html! {
+                <div class="error-viewer">
+                    <h3>{ "Error displaying file" }</h3>
+                    <p>{ msg }</p>
+                </div>
+            },
         }
     }
 }
