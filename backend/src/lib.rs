@@ -85,23 +85,51 @@ async fn read_page(
 
     let mime = mime_guess::from_path(&file_path).first_or_text_plain();
 
-    // If it looks like a markdown file or text, try to read as string and return WikiPage.
-    // We treat .md explicitly as WikiPage source.
-    let is_markdown = file_path.extension().is_some_and(|e| e == "md");
-    // Also support other text types if they are editable, but primarily we want to distinguish
-    // between "Page content" (JSON) and "Raw Asset" (Bytes).
-    // For now, only .md files return WikiPage JSON. Everything else returns raw bytes.
-    // This simplifies the frontend logic: JSON = WikiPage, anything else = Asset.
-    // However, what about text files that are not markdown? The editor currently expects markdown.
-    // Let's stick to .md -> WikiPage, everything else -> Raw.
+    // Explicit text extensions that should be served as WikiPage (text content)
+    let text_extensions = [
+        "md", "markdown",
+        "json", "toml", "yaml", "yml", "opml",
+        "dot", "mermaid", "mmd", "drawio", "dio",
+    ];
 
-    if is_markdown {
-        match fs::read_to_string(&file_path) {
-            Ok(content) => Json(WikiPage { path, content }).into_response(),
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let is_explicit_text = text_extensions.contains(&ext.as_str());
+
+    // Check if file is small (< 2MB)
+    let is_small = match fs::metadata(&file_path) {
+        Ok(meta) => meta.len() < 2 * 1024 * 1024,
+        Err(_) => false,
+    };
+
+    // Determine if we should attempt to serve as WikiPage (text content)
+    // 1. Explicit text extension
+    // 2. Small file AND not a known binary type (Image/PDF)
+    let is_image_or_pdf =
+        mime.type_().as_str() == "image" || mime.essence_str() == "application/pdf";
+
+    let should_try_text = is_explicit_text || (is_small && !is_image_or_pdf);
+
+    if should_try_text {
+        match fs::read(&file_path) {
+            Ok(bytes) => {
+                // Try to convert to UTF-8 string
+                match String::from_utf8(bytes.clone()) {
+                    Ok(content) => Json(WikiPage { path, content }).into_response(),
+                    Err(_) => {
+                        // Not valid UTF-8, fallback to raw bytes
+                        ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response()
+                    }
+                }
+            }
             Err(_) => (StatusCode::NOT_FOUND, "Page not found").into_response(),
         }
     } else {
-        // Binary / Image / PDF / Other Text
+        // Binary / Image / PDF / Large Unknown
         match fs::read(&file_path) {
             Ok(bytes) => ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response(),
             Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
