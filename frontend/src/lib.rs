@@ -14,6 +14,9 @@ use yew_router::prelude::*;
 #[wasm_bindgen]
 extern "C" {
     fn setupEditor(element_id: &str, initial_content: &str, callback: &Closure<dyn FnMut(String)>);
+    fn renderMermaid();
+    fn renderGraphviz(element_id: &str, content: &str);
+    fn renderDrawio(element_id: &str, xml: &str);
 }
 
 #[derive(Clone, Routable, PartialEq)]
@@ -300,7 +303,7 @@ impl<'a> Iterator for WikiLinkParser<'a> {
 #[derive(PartialEq)]
 enum ViewMode {
     Loading,
-    Markdown(String),
+    Page(WikiPage),
     Image(String),
     Pdf(String),
     Error(String),
@@ -329,25 +332,58 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                                 path: path.clone(),
                                 content: "Error parsing JSON".to_string(),
                             });
-                            view_mode.set(ViewMode::Markdown(page.content));
+                            view_mode.set(ViewMode::Page(page));
                         } else if content_type.starts_with("image/") {
                             view_mode.set(ViewMode::Image(url));
                         } else if content_type == "application/pdf" {
                             view_mode.set(ViewMode::Pdf(url));
                         } else {
+                            // Handle known binary types or unknown types that fall through
+                            // If it's not JSON (WikiPage), Image, or PDF, it's something we can't display.
+                            // The backend returns raw bytes for these.
                             view_mode.set(ViewMode::Error(format!(
                                 "Unsupported file type: {}",
                                 content_type
                             )));
                         }
                     }
-                    _ => view_mode.set(ViewMode::Markdown(
-                        "# Page Not Found\n\nClick edit to create it.".to_string(),
-                    )),
+                    _ => view_mode.set(ViewMode::Page(WikiPage {
+                        path: path.clone(),
+                        content: "# Page Not Found\n\nClick edit to create it.".to_string(),
+                    })),
                 }
             });
             || ()
         });
+    }
+
+    // Effect to trigger diagram rendering when content changes or editing ends
+    {
+        let view_mode = view_mode.clone();
+        let is_editing = is_editing.clone();
+        use_effect_with(
+            (view_mode.clone(), *is_editing),
+            move |(view_mode, is_editing)| {
+                // Only render if we are NOT editing and have a page
+                if !*is_editing {
+                    if let ViewMode::Page(page) = &**view_mode {
+                        let ext = std::path::Path::new(&page.path)
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
+
+                        match ext.as_str() {
+                            "mermaid" | "mmd" => renderMermaid(),
+                            "dot" => renderGraphviz("graphviz-container", &page.content),
+                            "drawio" | "dio" => renderDrawio("drawio-container", &page.content),
+                            _ => {}
+                        }
+                    }
+                }
+                || ()
+            },
+        );
     }
 
     let on_edit_click = {
@@ -376,7 +412,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     let resp = req.send().await;
                     if let Ok(r) = resp {
                         if r.ok() {
-                            view_mode.set(ViewMode::Markdown(new_content));
+                            view_mode.set(ViewMode::Page(page));
                             is_editing.set(false);
                         } else {
                             gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
@@ -389,7 +425,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 
     if *is_editing {
         let current_content = match &*view_mode {
-            ViewMode::Markdown(c) => c.clone(),
+            ViewMode::Page(p) => p.content.clone(),
             _ => String::new(),
         };
 
@@ -412,26 +448,49 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <div class="loading">{ "Loading..." }</div>
                 </div>
             },
-            ViewMode::Markdown(content) => {
-                let html_output = {
-                    let mut options = Options::empty();
-                    options.insert(Options::ENABLE_TABLES);
-                    options.insert(Options::ENABLE_FOOTNOTES);
-                    options.insert(Options::ENABLE_STRIKETHROUGH);
-                    options.insert(Options::ENABLE_TASKLISTS);
+            ViewMode::Page(page) => {
+                let ext = std::path::Path::new(&page.path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
 
-                    let parser = Parser::new_ext(content, options);
-                    let wiki_parser = WikiLinkParser::new(parser);
+                let render_content = match ext.as_str() {
+                    "md" | "markdown" => {
+                        let html_output = {
+                            let mut options = Options::empty();
+                            options.insert(Options::ENABLE_TABLES);
+                            options.insert(Options::ENABLE_FOOTNOTES);
+                            options.insert(Options::ENABLE_STRIKETHROUGH);
+                            options.insert(Options::ENABLE_TASKLISTS);
 
-                    let mut html_output = String::new();
-                    html::push_html(&mut html_output, wiki_parser);
-                    html_output
+                            let parser = Parser::new_ext(&page.content, options);
+                            let wiki_parser = WikiLinkParser::new(parser);
+
+                            let mut html_output = String::new();
+                            html::push_html(&mut html_output, wiki_parser);
+                            html_output
+                        };
+                        let div = gloo_utils::document().create_element("div").unwrap();
+                        div.set_inner_html(&html_output);
+                        Html::VRef(div.into())
+                    }
+                    "json" | "toml" | "yaml" | "yml" | "opml" => html! {
+                        <pre><code class={format!("language-{}", ext)}>{ &page.content }</code></pre>
+                    },
+                    "mermaid" | "mmd" => html! {
+                        <div class="mermaid">{ &page.content }</div>
+                    },
+                    "dot" => html! {
+                        <div id="graphviz-container"></div>
+                    },
+                    "drawio" | "dio" => html! {
+                        <div id="drawio-container"></div>
+                    },
+                    _ => html! {
+                        <pre><code>{ &page.content }</code></pre>
+                    },
                 };
-
-                // Use a wrapper to inject HTML safely
-                let div = gloo_utils::document().create_element("div").unwrap();
-                div.set_inner_html(&html_output);
-                let node = Html::VRef(div.into());
 
                 html! {
                     <div class="wiki-viewer">
@@ -440,7 +499,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             <button onclick={on_edit_click}>{ "Edit" }</button>
                         </div>
                         <div class="markdown-body">
-                            { node }
+                            { render_content }
                         </div>
                     </div>
                 }
