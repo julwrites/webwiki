@@ -357,26 +357,33 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         });
     }
 
-    // Effect to trigger diagram rendering when content changes
+    // Effect to trigger diagram rendering when content changes or editing ends
     {
         let view_mode = view_mode.clone();
-        use_effect_with(view_mode.clone(), move |view_mode| {
-            if let ViewMode::Page(page) = &**view_mode {
-                let ext = std::path::Path::new(&page.path)
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
+        let is_editing = is_editing.clone();
+        use_effect_with(
+            (view_mode.clone(), *is_editing),
+            move |(view_mode, is_editing)| {
+                // Only render if we are NOT editing and have a page
+                if !*is_editing {
+                    if let ViewMode::Page(page) = &**view_mode {
+                        let ext = std::path::Path::new(&page.path)
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .unwrap_or("")
+                            .to_lowercase();
 
-                match ext.as_str() {
-                    "mermaid" | "mmd" => renderMermaid(),
-                    "dot" => renderGraphviz("graphviz-container", &page.content),
-                    "drawio" | "dio" => renderDrawio("drawio-container", &page.content),
-                    _ => {}
+                        match ext.as_str() {
+                            "mermaid" | "mmd" => renderMermaid(),
+                            "dot" => renderGraphviz("graphviz-container", &page.content),
+                            "drawio" | "dio" => renderDrawio("drawio-container", &page.content),
+                            _ => {}
+                        }
+                    }
                 }
-            }
-            || ()
-        });
+                || ()
+            },
+        );
     }
 
     let on_edit_click = {
@@ -482,7 +489,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     },
                     _ => html! {
                         <pre><code>{ &page.content }</code></pre>
-                    }
+                    },
                 };
 
                 html! {
