@@ -1,17 +1,21 @@
 pub mod git;
+pub mod auth;
 
 use axum::extract::Query;
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
     response::IntoResponse,
-    routing::{get, put},
+    routing::{get, post, put},
     Json, Router,
 };
-use common::{FileNode, WikiPage};
+use common::{FileNode, WikiPage, auth::User};
 use git::{git_routes, GitState};
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
+use tower_sessions::{MemoryStore, SessionManagerLayer};
+use crate::auth::handlers::{login, logout, check_auth};
+use crate::auth::middleware::auth_middleware;
 
 pub mod search;
 use search::search_wiki;
@@ -24,21 +28,38 @@ pub struct SearchParams {
 pub struct AppState {
     pub wiki_path: PathBuf,
     pub git_state: Arc<GitState>,
+    pub users: Vec<User>,
 }
 
 pub fn app(state: Arc<AppState>) -> Router {
     let assets_path = state.wiki_path.join("assets");
 
+    // Session layer (Memory Store for now)
+    let session_store = MemoryStore::default();
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false) // Set to true in production with HTTPS
+        .with_same_site(tower_sessions::cookie::SameSite::Lax); // Allow cross-site navigation
+
+    // API Router
+    let api_router = Router::new()
+        .route("/wiki/{*path}", get(read_page))
+        .route("/wiki/{*path}", put(write_page))
+        .route("/tree", get(get_tree))
+        .route("/search", get(search_handler))
+        .nest("/git", git_routes().with_state(state.git_state.clone()))
+        // Auth endpoints
+        .route("/login", post(login))
+        .route("/logout", post(logout))
+        .route("/check-auth", get(check_auth));
+
     Router::new()
-        .route("/api/wiki/{*path}", get(read_page))
-        .route("/api/wiki/{*path}", put(write_page))
-        .route("/api/tree", get(get_tree))
-        .route("/api/search", get(search_handler))
-        .nest("/api/git", git_routes().with_state(state.git_state.clone()))
+        .nest("/api", api_router)
         // Serve "assets" from the wiki directory
         .nest_service("/assets", ServeDir::new(assets_path))
         // Serve all other static files from "static" dir, falling back to index.html for SPA routing
         .fallback_service(ServeDir::new("static").fallback(ServeFile::new("static/index.html")))
+        .layer(axum::middleware::from_fn(auth_middleware))
+        .layer(session_layer)
         .with_state(state)
 }
 
