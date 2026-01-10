@@ -2,7 +2,7 @@ use axum::{
     extract::FromRequestParts,
     http::{Request, StatusCode},
     middleware::Next,
-    response::{Redirect, Response, IntoResponse},
+    response::{IntoResponse, Redirect, Response},
     RequestPartsExt,
 };
 use tower_sessions::Session;
@@ -40,7 +40,11 @@ pub async fn auth_middleware(
     let path = request.uri().path().to_string();
 
     // Allow login endpoints and static assets
-    if path == "/login" || path.starts_with("/api/login") || path.starts_with("/assets/") || path == "/favicon.ico" {
+    if path == "/login"
+        || path.starts_with("/api/login")
+        || path.starts_with("/assets/")
+        || path == "/favicon.ico"
+    {
         return Ok(next.run(request).await);
     }
 

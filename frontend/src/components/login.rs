@@ -1,9 +1,9 @@
+use crate::api::login;
+use crate::Route;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::prelude::*;
-use crate::Route;
-use crate::api::login;
-use web_sys::HtmlInputElement;
-use wasm_bindgen::JsCast;
 
 #[function_component(Login)]
 pub fn login_component() -> Html {
@@ -33,10 +33,10 @@ pub fn login_component() -> Html {
                         // Since AuthWrapper checks /check-auth, we can just navigate to home.
                         // But we might need to update a global auth context if we had one.
                         // For now, let's just navigate.
-                         // Actually, we might need to reload to ensure session cookies are sent/recognized cleanly if needed,
-                         // but SPA navigation should work if cookies are set.
+                        // Actually, we might need to reload to ensure session cookies are sent/recognized cleanly if needed,
+                        // but SPA navigation should work if cookies are set.
                         navigator.push(&Route::Home);
-                    },
+                    }
                     Err(_) => {
                         error.set(Some("Invalid username or password".to_string()));
                     }

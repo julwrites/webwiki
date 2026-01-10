@@ -52,7 +52,7 @@ fn main() {
     if Path::new(users_file_path).exists() {
         let content = fs::read_to_string(users_file_path).unwrap_or_default();
         if !content.is_empty() {
-             match common::auth::decrypt_users(&content, &secret_key) {
+            match common::auth::decrypt_users(&content, &secret_key) {
                 Ok(existing_users) => {
                     users = existing_users;
                     // Check if user exists
@@ -60,11 +60,11 @@ fn main() {
                         eprintln!("User {} already exists. Updating password.", username);
                         users.retain(|u| u.username != username);
                     }
-                },
+                }
                 Err(_) => {
                     eprintln!("Warning: Could not decrypt existing users file. Overwriting.");
                 }
-             }
+            }
         }
     }
 
@@ -73,5 +73,8 @@ fn main() {
     let encrypted_content = encrypt_users(&users, &secret_key).expect("Failed to encrypt users");
     fs::write(users_file_path, encrypted_content).expect("Failed to write users file");
 
-    println!("User {} added/updated successfully in {}", username, users_file_path);
+    println!(
+        "User {} added/updated successfully in {}",
+        username, users_file_path
+    );
 }

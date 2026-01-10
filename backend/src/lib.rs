@@ -1,6 +1,8 @@
-pub mod git;
 pub mod auth;
+pub mod git;
 
+use crate::auth::handlers::{check_auth, login, logout};
+use crate::auth::middleware::auth_middleware;
 use axum::extract::Query;
 use axum::{
     extract::{Path, State},
@@ -9,13 +11,11 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
-use common::{FileNode, WikiPage, auth::User};
+use common::{auth::User, FileNode, WikiPage};
 use git::{git_routes, GitState};
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_sessions::{MemoryStore, SessionManagerLayer};
-use crate::auth::handlers::{login, logout, check_auth};
-use crate::auth::middleware::auth_middleware;
 
 pub mod search;
 use search::search_wiki;

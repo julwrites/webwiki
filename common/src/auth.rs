@@ -9,8 +9,8 @@ use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::str;
-use thiserror::Error;
 use subtle::ConstantTimeEq;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AuthError {
@@ -75,7 +75,8 @@ pub fn encrypt_users(users: &[User], key: &str) -> Result<String, AuthError> {
     OsRng.fill_bytes(&mut nonce);
     let nonce_obj = Nonce::from_slice(&nonce);
 
-    let ciphertext = cipher.encrypt(nonce_obj, json.as_bytes())
+    let ciphertext = cipher
+        .encrypt(nonce_obj, json.as_bytes())
         .map_err(|_| AuthError::EncryptionError)?;
 
     // Format: nonce + ciphertext
@@ -99,7 +100,8 @@ pub fn decrypt_users(encrypted_data: &str, key: &str) -> Result<Vec<User>, AuthE
     let key_bytes = derive_key(key);
     let cipher = Aes256Gcm::new(&key_bytes);
 
-    let plaintext = cipher.decrypt(nonce_obj, ciphertext)
+    let plaintext = cipher
+        .decrypt(nonce_obj, ciphertext)
         .map_err(|_| AuthError::DecryptionError)?;
 
     let json = str::from_utf8(&plaintext)?;

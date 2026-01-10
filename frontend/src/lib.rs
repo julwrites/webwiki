@@ -1,11 +1,11 @@
-mod commit_modal;
-mod search_bar;
-mod components;
 mod api;
+mod commit_modal;
+mod components;
+mod search_bar;
 
-use components::login::Login;
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
+use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
 use pulldown_cmark::{html, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
@@ -158,10 +158,10 @@ fn auth_wrapper(props: &HtmlProperties) -> Html {
                 match resp {
                     Ok(r) if r.ok() => {
                         is_loading.set(false);
-                    },
+                    }
                     _ => {
-                         navigator.push(&Route::Login);
-                         is_loading.set(false);
+                        navigator.push(&Route::Login);
+                        is_loading.set(false);
                     }
                 }
             });

@@ -1,8 +1,8 @@
 use backend::git::GitState;
 use backend::AppState;
+use common::auth::decrypt_users;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use common::auth::decrypt_users;
 
 #[tokio::main]
 async fn main() {
@@ -19,7 +19,10 @@ async fn main() {
         let content = std::fs::read_to_string(&users_file).expect("Failed to read users file");
         decrypt_users(&content, &auth_secret).expect("Failed to decrypt users file")
     } else {
-        println!("Warning: No users file found at {}. Authentication will fail for all users.", users_file);
+        println!(
+            "Warning: No users file found at {}. Authentication will fail for all users.",
+            users_file
+        );
         Vec::new()
     };
 
