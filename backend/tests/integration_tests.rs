@@ -6,10 +6,10 @@ use backend::git::{self, GitState, GitStatusResponse};
 use backend::search::SearchResult;
 use backend::{app, AppState};
 use common::{auth::User, FileNode, WikiPage};
+use serde_json::json;
 use std::{fs, sync::Arc};
 use tempfile::TempDir;
 use tower::ServiceExt; // for `oneshot`
-use serde_json::json;
 
 // Helper to create an authenticated state and return a session cookie
 async fn setup_auth_app(wiki_path: std::path::PathBuf) -> (axum::Router, String) {
@@ -38,7 +38,8 @@ async fn setup_auth_app(wiki_path: std::path::PathBuf) -> (axum::Router, String)
         "password": "password"
     });
 
-    let response = app.clone()
+    let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
@@ -50,7 +51,13 @@ async fn setup_auth_app(wiki_path: std::path::PathBuf) -> (axum::Router, String)
         .await
         .unwrap();
 
-    let cookie = response.headers().get("set-cookie").unwrap().to_str().unwrap().to_string();
+    let cookie = response
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
     (app, cookie)
 }
 
