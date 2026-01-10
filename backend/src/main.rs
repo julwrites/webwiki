@@ -8,9 +8,7 @@ use std::sync::Arc;
 async fn main() {
     let wiki_path = std::env::var("WIKI_PATH").unwrap_or_else(|_| "wiki_data".to_string());
     let wiki_path_buf = PathBuf::from(wiki_path);
-    let git_state = Arc::new(GitState {
-        repo_path: wiki_path_buf.clone(),
-    });
+    let git_state = Arc::new(GitState::new(wiki_path_buf.clone()));
 
     let users_file = std::env::var("USERS_FILE").unwrap_or_else(|_| "users.json".to_string());
     let auth_secret = std::env::var("AUTH_SECRET").unwrap_or_else(|_| "secret".to_string());

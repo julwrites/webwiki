@@ -21,9 +21,7 @@ async fn setup_auth_app(wiki_path: std::path::PathBuf) -> (axum::Router, String)
         salt,
     };
 
-    let git_state = Arc::new(GitState {
-        repo_path: wiki_path.clone(),
-    });
+    let git_state = Arc::new(GitState::new(wiki_path.clone()));
     let state = Arc::new(AppState {
         wiki_path: wiki_path.clone(),
         git_state,

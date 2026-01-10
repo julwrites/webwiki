@@ -622,21 +622,25 @@ fn editor(props: &EditorProps) -> Html {
     let content = props.content.clone();
     let on_save = props.on_save.clone();
 
+    // Store the closure in a ref to keep it alive
+    let closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut(String)>>::None);
+
     use_effect_with((), move |_| {
         let on_save = on_save.clone();
+
         let closure = Closure::wrap(Box::new(move |text: String| {
             on_save.emit(text);
         }) as Box<dyn FnMut(String)>);
 
         setupEditor("code-editor", &content, &closure);
 
-        // Keep closure alive?
-        // In a real app we need to manage the closure lifetime or leak it carefully.
-        // For simplicity, we forget it here, but this leaks memory every time editor is opened.
-        // Better: store in a ref or return a cleanup function.
-        closure.forget();
+        // Store closure in the ref instead of forgetting it
+        *closure_ref.borrow_mut() = Some(closure);
 
-        || ()
+        move || {
+            // Drop the closure when component unmounts
+            *closure_ref.borrow_mut() = None;
+        }
     });
 
     html! {

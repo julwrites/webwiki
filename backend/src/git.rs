@@ -8,10 +8,21 @@ use git2::{Repository, Status, StatusOptions};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct GitState {
     pub repo_path: PathBuf,
+    pub write_lock: Arc<Mutex<()>>,
+}
+
+impl GitState {
+    pub fn new(repo_path: PathBuf) -> Self {
+        Self {
+            repo_path,
+            write_lock: Arc::new(Mutex::new(())),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,6 +61,9 @@ pub fn git_routes() -> Router<Arc<GitState>> {
 async fn get_status(
     State(state): State<Arc<GitState>>,
 ) -> Result<Json<GitStatusResponse>, StatusCode> {
+    // Acquire lock to ensure we don't read status while a commit/restore is happening
+    let _lock = state.write_lock.lock().await;
+
     let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
@@ -123,6 +137,8 @@ async fn commit_changes(
     State(state): State<Arc<GitState>>,
     Json(payload): Json<CommitRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let _lock = state.write_lock.lock().await;
+
     let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut index = repo
         .index()
@@ -180,6 +196,8 @@ async fn restore_changes(
     State(state): State<Arc<GitState>>,
     Json(payload): Json<RestoreRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let _lock = state.write_lock.lock().await;
+
     let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
@@ -197,6 +215,8 @@ async fn restore_changes(
 }
 
 async fn push_changes(State(state): State<Arc<GitState>>) -> Result<StatusCode, String> {
+    let _lock = state.write_lock.lock().await;
+
     let repo = Repository::open(&state.repo_path)
         .map_err(|e| format!("Failed to open repository: {}", e))?;
 

@@ -21,9 +21,7 @@ async fn test_serve_image() {
     let image_path = images_dir.join("test.png");
     fs::write(&image_path, "fake png content").unwrap();
 
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
+    let git_state = Arc::new(GitState::new(temp_dir.path().to_path_buf()));
     let state = Arc::new(AppState {
         wiki_path: temp_dir.path().to_path_buf(),
         git_state,
