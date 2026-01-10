@@ -7,8 +7,8 @@ use yew_router::prelude::*;
 
 #[function_component(Login)]
 pub fn login_component() -> Html {
-    let username = use_state(|| String::new());
-    let password = use_state(|| String::new());
+    let username = use_state(String::new);
+    let password = use_state(String::new);
     let error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
 

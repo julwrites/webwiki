@@ -1,5 +1,4 @@
 use crate::components::login::{LoginRequest, LoginResponse};
-use common::auth::User;
 use gloo_net::http::Request;
 
 pub async fn login(username: String, password: String) -> Result<LoginResponse, gloo_net::Error> {

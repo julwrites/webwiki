@@ -27,6 +27,7 @@ async fn test_serve_image() {
     let state = Arc::new(AppState {
         wiki_path: temp_dir.path().to_path_buf(),
         git_state,
+        users: Vec::new(),
     });
     let app = app(state);
 

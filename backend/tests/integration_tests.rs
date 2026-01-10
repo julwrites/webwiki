@@ -5,10 +5,54 @@ use axum::{
 use backend::git::{self, GitState, GitStatusResponse};
 use backend::search::SearchResult;
 use backend::{app, AppState};
-use common::{FileNode, WikiPage};
+use common::{auth::User, FileNode, WikiPage};
 use std::{fs, sync::Arc};
 use tempfile::TempDir;
 use tower::ServiceExt; // for `oneshot`
+use serde_json::json;
+
+// Helper to create an authenticated state and return a session cookie
+async fn setup_auth_app(wiki_path: std::path::PathBuf) -> (axum::Router, String) {
+    let password = "password";
+    let (hash, salt) = common::auth::hash_password(password);
+    let user = User {
+        username: "user".to_string(),
+        password_hash: hash,
+        salt,
+    };
+
+    let git_state = Arc::new(GitState {
+        repo_path: wiki_path.clone(),
+    });
+    let state = Arc::new(AppState {
+        wiki_path: wiki_path.clone(),
+        git_state,
+        users: vec![user],
+    });
+
+    let app = app(state);
+
+    // Login to get cookie
+    let login_body = json!({
+        "username": "user",
+        "password": "password"
+    });
+
+    let response = app.clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/login")
+                .header("Content-Type", "application/json")
+                .body(Body::from(serde_json::to_vec(&login_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let cookie = response.headers().get("set-cookie").unwrap().to_str().unwrap().to_string();
+    (app, cookie)
+}
 
 #[tokio::test]
 async fn test_read_page() {
@@ -16,19 +60,13 @@ async fn test_read_page() {
     let file_path = temp_dir.path().join("test.md");
     fs::write(&file_path, "# Hello World").unwrap();
 
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: temp_dir.path().to_path_buf(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/wiki/test.md")
+                .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -48,19 +86,13 @@ async fn test_read_page() {
 #[tokio::test]
 async fn test_read_page_not_found() {
     let temp_dir = TempDir::new().unwrap();
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: temp_dir.path().to_path_buf(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/wiki/missing.md")
+                .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -73,14 +105,7 @@ async fn test_read_page_not_found() {
 #[tokio::test]
 async fn test_write_page() {
     let temp_dir = TempDir::new().unwrap();
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: temp_dir.path().to_path_buf(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
 
     let page = WikiPage {
         path: "new.md".to_string(),
@@ -94,6 +119,7 @@ async fn test_write_page() {
                 .method("PUT")
                 .uri("/api/wiki/new.md")
                 .header("content-type", "application/json")
+                .header("Cookie", cookie)
                 .body(Body::from(json_body))
                 .unwrap(),
         )
@@ -115,19 +141,13 @@ async fn test_get_tree() {
     fs::write(temp_dir.path().join("root.md"), "").unwrap();
     fs::write(temp_dir.path().join("folder/child.md"), "").unwrap();
 
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: temp_dir.path().to_path_buf(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/tree")
+                .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -151,19 +171,13 @@ async fn test_get_tree() {
 #[tokio::test]
 async fn test_path_traversal() {
     let temp_dir = TempDir::new().unwrap();
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: temp_dir.path().to_path_buf(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/wiki/../secret")
+                .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -180,19 +194,13 @@ async fn test_search() {
     fs::write(temp_dir.path().join("b.md"), "goodbye world").unwrap();
     fs::write(temp_dir.path().join("c.txt"), "hello world").unwrap(); // Should be ignored
 
-    let git_state = Arc::new(GitState {
-        repo_path: temp_dir.path().to_path_buf(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: temp_dir.path().to_path_buf(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/search?q=hello")
+                .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -229,14 +237,7 @@ async fn test_git_status_and_commit() {
     let file_path = repo_path.join("test.md");
     fs::write(&file_path, "initial content").unwrap();
 
-    let git_state = Arc::new(GitState {
-        repo_path: repo_path.clone(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: repo_path.clone(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(repo_path.clone()).await;
 
     // Check status - should be new/untracked
     let response = app
@@ -244,6 +245,7 @@ async fn test_git_status_and_commit() {
         .oneshot(
             Request::builder()
                 .uri("/api/git/status")
+                .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -276,6 +278,7 @@ async fn test_git_status_and_commit() {
                 .method("POST")
                 .uri("/api/git/commit")
                 .header("content-type", "application/json")
+                .header("Cookie", cookie.clone())
                 .body(Body::from(serde_json::to_string(&commit_req).unwrap()))
                 .unwrap(),
         )
@@ -289,6 +292,7 @@ async fn test_git_status_and_commit() {
         .oneshot(
             Request::builder()
                 .uri("/api/git/status")
+                .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -335,14 +339,7 @@ async fn test_git_restore() {
     // Modify the file
     fs::write(&file_path, "modified content").unwrap();
 
-    let git_state = Arc::new(GitState {
-        repo_path: repo_path.clone(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: repo_path.clone(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(repo_path.clone()).await;
 
     // Verify it is modified
     let status_response = app
@@ -350,6 +347,7 @@ async fn test_git_restore() {
         .oneshot(
             Request::builder()
                 .uri("/api/git/status")
+                .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -375,6 +373,7 @@ async fn test_git_restore() {
                 .method("POST")
                 .uri("/api/git/restore")
                 .header("content-type", "application/json")
+                .header("Cookie", cookie.clone())
                 .body(Body::from(serde_json::to_string(&restore_req).unwrap()))
                 .unwrap(),
         )
@@ -393,6 +392,7 @@ async fn test_git_restore() {
         .oneshot(
             Request::builder()
                 .uri("/api/git/status")
+                .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -492,19 +492,13 @@ async fn test_git_commits_ahead() {
         .unwrap();
     branch.set_upstream(Some("origin/master")).unwrap();
 
-    let git_state = Arc::new(GitState {
-        repo_path: repo_path_local.clone(),
-    });
-    let state = Arc::new(AppState {
-        wiki_path: repo_path_local.clone(),
-        git_state,
-    });
-    let app = app(state);
+    let (app, cookie) = setup_auth_app(repo_path_local.clone()).await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/api/git/status")
+                .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
         )
