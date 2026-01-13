@@ -5,6 +5,7 @@ mod search_bar;
 
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
+use components::command_palette::CommandPalette;
 use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
@@ -114,7 +115,7 @@ pub fn app() -> Html {
                                     <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
                                     <button onclick={on_logout_click} class="logout-btn">{"Logout"}</button>
                                 </div>
-                                <button onclick={toggle_theme} class="theme-btn">
+                                <button onclick={toggle_theme.clone()} class="theme-btn">
                                     { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
                                 </button>
                             </div>
@@ -124,6 +125,7 @@ pub fn app() -> Html {
                     <main class="content">
                         <Switch<Route> render={switch} />
                     </main>
+                    <CommandPalette on_theme_toggle={toggle_theme.clone()} />
                     if *show_commit_modal {
                         <CommitModal on_close={on_close_commit_modal} />
                     }

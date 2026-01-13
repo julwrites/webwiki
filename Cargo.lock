@@ -383,6 +383,7 @@ dependencies = [
  "gloo-dialogs",
  "gloo-net 0.6.0",
  "gloo-storage",
+ "gloo-timers",
  "gloo-utils",
  "js-sys",
  "pulldown-cmark",

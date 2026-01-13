@@ -1,6 +1,6 @@
 ---
 id: FEATURES-20260113-054621-FLI
-status: pending
+status: review_requested
 title: Command Palette Navigation
 priority: medium
 created: 2026-01-13 05:46:21

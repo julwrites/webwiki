@@ -1,3 +1,3 @@
 # Features Documentation
 
-Add features documentation here.
+*   [Command Palette](command_palette.md)
