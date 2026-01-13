@@ -65,28 +65,33 @@ pub fn command_palette(props: &Props) -> Html {
         let static_commands = static_commands.clone();
         let search_results = search_results.clone();
 
-        use_memo(((*query).clone(), (*search_results).clone()), move |(q, results)| {
-            let mut items = Vec::new();
-            let q_lower = q.to_lowercase();
+        use_memo(
+            ((*query).clone(), (*search_results).clone()),
+            move |(q, results)| {
+                let mut items = Vec::new();
+                let q_lower = q.to_lowercase();
 
-            // Filter static commands
-            for cmd in static_commands.iter() {
-                if cmd.title.to_lowercase().contains(&q_lower) || cmd.description.to_lowercase().contains(&q_lower) {
-                    items.push(cmd.clone());
+                // Filter static commands
+                for cmd in static_commands.iter() {
+                    if cmd.title.to_lowercase().contains(&q_lower)
+                        || cmd.description.to_lowercase().contains(&q_lower)
+                    {
+                        items.push(cmd.clone());
+                    }
                 }
-            }
 
-            // Add search results
-            for result in results.iter() {
-                 items.push(CommandItem {
-                    title: result.path.clone(),
-                    description: result.matches.first().cloned().unwrap_or_default(),
-                    command_type: CommandType::Search(result.path.clone()),
-                });
-            }
+                // Add search results
+                for result in results.iter() {
+                    items.push(CommandItem {
+                        title: result.path.clone(),
+                        description: result.matches.first().cloned().unwrap_or_default(),
+                        command_type: CommandType::Search(result.path.clone()),
+                    });
+                }
 
-            items
-        })
+                items
+            },
+        )
     };
 
     // Keyboard listener for opening/closing
@@ -104,10 +109,17 @@ pub fn command_palette(props: &Props) -> Html {
                 }
             }) as Box<dyn FnMut(KeyboardEvent)>);
 
-            window.add_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref()).unwrap();
+            window
+                .add_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref())
+                .unwrap();
 
             move || {
-                window.remove_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref()).unwrap();
+                window
+                    .remove_event_listener_with_callback(
+                        "keydown",
+                        on_keydown.as_ref().unchecked_ref(),
+                    )
+                    .unwrap();
             }
         });
     }
@@ -173,24 +185,24 @@ pub fn command_palette(props: &Props) -> Html {
                     let url = format!("/api/search?q={}", encoded_value);
                     match Request::get(&url).send().await {
                         Ok(resp) if resp.ok() => {
-                             // Race condition check:
-                             // Ideally we'd compare request IDs, but timestamp check on receive
-                             // isn't perfect if requests return out of order.
-                             // However, with debouncing, we only send one request every 300ms.
-                             // A simple check is to verify if the query still matches the current input.
-                             // But we can't easily access the live input value here without another ref.
-                             // Instead, we just trust the latest response for now as debouncing mitigates mostly.
-                             // For robust race handling, we'd need to capture the timestamp in the closure
-                             // and compare it against last_request_timestamp, but that needs to be updated.
+                            // Race condition check:
+                            // Ideally we'd compare request IDs, but timestamp check on receive
+                            // isn't perfect if requests return out of order.
+                            // However, with debouncing, we only send one request every 300ms.
+                            // A simple check is to verify if the query still matches the current input.
+                            // But we can't easily access the live input value here without another ref.
+                            // Instead, we just trust the latest response for now as debouncing mitigates mostly.
+                            // For robust race handling, we'd need to capture the timestamp in the closure
+                            // and compare it against last_request_timestamp, but that needs to be updated.
 
-                             // Let's implement a simple "latest wins" by checking if this task's timestamp
-                             // matches the latest one.
+                            // Let's implement a simple "latest wins" by checking if this task's timestamp
+                            // matches the latest one.
 
-                             if *last_request_timestamp == current_timestamp {
+                            if *last_request_timestamp == current_timestamp {
                                 if let Ok(data) = resp.json::<Vec<SearchResult>>().await {
                                     search_results.set(data);
                                 }
-                             }
+                            }
                         }
                         _ => {
                             if *last_request_timestamp == current_timestamp {
@@ -226,7 +238,11 @@ pub fn command_palette(props: &Props) -> Html {
         let is_open = is_open.clone();
 
         Callback::from(move |e: KeyboardEvent| {
-            let max_index = if filtered_items.is_empty() { 0 } else { filtered_items.len() - 1 };
+            let max_index = if filtered_items.is_empty() {
+                0
+            } else {
+                filtered_items.len() - 1
+            };
 
             match e.key().as_str() {
                 "ArrowDown" => {
@@ -244,9 +260,9 @@ pub fn command_palette(props: &Props) -> Html {
                 "Enter" => {
                     e.prevent_default();
                     if !filtered_items.is_empty() {
-                         if let Some(item) = filtered_items.get(*selected_index) {
-                             execute_command.emit(item.clone());
-                         }
+                        if let Some(item) = filtered_items.get(*selected_index) {
+                            execute_command.emit(item.clone());
+                        }
                     }
                 }
                 "Escape" => {
