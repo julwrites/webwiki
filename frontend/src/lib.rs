@@ -9,7 +9,7 @@ use components::command_palette::CommandPalette;
 use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
-use pulldown_cmark::{html, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{html, CowStr, LinkType, Options, Parser, Tag, TagEnd};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
@@ -17,7 +17,12 @@ use yew_router::prelude::*;
 
 #[wasm_bindgen]
 extern "C" {
-    fn setupEditor(element_id: &str, initial_content: &str, callback: &Closure<dyn FnMut(String)>);
+    fn setupEditor(
+        element_id: &str,
+        initial_content: &str,
+        callback: &Closure<dyn FnMut(String)>,
+        vim_mode: bool,
+    );
     fn renderMermaid();
     fn renderGraphviz(element_id: &str, content: &str);
     fn renderDrawio(element_id: &str, xml: &str);
@@ -40,6 +45,8 @@ enum Route {
 pub fn app() -> Html {
     let show_commit_modal = use_state(|| false);
     let is_authenticated = use_state(|| false);
+    let is_sidebar_open = use_state(|| false);
+    let vim_mode = use_state(|| true);
 
     // Theme state
     let theme = use_state(|| {
@@ -63,6 +70,24 @@ pub fn app() -> Html {
             let new_theme = if *theme == "dark" { "light" } else { "dark" };
             let _ = gloo_storage::LocalStorage::set("theme", new_theme);
             theme.set(new_theme.to_string());
+        })
+    };
+
+    let toggle_sidebar = {
+        let is_sidebar_open = is_sidebar_open.clone();
+        Callback::from(move |_| is_sidebar_open.set(!*is_sidebar_open))
+    };
+
+    let close_sidebar = {
+        let is_sidebar_open = is_sidebar_open.clone();
+        Callback::from(move |_| is_sidebar_open.set(false))
+    };
+
+    let toggle_vim_mode = {
+        let vim_mode = vim_mode.clone();
+        Callback::from(move |e: yew::Event| {
+            let input: web_sys::HtmlInputElement = e.target_unchecked_into();
+            vim_mode.set(input.checked());
         })
     };
 
@@ -106,7 +131,14 @@ pub fn app() -> Html {
         <BrowserRouter>
             <AuthWrapper>
                 <div class="container">
-                    <nav class="sidebar">
+                    <button class="sidebar-toggle-btn" onclick={toggle_sidebar}>
+                        {"☰"}
+                    </button>
+                    <div
+                        class={classes!("sidebar-overlay", if *is_sidebar_open { "visible" } else { "" })}
+                        onclick={close_sidebar.clone()}
+                    ></div>
+                    <nav class={classes!("sidebar", if *is_sidebar_open { "open" } else { "" })}>
                         <div class="sidebar-header">
                             <div class="sidebar-controls">
                                 <SearchBar />
@@ -118,12 +150,20 @@ pub fn app() -> Html {
                                 <button onclick={toggle_theme.clone()} class="theme-btn">
                                     { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
                                 </button>
+                                <div class="toggle-switch">
+                                    <label>
+                                        <input type="checkbox" checked={*vim_mode} onchange={toggle_vim_mode} />
+                                        {" Vim Mode"}
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                        <FileTree />
+                        <div onclick={close_sidebar}>
+                            <FileTree />
+                        </div>
                     </nav>
                     <main class="content">
-                        <Switch<Route> render={switch} />
+                        <Switch<Route> render={move |routes| switch(routes, *vim_mode)} />
                     </main>
                     <CommandPalette on_theme_toggle={toggle_theme.clone()} />
                     if *show_commit_modal {
@@ -175,7 +215,9 @@ fn auth_wrapper(props: &HtmlProperties) -> Html {
     }
 
     if is_login_page {
-        return html! { <Switch<Route> render={switch} /> };
+        // Login page doesn't really care about vim mode, but we need to satisfy the signature
+        // or just pass false.
+        return html! { <Switch<Route> render={|routes| switch(routes, false)} /> };
     }
 
     html! {
@@ -195,11 +237,11 @@ pub fn run_app() {
     yew::Renderer::<App>::new().render();
 }
 
-fn switch(routes: Route) -> Html {
+fn switch(routes: Route, vim_mode: bool) -> Html {
     match routes {
         Route::Login => html! { <Login /> },
-        Route::Wiki { path } => html! { <WikiViewer path={path} /> },
-        Route::Home => html! { <WikiViewer path={"index.md".to_string()} /> },
+        Route::Wiki { path } => html! { <WikiViewer path={path} vim_mode={vim_mode} /> },
+        Route::Home => html! { <WikiViewer path={"index.md".to_string()} vim_mode={vim_mode} /> },
         Route::NotFound => html! { <h1>{ "404 Not Found" }</h1> },
     }
 }
@@ -268,12 +310,13 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
 #[derive(Properties, PartialEq, Clone)]
 struct WikiViewerProps {
     path: String,
+    vim_mode: bool,
 }
 
 /// A wrapper around pulldown_cmark::Parser to handle WikiLinks.
 struct WikiLinkParser<'a> {
     parser: Parser<'a>,
-    events: std::collections::VecDeque<Event<'a>>,
+    events: std::collections::VecDeque<pulldown_cmark::Event<'a>>,
 }
 
 impl<'a> WikiLinkParser<'a> {
@@ -286,7 +329,7 @@ impl<'a> WikiLinkParser<'a> {
 }
 
 impl<'a> Iterator for WikiLinkParser<'a> {
-    type Item = Event<'a>;
+    type Item = pulldown_cmark::Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(event) = self.events.pop_front() {
@@ -296,13 +339,13 @@ impl<'a> Iterator for WikiLinkParser<'a> {
         let event = self.parser.next()?;
 
         // If it's text, try to merge with subsequent text events
-        if let Event::Text(text) = event {
+        if let pulldown_cmark::Event::Text(text) = event {
             let mut buffer = String::from(text.as_ref());
-            let mut next_non_text: Option<Event<'a>> = None;
+            let mut next_non_text: Option<pulldown_cmark::Event<'a>> = None;
 
             for next_event in self.parser.by_ref() {
                 match next_event {
-                    Event::Text(t) => {
+                    pulldown_cmark::Event::Text(t) => {
                         buffer.push_str(t.as_ref());
                     }
                     other => {
@@ -327,9 +370,10 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                     found_wikilink = true;
 
                     if absolute_open_idx > start_idx {
-                        self.events.push_back(Event::Text(CowStr::from(
-                            text_str[start_idx..absolute_open_idx].to_string(),
-                        )));
+                        self.events
+                            .push_back(pulldown_cmark::Event::Text(CowStr::from(
+                                text_str[start_idx..absolute_open_idx].to_string(),
+                            )));
                     }
 
                     let content = &text_str[absolute_open_idx + 2..absolute_close_idx];
@@ -342,14 +386,17 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                     let link_url = format!("/wiki/{}", link.trim());
                     let label_text = label.trim().to_string();
 
-                    self.events.push_back(Event::Start(Tag::Link {
-                        link_type: LinkType::Inline,
-                        dest_url: CowStr::from(link_url),
-                        title: CowStr::from(""),
-                        id: "".into(),
-                    }));
-                    self.events.push_back(Event::Text(CowStr::from(label_text)));
-                    self.events.push_back(Event::End(TagEnd::Link));
+                    self.events
+                        .push_back(pulldown_cmark::Event::Start(Tag::Link {
+                            link_type: LinkType::Inline,
+                            dest_url: CowStr::from(link_url),
+                            title: CowStr::from(""),
+                            id: "".into(),
+                        }));
+                    self.events
+                        .push_back(pulldown_cmark::Event::Text(CowStr::from(label_text)));
+                    self.events
+                        .push_back(pulldown_cmark::Event::End(TagEnd::Link));
 
                     start_idx = absolute_close_idx + 2;
                 } else {
@@ -360,11 +407,14 @@ impl<'a> Iterator for WikiLinkParser<'a> {
             if found_wikilink {
                 if start_idx < text_str.len() {
                     self.events
-                        .push_back(Event::Text(CowStr::from(text_str[start_idx..].to_string())));
+                        .push_back(pulldown_cmark::Event::Text(CowStr::from(
+                            text_str[start_idx..].to_string(),
+                        )));
                 }
             } else {
                 // No wikilinks found, emit the whole merged text
-                self.events.push_back(Event::Text(CowStr::from(buffer)));
+                self.events
+                    .push_back(pulldown_cmark::Event::Text(CowStr::from(buffer)));
             }
 
             // Finally, append the non-text event if we found one
@@ -393,6 +443,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let view_mode = use_state(|| ViewMode::Loading);
     let is_editing = use_state(|| false);
     let path = props.path.clone();
+    let vim_mode = props.vim_mode;
 
     {
         let view_mode = view_mode.clone();
@@ -514,7 +565,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <span class="path">{ &path }</span>
                     <button onclick={let is_editing = is_editing.clone(); move |_| is_editing.set(false)}>{ "Cancel" }</button>
                 </div>
-                <Editor content={current_content} on_save={on_save} />
+                <Editor key={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} />
              </div>
         }
     } else {
@@ -617,24 +668,26 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 struct EditorProps {
     content: String,
     on_save: Callback<String>,
+    vim_mode: bool,
 }
 
 #[function_component(Editor)]
 fn editor(props: &EditorProps) -> Html {
     let content = props.content.clone();
     let on_save = props.on_save.clone();
+    let vim_mode = props.vim_mode;
 
     // Store the closure in a ref to keep it alive
     let closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut(String)>>::None);
 
-    use_effect_with((), move |_| {
+    use_effect_with(vim_mode, move |&vim_mode| {
         let on_save = on_save.clone();
 
         let closure = Closure::wrap(Box::new(move |text: String| {
             on_save.emit(text);
         }) as Box<dyn FnMut(String)>);
 
-        setupEditor("code-editor", &content, &closure);
+        setupEditor("code-editor", &content, &closure, vim_mode);
 
         // Store closure in the ref instead of forgetting it
         *closure_ref.borrow_mut() = Some(closure);
@@ -648,7 +701,9 @@ fn editor(props: &EditorProps) -> Html {
     html! {
         <div>
             <textarea id="code-editor" />
-            <p class="editor-help">{ "Vim Mode: :w to save, or Ctrl+S" }</p>
+            <p class="editor-help">
+                { if vim_mode { "Vim Mode: :w to save, or Ctrl+S" } else { "Ctrl+S to save" } }
+            </p>
         </div>
     }
 }
