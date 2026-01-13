@@ -1,10 +1,40 @@
-window.setupEditor = function(elementId, initialContent, onSaveCallback) {
+window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode) {
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
 
+    // Check if CodeMirror is already attached to this element
+    // CodeMirror hides the textarea and adds a sibling .CodeMirror element.
+    // We can check if the textarea has a 'nextSibling' that is the editor.
+    // Or better, we can store the instance on the textarea element itself if we wanted,
+    // but standard CodeMirror way is often to look for the wrapper.
+
+    // However, since we might re-render the parent component, the DOM might be fresh.
+    // But if Yew preserves the textarea, we need to handle it.
+
+    // Actually, CodeMirror.fromTextArea sets textArea.style.display = 'none'.
+    // If it's already 'none', it might be already initialized.
+
+    var existingEditor = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+
+    if (existingEditor) {
+        existingEditor.setOption("keyMap", vimMode ? "vim" : "default");
+
+        // Update the callback reference
+        existingEditor._saveCallback = onSaveCallback;
+
+        existingEditor.setOption("extraKeys", {
+            "Ctrl-S": function(cm) {
+                var content = cm.getValue();
+                onSaveCallback(content);
+            }
+        });
+
+        return;
+    }
+
     var editor = CodeMirror.fromTextArea(textArea, {
         mode: "markdown",
-        keyMap: "vim",
+        keyMap: vimMode ? "vim" : "default",
         lineNumbers: true,
         theme: "default",
         lineWrapping: true
@@ -12,11 +42,16 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback) {
 
     editor.setValue(initialContent);
 
-    // Save command (:w)
-    CodeMirror.Vim.defineEx("write", "w", function() {
-        var content = editor.getValue();
-        onSaveCallback(content);
+    // Save command (:w) - Global for Vim mode
+    // We define this once, but it relies on _saveCallback attached to the instance
+    CodeMirror.Vim.defineEx("write", "w", function(cm) {
+        if (cm._saveCallback) {
+            cm._saveCallback(cm.getValue());
+        }
     });
+
+    // Store the callback on the instance
+    editor._saveCallback = onSaveCallback;
 
     // Save with Ctrl+S
     editor.setOption("extraKeys", {
@@ -25,9 +60,6 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback) {
             onSaveCallback(content);
         }
     });
-
-    // Track changes? Not needed for explicit save, but maybe for draft.
-    // For now, explicit save via callback.
 };
 
 window.renderMermaid = function() {
