@@ -38,7 +38,8 @@ VALID_STATUSES = [
     "completed",
     "blocked",
     "cancelled",
-    "deferred"
+    "deferred",
+    "proposed"
 ]
 
 VALID_TYPES = [

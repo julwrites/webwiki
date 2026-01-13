@@ -3,6 +3,7 @@ id: task-008-additional-file-types
 category: features
 status: proposed
 title: Support for Additional File Types
+created: 2025-12-31 00:00:00
 description: |
   Add support for displaying Diagrams (Graphviz, Mermaid, Draw.io) and Code files (JSON, TOML, YAML, OPML).
   Unrecognized small files should be treated as plaintext.

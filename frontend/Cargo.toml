@@ -24,3 +24,4 @@ gloo-dialogs = "0.2.0"
 web-sys = { version = "0.3.83", features = ["HtmlInputElement", "HtmlTextAreaElement"] }
 js-sys = "0.3.83"
 gloo-storage = "0.3.0"
+gloo-timers = "0.3.0"
