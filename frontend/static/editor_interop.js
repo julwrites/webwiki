@@ -2,118 +2,185 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
 
-    // Check if CodeMirror is already attached to this element
-    // CodeMirror hides the textarea and adds a sibling .CodeMirror element.
-    // We can check if the textarea has a 'nextSibling' that is the editor.
-    // Or better, we can store the instance on the textarea element itself if we wanted,
-    // but standard CodeMirror way is often to look for the wrapper.
-
-    // However, since we might re-render the parent component, the DOM might be fresh.
-    // But if Yew preserves the textarea, we need to handle it.
-
-    // Actually, CodeMirror.fromTextArea sets textArea.style.display = 'none'.
-    // If it's already 'none', it might be already initialized.
-
+    // Check if CodeMirror is already attached
     var existingEditor = textArea.nextSibling && textArea.nextSibling.CodeMirror;
 
-    if (existingEditor) {
-        existingEditor.setOption("keyMap", vimMode ? "vim" : "default");
+    if (vimMode) {
+        // --- VIM MODE (CodeMirror) ---
+        if (existingEditor) {
+            // Already have CodeMirror, just ensure Vim mode
+            existingEditor.setOption("keyMap", "vim");
+            existingEditor._saveCallback = onSaveCallback;
+            return;
+        }
 
-        // Update the callback reference
-        existingEditor._saveCallback = onSaveCallback;
+        // Create CodeMirror
+        // If textarea has value (from user edits in raw mode), use it.
+        // Otherwise use initialContent.
+        if (textArea.value === "") {
+             textArea.value = initialContent;
+        }
 
-        existingEditor.setOption("extraKeys", {
+        var editor = CodeMirror.fromTextArea(textArea, {
+            mode: "markdown",
+            keyMap: "vim",
+            lineNumbers: true,
+            theme: "default",
+            lineWrapping: true
+        });
+
+        // Save command (:w) - Global for Vim mode
+        CodeMirror.Vim.defineEx("write", "w", function(cm) {
+            if (cm._saveCallback) {
+                cm._saveCallback(cm.getValue());
+            }
+        });
+
+        // Store the callback on the instance
+        editor._saveCallback = onSaveCallback;
+
+        // Save with Ctrl+S
+        editor.setOption("extraKeys", {
             "Ctrl-S": function(cm) {
                 var content = cm.getValue();
                 onSaveCallback(content);
             }
         });
 
-        return;
+    } else {
+        // --- STANDARD MODE (Raw Textarea) ---
+        if (existingEditor) {
+            // Destroy CodeMirror to revert to textarea
+            existingEditor.save(); // Updates textArea.value with current content
+            existingEditor.toTextArea();
+        } else {
+             // Just ensure content is set if it's the first load
+             if (textArea.value === "") {
+                 textArea.value = initialContent;
+             }
+        }
+
+        // Setup save handler on textarea
+        // Remove old if exists (to avoid duplicates if called multiple times)
+        if (textArea._saveHandler) {
+            textArea.removeEventListener("keydown", textArea._saveHandler);
+        }
+
+        textArea._saveHandler = function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                onSaveCallback(textArea.value);
+            }
+        };
+
+        textArea.addEventListener("keydown", textArea._saveHandler);
     }
-
-    var editor = CodeMirror.fromTextArea(textArea, {
-        mode: "markdown",
-        keyMap: vimMode ? "vim" : "default",
-        lineNumbers: true,
-        theme: "default",
-        lineWrapping: true
-    });
-
-    editor.setValue(initialContent);
-
-    // Save command (:w) - Global for Vim mode
-    // We define this once, but it relies on _saveCallback attached to the instance
-    CodeMirror.Vim.defineEx("write", "w", function(cm) {
-        if (cm._saveCallback) {
-            cm._saveCallback(cm.getValue());
-        }
-    });
-
-    // Store the callback on the instance
-    editor._saveCallback = onSaveCallback;
-
-    // Save with Ctrl+S
-    editor.setOption("extraKeys", {
-        "Ctrl-S": function(cm) {
-            var content = cm.getValue();
-            onSaveCallback(content);
-        }
-    });
 };
 
 window.wrapSelection = function(elementId, prefix, suffix) {
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
     var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-    if (!cm) return;
 
-    var selection = cm.getSelection();
-    if (selection) {
-        cm.replaceSelection(prefix + selection + suffix);
+    if (cm) {
+        var selection = cm.getSelection();
+        if (selection) {
+            cm.replaceSelection(prefix + selection + suffix);
+        } else {
+            // No selection, insert prefix + suffix and place cursor in middle
+            var cursor = cm.getCursor();
+            cm.replaceSelection(prefix + suffix);
+            cm.setCursor({line: cursor.line, ch: cursor.ch + prefix.length});
+        }
+        cm.focus();
     } else {
-        // No selection, insert prefix + suffix and place cursor in middle
-        var cursor = cm.getCursor();
-        cm.replaceSelection(prefix + suffix);
-        cm.setCursor({line: cursor.line, ch: cursor.ch + prefix.length});
+        // Raw Textarea
+        var start = textArea.selectionStart;
+        var end = textArea.selectionEnd;
+        var text = textArea.value;
+        var selectedText = text.substring(start, end);
+        var replacement = prefix + selectedText + suffix;
+
+        textArea.setRangeText(replacement, start, end, 'select');
+
+        // If it was just a cursor (no selection), move cursor between tags
+        if (start === end) {
+             textArea.selectionStart = start + prefix.length;
+             textArea.selectionEnd = start + prefix.length;
+        }
+        textArea.focus();
     }
-    cm.focus();
 };
 
 window.insertTextAtCursor = function(elementId, text) {
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
     var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-    if (!cm) return;
 
-    cm.replaceSelection(text);
-    cm.focus();
+    if (cm) {
+        cm.replaceSelection(text);
+        cm.focus();
+    } else {
+        // Raw Textarea
+        var start = textArea.selectionStart;
+        var end = textArea.selectionEnd;
+        textArea.setRangeText(text, start, end, 'end');
+        textArea.focus();
+    }
 };
 
 window.toggleHeader = function(elementId, level) {
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
     var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-    if (!cm) return;
 
-    var cursor = cm.getCursor();
-    var lineContent = cm.getLine(cursor.line);
     var hashes = "#".repeat(level) + " ";
 
-    var match = lineContent.match(/^(#+ )/);
-    if (match) {
-        if (match[1] === hashes) {
-            // Remove header
-            cm.replaceRange("", {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
+    if (cm) {
+        var cursor = cm.getCursor();
+        var lineContent = cm.getLine(cursor.line);
+
+        var match = lineContent.match(/^(#+ )/);
+        if (match) {
+            if (match[1] === hashes) {
+                // Remove header
+                cm.replaceRange("", {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
+            } else {
+                // Change header level
+                cm.replaceRange(hashes, {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
+            }
         } else {
-            // Change header level
-            cm.replaceRange(hashes, {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
+            // Add header
+            cm.replaceRange(hashes, {line: cursor.line, ch: 0});
         }
+        cm.focus();
     } else {
-        // Add header
-        cm.replaceRange(hashes, {line: cursor.line, ch: 0});
+        // Raw Textarea
+        var start = textArea.selectionStart;
+        var text = textArea.value;
+
+        // Find line start
+        var lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        var lineEnd = text.indexOf('\n', start);
+        if (lineEnd === -1) lineEnd = text.length;
+
+        var lineContent = text.substring(lineStart, lineEnd);
+        var match = lineContent.match(/^(#+ )/);
+
+        if (match) {
+            if (match[1] === hashes) {
+                // Remove header
+                textArea.setRangeText("", lineStart, lineStart + match[1].length, 'preserve');
+            } else {
+                // Change header level
+                textArea.setRangeText(hashes, lineStart, lineStart + match[1].length, 'preserve');
+            }
+        } else {
+            // Add header
+            textArea.setRangeText(hashes, lineStart, lineStart, 'preserve');
+        }
+        textArea.focus();
     }
-    cm.focus();
 };
 
 window.renderMermaid = function() {
