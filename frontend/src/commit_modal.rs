@@ -33,10 +33,12 @@ pub struct GitStatusResponse {
 #[derive(Properties, PartialEq)]
 pub struct CommitModalProps {
     pub on_close: Callback<()>,
+    pub volume: String,
 }
 
 #[function_component(CommitModal)]
 pub fn commit_modal(props: &CommitModalProps) -> Html {
+    let volume = props.volume.clone();
     let message = use_state(String::new);
     let author_name =
         use_state(|| LocalStorage::get("author_name").unwrap_or_else(|_| "Wiki User".to_string()));
@@ -56,9 +58,11 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         let commits_ahead = commits_ahead.clone();
         let is_loading = is_loading.clone();
         let refresh = *refresh_trigger;
+        let volume = volume.clone();
         use_effect_with(refresh, move |_| {
             spawn_local(async move {
-                let resp = Request::get("/api/git/status").send().await;
+                let url = format!("/api/git/{}/status", volume);
+                let resp = Request::get(&url).send().await;
                 match resp {
                     Ok(r) if r.ok() => {
                         if let Ok(status_resp) = r.json::<GitStatusResponse>().await {
@@ -88,6 +92,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         let selected_files = selected_files.clone();
         let on_close = props.on_close.clone();
         let error = error.clone();
+        let volume = volume.clone();
 
         Callback::from(move |_| {
             let message = message.clone();
@@ -97,6 +102,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
             let on_close = on_close.clone();
             let error = error.clone();
 
+            let volume = volume.clone();
             spawn_local(async move {
                 let req = CommitRequest {
                     message: (*message).clone(),
@@ -105,7 +111,8 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     author_email: (*author_email).clone(),
                 };
 
-                let resp = Request::post("/api/git/commit")
+                let url = format!("/api/git/{}/commit", volume);
+                let resp = Request::post(&url)
                     .header("Content-Type", "application/json")
                     .body(serde_json::to_string(&req).unwrap())
                     .unwrap()
@@ -128,12 +135,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         let selected_files = selected_files.clone();
         let error = error.clone();
         let refresh_trigger = refresh_trigger.clone();
+        let volume = volume.clone();
 
         Callback::from(move |_| {
             let selected_files = selected_files.clone();
             let error = error.clone();
             let refresh_trigger = refresh_trigger.clone();
 
+            let volume = volume.clone();
             spawn_local(async move {
                 if selected_files.is_empty() {
                     return;
@@ -143,7 +152,8 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     files: selected_files.iter().cloned().collect(),
                 };
 
-                let resp = Request::post("/api/git/restore")
+                let url = format!("/api/git/{}/restore", volume);
+                let resp = Request::post(&url)
                     .header("Content-Type", "application/json")
                     .body(serde_json::to_string(&req).unwrap())
                     .unwrap()

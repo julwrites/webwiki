@@ -8,6 +8,7 @@ use pbkdf2::pbkdf2;
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::collections::HashMap;
 use std::str;
 use subtle::ConstantTimeEq;
 use thiserror::Error;
@@ -31,6 +32,8 @@ pub struct User {
     pub username: String,
     pub password_hash: String, // Base64 encoded
     pub salt: String,          // Base64 encoded
+    #[serde(default)]
+    pub permissions: HashMap<String, String>, // Volume -> "r" or "rw"
 }
 
 pub fn hash_password(password: &str) -> (String, String) {

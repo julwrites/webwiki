@@ -15,16 +15,29 @@ use tower::ServiceExt; // for `oneshot`
 async fn setup_auth_app(wiki_path: std::path::PathBuf) -> (axum::Router, String) {
     let password = "password";
     let (hash, salt) = common::auth::hash_password(password);
+
+    let mut permissions = std::collections::HashMap::new();
+    permissions.insert("default".to_string(), "rw".to_string());
+
     let user = User {
         username: "user".to_string(),
         password_hash: hash,
         salt,
+        permissions,
     };
 
-    let git_state = Arc::new(GitState::new(wiki_path.clone()));
+    let mut volumes = std::collections::HashMap::new();
+    volumes.insert("default".to_string(), wiki_path.clone());
+
+    let mut git_states = std::collections::HashMap::new();
+    git_states.insert(
+        "default".to_string(),
+        Arc::new(GitState::new(wiki_path.clone())),
+    );
+
     let state = Arc::new(AppState {
-        wiki_path: wiki_path.clone(),
-        git_state,
+        volumes,
+        git_states,
         users: vec![user],
     });
 
@@ -70,7 +83,7 @@ async fn test_read_page() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/wiki/test.md")
+                .uri("/api/wiki/default/test.md")
                 .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -96,7 +109,7 @@ async fn test_read_page_not_found() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/wiki/missing.md")
+                .uri("/api/wiki/default/missing.md")
                 .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -122,7 +135,7 @@ async fn test_write_page() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri("/api/wiki/new.md")
+                .uri("/api/wiki/default/new.md")
                 .header("content-type", "application/json")
                 .header("Cookie", cookie)
                 .body(Body::from(json_body))
@@ -151,7 +164,7 @@ async fn test_get_tree() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/tree")
+                .uri("/api/tree?volume=default")
                 .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -181,7 +194,7 @@ async fn test_path_traversal() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/wiki/../secret")
+                .uri("/api/wiki/default/../secret")
                 .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -221,6 +234,7 @@ async fn test_search() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].path, "a.md");
     assert!(results[0].matches[0].contains("hello"));
+    assert_eq!(results[0].volume, Some("default".to_string()));
 }
 
 #[tokio::test]
@@ -249,7 +263,7 @@ async fn test_git_status_and_commit() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/git/status")
+                .uri("/api/git/default/status")
                 .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
@@ -281,7 +295,7 @@ async fn test_git_status_and_commit() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/api/git/commit")
+                .uri("/api/git/default/commit")
                 .header("content-type", "application/json")
                 .header("Cookie", cookie.clone())
                 .body(Body::from(serde_json::to_string(&commit_req).unwrap()))
@@ -296,7 +310,7 @@ async fn test_git_status_and_commit() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/git/status")
+                .uri("/api/git/default/status")
                 .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
@@ -351,7 +365,7 @@ async fn test_git_restore() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/git/status")
+                .uri("/api/git/default/status")
                 .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
@@ -376,7 +390,7 @@ async fn test_git_restore() {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/api/git/restore")
+                .uri("/api/git/default/restore")
                 .header("content-type", "application/json")
                 .header("Cookie", cookie.clone())
                 .body(Body::from(serde_json::to_string(&restore_req).unwrap()))
@@ -396,7 +410,7 @@ async fn test_git_restore() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/api/git/status")
+                .uri("/api/git/default/status")
                 .header("Cookie", cookie.clone())
                 .body(Body::empty())
                 .unwrap(),
@@ -502,7 +516,7 @@ async fn test_git_commits_ahead() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/api/git/status")
+                .uri("/api/git/default/status")
                 .header("Cookie", cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -543,7 +557,7 @@ async fn test_git_concurrency() {
         let cookie = cookie.clone();
         set.spawn(async move {
             let req = Request::builder()
-                .uri("/api/git/status")
+                .uri("/api/git/default/status")
                 .header("Cookie", cookie.as_str())
                 .body(Body::empty())
                 .unwrap();
@@ -566,7 +580,7 @@ async fn test_git_concurrency() {
             };
             let req = Request::builder()
                 .method("PUT")
-                .uri(format!("/api/wiki/{}", filename))
+                .uri(format!("/api/wiki/default/{}", filename))
                 .header("content-type", "application/json")
                 .header("Cookie", cookie.as_str())
                 .body(Body::from(serde_json::to_string(&page).unwrap()))
@@ -583,7 +597,7 @@ async fn test_git_concurrency() {
             };
             let req = Request::builder()
                 .method("POST")
-                .uri("/api/git/commit")
+                .uri("/api/git/default/commit")
                 .header("content-type", "application/json")
                 .header("Cookie", cookie.as_str())
                 .body(Body::from(serde_json::to_string(&commit_req).unwrap()))

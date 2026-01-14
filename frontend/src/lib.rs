@@ -34,8 +34,8 @@ extern "C" {
 
 #[derive(Clone, Routable, PartialEq)]
 enum Route {
-    #[at("/wiki/*path")]
-    Wiki { path: String },
+    #[at("/wiki/:volume/*path")]
+    Wiki { volume: String, path: String },
     #[at("/login")]
     Login,
     #[at("/")]
@@ -47,6 +47,23 @@ enum Route {
 
 #[function_component(App)]
 pub fn app() -> Html {
+    html! {
+        <BrowserRouter>
+            <AuthWrapper>
+                <Layout />
+            </AuthWrapper>
+        </BrowserRouter>
+    }
+}
+
+#[function_component(Layout)]
+fn layout() -> Html {
+    let route = use_route::<Route>();
+    let current_volume = match route {
+        Some(Route::Wiki { volume, .. }) => volume,
+        _ => "default".to_string(),
+    };
+
     let show_commit_modal = use_state(|| false);
     let is_authenticated = use_state(|| false);
     let is_sidebar_open = use_state(|| false);
@@ -178,19 +195,24 @@ pub fn app() -> Html {
         Callback::from(move |_| show_commit_modal.set(false))
     };
 
-    let on_sync_click = Callback::from(|_| {
-        wasm_bindgen_futures::spawn_local(async move {
-            let resp = Request::post("/api/git/push").send().await;
-            match resp {
-                Ok(r) if r.ok() => gloo_dialogs::alert("Successfully pushed to remote!"),
-                Ok(r) => {
-                    let text = r.text().await.unwrap_or_default();
-                    gloo_dialogs::alert(&format!("Failed to push: {}", text));
+    let on_sync_click = {
+        let volume = current_volume.clone();
+        Callback::from(move |_| {
+            let volume = volume.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let url = format!("/api/git/{}/push", volume);
+                let resp = Request::post(&url).send().await;
+                match resp {
+                    Ok(r) if r.ok() => gloo_dialogs::alert("Successfully pushed to remote!"),
+                    Ok(r) => {
+                        let text = r.text().await.unwrap_or_default();
+                        gloo_dialogs::alert(&format!("Failed to push: {}", text));
+                    }
+                    Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
                 }
-                Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
-            }
-        });
-    });
+            });
+        })
+    };
 
     let on_logout_click = {
         let is_authenticated = is_authenticated.clone();
@@ -205,59 +227,56 @@ pub fn app() -> Html {
     };
 
     html! {
-        <BrowserRouter>
-            <AuthWrapper>
-                <div class="container">
-                    <button class="sidebar-toggle-btn" onclick={toggle_sidebar}>
-                        {"☰"}
-                    </button>
-                    <div
-                        class={classes!("sidebar-overlay", if *is_sidebar_open { "visible" } else { "" })}
-                        onclick={close_sidebar.clone()}
-                    ></div>
-                    <nav
-                        class={classes!("sidebar", if *is_sidebar_open { "open" } else { "" })}
-                        style={format!("width: {}px", *sidebar_width)}
-                    >
-                        <div class="sidebar-header">
-                            <SearchBar />
-                        </div>
-                        <div class="sidebar-content" onclick={close_sidebar}>
-                            <FileTree />
-                        </div>
-                        <div class="sidebar-footer">
-                            <div class="sidebar-controls">
-                                <div class="action-buttons">
-                                    <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
-                                    <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
-                                    <button onclick={on_logout_click} class="logout-btn">{"Logout"}</button>
-                                </div>
-                                <button onclick={toggle_theme.clone()} class="theme-btn">
-                                    { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
-                                </button>
-                                <div class="toggle-switch">
-                                    <label>
-                                        <input type="checkbox" checked={*vim_mode} onchange={toggle_vim_mode} />
-                                        {" Vim Mode"}
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div
-                            class={classes!("sidebar-resizer", if *is_resizing { "resizing" } else { "" })}
-                            onmousedown={start_resizing}
-                        ></div>
-                    </nav>
-                    <main class="content">
-                        <Switch<Route> render={move |routes| switch(routes, *vim_mode)} />
-                    </main>
-                    <CommandPalette on_theme_toggle={toggle_theme.clone()} />
-                    if *show_commit_modal {
-                        <CommitModal on_close={on_close_commit_modal} />
-                    }
+        <div class="container">
+            <button class="sidebar-toggle-btn" onclick={toggle_sidebar}>
+                {"☰"}
+            </button>
+            <div
+                class={classes!("sidebar-overlay", if *is_sidebar_open { "visible" } else { "" })}
+                onclick={close_sidebar.clone()}
+            ></div>
+            <nav
+                class={classes!("sidebar", if *is_sidebar_open { "open" } else { "" })}
+                style={format!("width: {}px", *sidebar_width)}
+            >
+                <div class="sidebar-header">
+                    <VolumeSwitcher />
+                    <SearchBar />
                 </div>
-            </AuthWrapper>
-        </BrowserRouter>
+                <div class="sidebar-content" onclick={close_sidebar}>
+                    <FileTree />
+                </div>
+                <div class="sidebar-footer">
+                    <div class="sidebar-controls">
+                        <div class="action-buttons">
+                            <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
+                            <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                            <button onclick={on_logout_click} class="logout-btn">{"Logout"}</button>
+                        </div>
+                        <button onclick={toggle_theme.clone()} class="theme-btn">
+                            { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
+                        </button>
+                        <div class="toggle-switch">
+                            <label>
+                                <input type="checkbox" checked={*vim_mode} onchange={toggle_vim_mode} />
+                                {" Vim Mode"}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div
+                    class={classes!("sidebar-resizer", if *is_resizing { "resizing" } else { "" })}
+                    onmousedown={start_resizing}
+                ></div>
+            </nav>
+            <main class="content">
+                <Switch<Route> render={move |routes| switch(routes, *vim_mode)} />
+            </main>
+            <CommandPalette on_theme_toggle={toggle_theme.clone()} />
+            if *show_commit_modal {
+                <CommitModal on_close={on_close_commit_modal} volume={current_volume} />
+            }
+        </div>
     }
 }
 
@@ -326,21 +345,80 @@ pub fn run_app() {
 fn switch(routes: Route, vim_mode: bool) -> Html {
     match routes {
         Route::Login => html! { <Login /> },
-        Route::Wiki { path } => html! { <WikiViewer path={path} vim_mode={vim_mode} /> },
-        Route::Home => html! { <WikiViewer path={"index.md".to_string()} vim_mode={vim_mode} /> },
+        Route::Wiki { volume, path } => html! { <WikiViewer volume={volume} path={path} vim_mode={vim_mode} /> },
+        Route::Home => html! { <WikiViewer volume={"default".to_string()} path={"index.md".to_string()} vim_mode={vim_mode} /> },
         Route::NotFound => html! { <h1>{ "404 Not Found" }</h1> },
+    }
+}
+
+#[function_component(VolumeSwitcher)]
+fn volume_switcher() -> Html {
+    let volumes = use_state(Vec::<FileNode>::new);
+    let navigator = use_navigator().unwrap();
+    let route = use_route::<Route>();
+
+    let current_volume = match route {
+        Some(Route::Wiki { volume, .. }) => volume,
+        _ => "default".to_string(),
+    };
+
+    {
+        let volumes = volumes.clone();
+        use_effect_with((), move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                let fetched_volumes: Vec<FileNode> = Request::get("/api/tree")
+                    .send()
+                    .await
+                    .unwrap()
+                    .json()
+                    .await
+                    .unwrap_or_default();
+                volumes.set(fetched_volumes);
+            });
+            || ()
+        });
+    }
+
+    let on_change = {
+        let navigator = navigator.clone();
+        Callback::from(move |e: Event| {
+            let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
+            let value = select.value();
+            navigator.push(&Route::Wiki {
+                volume: value,
+                path: "index.md".to_string(),
+            });
+        })
+    };
+
+    html! {
+        <div class="volume-switcher">
+            <select onchange={on_change} value={current_volume}>
+                { for volumes.iter().map(|v| html! { <option value={v.name.clone()}>{ &v.name }</option> }) }
+            </select>
+        </div>
     }
 }
 
 #[function_component(FileTree)]
 fn file_tree() -> Html {
     let tree = use_state(Vec::<FileNode>::new);
+    let route = use_route::<Route>();
+
+    let current_volume = match route {
+        Some(Route::Wiki { volume, .. }) => volume,
+        _ => "default".to_string(),
+    };
+
     {
         let tree = tree.clone();
-        use_effect_with((), move |_| {
+        let volume = current_volume.clone();
+        use_effect_with(volume, move |volume| {
             let tree = tree.clone();
+            let volume = volume.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let fetched_tree: Vec<FileNode> = Request::get("/api/tree")
+                let url = format!("/api/tree?volume={}", volume);
+                let fetched_tree: Vec<FileNode> = Request::get(&url)
                     .send()
                     .await
                     .unwrap()
@@ -357,7 +435,7 @@ fn file_tree() -> Html {
         <div class="file-tree">
             <h3>{ "Files" }</h3>
             <ul>
-                { for tree.iter().map(|node| html! { <FileTreeNode node={node.clone()} /> }) }
+                { for tree.iter().map(|node| html! { <FileTreeNode node={node.clone()} volume={current_volume.clone()} /> }) }
             </ul>
         </div>
     }
@@ -366,11 +444,13 @@ fn file_tree() -> Html {
 #[derive(Properties, PartialEq, Clone)]
 struct FileTreeNodeProps {
     node: FileNode,
+    volume: String,
 }
 
 #[function_component(FileTreeNode)]
 fn file_tree_node(props: &FileTreeNodeProps) -> Html {
     let node = &props.node;
+    let volume = &props.volume;
     // Default to collapsed for directories
     let is_expanded = use_state(|| false);
 
@@ -393,7 +473,7 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
                 if *is_expanded {
                     if let Some(children) = &node.children {
                         <ul>
-                            { for children.iter().map(|child| html! { <FileTreeNode node={child.clone()} /> }) }
+                            { for children.iter().map(|child| html! { <FileTreeNode node={child.clone()} volume={volume.clone()} /> }) }
                         </ul>
                     }
                 }
@@ -403,7 +483,7 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
         // Link to /wiki/path/to/file
         html! {
             <li>
-                <Link<Route> to={Route::Wiki { path: node.path.clone() }}>{ &node.name }</Link<Route>>
+                <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
             </li>
         }
     }
@@ -411,6 +491,7 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
 
 #[derive(Properties, PartialEq, Clone)]
 struct WikiViewerProps {
+    volume: String,
     path: String,
     vim_mode: bool,
 }
@@ -419,13 +500,15 @@ struct WikiViewerProps {
 struct WikiLinkParser<'a> {
     parser: Parser<'a>,
     events: std::collections::VecDeque<pulldown_cmark::Event<'a>>,
+    volume: String,
 }
 
 impl<'a> WikiLinkParser<'a> {
-    fn new(parser: Parser<'a>) -> Self {
+    fn new(parser: Parser<'a>, volume: String) -> Self {
         Self {
             parser,
             events: std::collections::VecDeque::new(),
+            volume,
         }
     }
 }
@@ -485,7 +568,7 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                         (content, content)
                     };
 
-                    let link_url = format!("/wiki/{}", link.trim());
+                    let link_url = format!("/wiki/{}/{}", self.volume, link.trim());
                     let label_text = label.trim().to_string();
 
                     self.events
@@ -545,15 +628,17 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let view_mode = use_state(|| ViewMode::Loading);
     let is_editing = use_state(|| false);
     let path = props.path.clone();
+    let volume = props.volume.clone();
     let vim_mode = props.vim_mode;
 
     {
         let view_mode = view_mode.clone();
         let path = path.clone();
-        use_effect_with(path.clone(), move |_| {
+        let volume = volume.clone();
+        use_effect_with((volume.clone(), path.clone()), move |_| {
             let view_mode = view_mode.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("/api/wiki/{}", path);
+                let url = format!("/api/wiki/{}/{}", volume, path);
                 let resp = Request::get(&url).send().await;
 
                 match resp {
@@ -625,10 +710,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 
     let on_save = {
         let path = path.clone();
+        let volume = volume.clone();
         let view_mode = view_mode.clone();
         let is_editing = is_editing.clone();
         Callback::from(move |new_content: String| {
             let path = path.clone();
+            let volume = volume.clone();
             let view_mode = view_mode.clone();
             let is_editing = is_editing.clone();
             wasm_bindgen_futures::spawn_local(async move {
@@ -636,7 +723,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     path: path.clone(),
                     content: new_content.clone(),
                 };
-                let req = Request::put(&format!("/api/wiki/{}", path))
+                let req = Request::put(&format!("/api/wiki/{}/{}", volume, path))
                     .header("Content-Type", "application/json")
                     .body(serde_json::to_string(&page).unwrap());
 
@@ -697,7 +784,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             options.insert(Options::ENABLE_TASKLISTS);
 
                             let parser = Parser::new_ext(&page.content, options);
-                            let wiki_parser = WikiLinkParser::new(parser);
+                            let wiki_parser = WikiLinkParser::new(parser, volume.clone());
 
                             let mut html_output = String::new();
                             html::push_html(&mut html_output, wiki_parser);

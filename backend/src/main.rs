@@ -1,14 +1,28 @@
 use backend::git::GitState;
 use backend::AppState;
 use common::auth::decrypt_users;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
-    let wiki_path = std::env::var("WIKI_PATH").unwrap_or_else(|_| "wiki_data".to_string());
-    let wiki_path_buf = PathBuf::from(wiki_path);
-    let git_state = Arc::new(GitState::new(wiki_path_buf.clone()));
+    // Volume Configuration
+    let volumes_env = std::env::var("VOLUMES").ok();
+    let volumes: HashMap<String, PathBuf> = if let Some(v_str) = volumes_env {
+        serde_json::from_str(&v_str).expect("Invalid JSON in VOLUMES env var")
+    } else {
+        let wiki_path = std::env::var("WIKI_PATH").unwrap_or_else(|_| "wiki_data".to_string());
+        let mut map = HashMap::new();
+        map.insert("default".to_string(), PathBuf::from(wiki_path));
+        map
+    };
+
+    // Git Configuration (Initialize GitState for all volumes)
+    let mut git_states = HashMap::new();
+    for (name, path) in &volumes {
+        git_states.insert(name.clone(), Arc::new(GitState::new(path.clone())));
+    }
 
     let users_file = std::env::var("USERS_FILE").unwrap_or_else(|_| "users.json".to_string());
     let auth_secret = std::env::var("AUTH_SECRET").unwrap_or_else(|_| "secret".to_string());
@@ -25,8 +39,8 @@ async fn main() {
     };
 
     let state = Arc::new(AppState {
-        wiki_path: wiki_path_buf,
-        git_state,
+        volumes,
+        git_states,
         users,
     });
 

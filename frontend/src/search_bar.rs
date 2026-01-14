@@ -11,6 +11,7 @@ use crate::Route;
 pub struct SearchResult {
     pub path: String,
     pub matches: Vec<String>,
+    pub volume: Option<String>,
 }
 
 #[function_component(SearchBar)]
@@ -65,10 +66,14 @@ pub fn search_bar() -> Html {
         let results = results.clone();
         let navigator = navigator.clone();
 
-        Callback::from(move |path: String| {
+        Callback::from(move |(volume, path): (Option<String>, String)| {
             query.set(String::new());
             results.set(Vec::new());
-            navigator.push(&Route::Wiki { path });
+            let vol = volume.unwrap_or_else(|| "default".to_string());
+            navigator.push(&Route::Wiki {
+                volume: vol,
+                path,
+            });
         })
     };
 
@@ -84,15 +89,23 @@ pub fn search_bar() -> Html {
                 <div class="search-results">
                     {for results.iter().map(|r| {
                         let path = r.path.clone();
+                        let volume = r.volume.clone();
                         let on_click = {
                             let on_select = on_select.clone();
                             let path = path.clone();
-                            move |_| on_select.emit(path.clone())
+                            let volume = volume.clone();
+                            move |_| on_select.emit((volume.clone(), path.clone()))
+                        };
+
+                        let display_path = if let Some(ref v) = r.volume {
+                            format!("{}: {}", v, r.path)
+                        } else {
+                            r.path.clone()
                         };
 
                         html! {
                             <div class="search-result-item" onclick={on_click}>
-                                <div class="path">{&r.path}</div>
+                                <div class="path">{display_path}</div>
                                 <div class="snippet">{r.matches.first().unwrap_or(&String::new())}</div>
                             </div>
                         }
