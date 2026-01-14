@@ -1,6 +1,6 @@
 ---
 id: PRESENTATION-20260113-054621-ZQZ
-status: pending
+status: review_requested
 title: Editor Toolbar and Markdown Fixes
 priority: medium
 created: 2026-01-13 05:46:21
