@@ -11,6 +11,8 @@
     --color-btn-border: #363b42;
     --color-btn-hover-bg: #30363d;
     --color-btn-text: #c9d1d9;
+    --color-btn-shadow: 0 0 transparent;
+    --color-btn-inset-shadow: 0 0 transparent;
 
     /* Markdown specific */
     --color-canvas-inset: #010409;
@@ -36,6 +38,8 @@
     --color-btn-border: rgba(27,31,35,0.15);
     --color-btn-hover-bg: #f3f4f6;
     --color-btn-text: #24292f;
+    --color-btn-shadow: 0 1px 0 rgba(27,31,35,0.04);
+    --color-btn-inset-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
 
     /* Markdown specific */
     --color-canvas-inset: #f6f8fa;
@@ -123,22 +127,29 @@ body {
 
 .commit-btn, .sync-btn, .theme-btn {
     flex: 1;
-    padding: 12px 16px; /* Increased touch target */
+    padding: 5px 16px;
     border: 1px solid var(--color-btn-border);
-    background: var(--color-btn-bg);
+    background-color: var(--color-btn-bg);
     color: var(--color-btn-text);
     cursor: pointer;
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
     line-height: 20px;
+    box-shadow: var(--color-btn-shadow), var(--color-btn-inset-shadow);
     transition: 0.2s cubic-bezier(0.3, 0, 0.5, 1);
-    transition-property: background-color, border-color;
+    transition-property: background-color, border-color, color;
 }
 
 .commit-btn:hover, .sync-btn:hover, .theme-btn:hover {
-    background: var(--color-btn-hover-bg);
+    background-color: var(--color-btn-hover-bg);
     border-color: var(--color-border-muted);
+}
+
+.commit-btn:active, .sync-btn:active, .theme-btn:active {
+    background-color: var(--color-btn-hover-bg);
+    border-color: var(--color-border-muted);
+    box-shadow: none;
 }
 
 .content {
@@ -161,13 +172,18 @@ body {
     color: var(--color-fg-default);
     text-decoration: none;
     font-size: 14px;
-    padding: 6px 0;
+    padding: 6px 8px;
     display: inline-block;
     cursor: pointer;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .file-tree a:hover, .file-tree span.folder-label:hover {
-    color: var(--color-accent-fg);
+    background-color: var(--color-canvas-subtle);
+    color: var(--color-fg-default);
+    text-decoration: none;
 }
 
 .tree-toggle {
@@ -206,17 +222,20 @@ body {
 }
 
 .toolbar button {
-    padding: 12px 16px; /* Increased touch target */
+    padding: 5px 12px;
     font-size: 12px;
     line-height: 20px;
     color: var(--color-btn-text);
     background-color: var(--color-btn-bg);
     border: 1px solid var(--color-btn-border);
     border-radius: 6px;
+    box-shadow: var(--color-btn-shadow), var(--color-btn-inset-shadow);
     cursor: pointer;
+    font-weight: 500;
 }
 .toolbar button:hover {
     background-color: var(--color-btn-hover-bg);
+    border-color: var(--color-border-muted);
 }
 
 /* Minimal Markdown Styles - GitHub Like */
@@ -397,7 +416,7 @@ body {
 
 .search-bar input {
     width: 100%;
-    padding: 12px 12px; /* Increased touch target */
+    padding: 5px 12px;
     font-size: 14px;
     line-height: 20px;
     color: var(--color-fg-default);
@@ -405,12 +424,13 @@ body {
     border: 1px solid var(--color-btn-border);
     border-radius: 6px;
     box-sizing: border-box;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
 }
 
 .search-bar input:focus {
     border-color: var(--color-accent-fg);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
 }
 
 .search-results {
@@ -608,5 +628,14 @@ body {
 
     .commit-btn, .sync-btn, .theme-btn {
         flex: 1 0 40%;
+        padding: 12px 16px; /* Restore touch target size */
+    }
+
+    .toolbar button {
+        padding: 12px 16px; /* Restore touch target size */
+    }
+
+    .search-bar input {
+        padding: 12px 12px; /* Restore touch target size */
     }
 }
