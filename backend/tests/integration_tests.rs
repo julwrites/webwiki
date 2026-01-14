@@ -547,7 +547,7 @@ async fn test_git_concurrency() {
                 .header("Cookie", cookie.as_str())
                 .body(Body::empty())
                 .unwrap();
-             app.oneshot(req).await.unwrap()
+            app.oneshot(req).await.unwrap()
         });
     }
 
@@ -560,13 +560,13 @@ async fn test_git_concurrency() {
 
         set.spawn(async move {
             // 1. Write file
-             let page = WikiPage {
+            let page = WikiPage {
                 path: filename.clone(),
                 content: format!("# Content {}", i),
             };
             let req = Request::builder()
                 .method("PUT")
-                .uri(&format!("/api/wiki/{}", filename))
+                .uri(format!("/api/wiki/{}", filename))
                 .header("content-type", "application/json")
                 .header("Cookie", cookie.as_str())
                 .body(Body::from(serde_json::to_string(&page).unwrap()))
@@ -593,10 +593,14 @@ async fn test_git_concurrency() {
     }
 
     while let Some(res) = set.join_next().await {
-         let response = res.unwrap();
-         // We expect OK. If race condition (index locked), we might get 500.
-         // However, since we write different files, git add should be fine IF serialized.
-         // If parallel, git index lock might fail.
-         assert_ne!(response.status(), StatusCode::INTERNAL_SERVER_ERROR, "Request failed with 500");
+        let response = res.unwrap();
+        // We expect OK. If race condition (index locked), we might get 500.
+        // However, since we write different files, git add should be fine IF serialized.
+        // If parallel, git index lock might fail.
+        assert_ne!(
+            response.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Request failed with 500"
+        );
     }
 }
