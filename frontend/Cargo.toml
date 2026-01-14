@@ -21,7 +21,7 @@ common = { path = "../common" }
 wasm-bindgen-futures = "0.4"
 gloo-utils = "0.2"
 gloo-dialogs = "0.2.0"
-web-sys = { version = "0.3.83", features = ["HtmlInputElement", "HtmlTextAreaElement"] }
+web-sys = { version = "0.3.83", features = ["HtmlInputElement", "HtmlTextAreaElement", "Window", "Navigator"] }
 js-sys = "0.3.83"
 gloo-storage = "0.3.0"
 gloo-timers = "0.3.0"
