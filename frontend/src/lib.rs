@@ -130,7 +130,7 @@ pub fn app() -> Html {
                     let sidebar_width = sidebar_width.clone();
                     Closure::wrap(Box::new(move |e: web_sys::MouseEvent| {
                         let new_width = e.client_x();
-                        let new_width = new_width.max(200).min(600);
+                        let new_width = new_width.clamp(200, 600);
                         sidebar_width.set(new_width);
                     }) as Box<dyn FnMut(_)>)
                 };
@@ -142,12 +142,22 @@ pub fn app() -> Html {
                     }) as Box<dyn FnMut(_)>)
                 };
 
-                let _ = window.add_event_listener_with_callback("mousemove", on_move.as_ref().unchecked_ref());
-                let _ = window.add_event_listener_with_callback("mouseup", on_up.as_ref().unchecked_ref());
+                let _ = window.add_event_listener_with_callback(
+                    "mousemove",
+                    on_move.as_ref().unchecked_ref(),
+                );
+                let _ = window
+                    .add_event_listener_with_callback("mouseup", on_up.as_ref().unchecked_ref());
 
                 Box::new(move || {
-                     let _ = window.remove_event_listener_with_callback("mousemove", on_move.as_ref().unchecked_ref());
-                     let _ = window.remove_event_listener_with_callback("mouseup", on_up.as_ref().unchecked_ref());
+                    let _ = window.remove_event_listener_with_callback(
+                        "mousemove",
+                        on_move.as_ref().unchecked_ref(),
+                    );
+                    let _ = window.remove_event_listener_with_callback(
+                        "mouseup",
+                        on_up.as_ref().unchecked_ref(),
+                    );
                 }) as Box<dyn FnOnce()>
             } else {
                 Box::new(|| {}) as Box<dyn FnOnce()>
