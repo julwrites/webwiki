@@ -46,7 +46,27 @@ pub fn app() -> Html {
     let show_commit_modal = use_state(|| false);
     let is_authenticated = use_state(|| false);
     let is_sidebar_open = use_state(|| false);
-    let vim_mode = use_state(|| true);
+
+    // Vim Mode state
+    let vim_mode = use_state(|| {
+        // Try to get from storage first
+        if let Ok(stored) = gloo_storage::LocalStorage::get::<bool>("vim_mode") {
+            return stored;
+        }
+
+        // If not in storage, check if mobile
+        let is_mobile = gloo_utils::window()
+            .navigator()
+            .user_agent()
+            .map(|ua| {
+                let ua = ua.to_lowercase();
+                ua.contains("mobile") || ua.contains("android") || ua.contains("iphone")
+            })
+            .unwrap_or(false);
+
+        // Default to false on mobile, true on desktop
+        !is_mobile
+    });
 
     // Theme state
     let theme = use_state(|| {
@@ -87,7 +107,9 @@ pub fn app() -> Html {
         let vim_mode = vim_mode.clone();
         Callback::from(move |e: yew::Event| {
             let input: web_sys::HtmlInputElement = e.target_unchecked_into();
-            vim_mode.set(input.checked());
+            let new_mode = input.checked();
+            let _ = gloo_storage::LocalStorage::set("vim_mode", new_mode);
+            vim_mode.set(new_mode);
         })
     };
 

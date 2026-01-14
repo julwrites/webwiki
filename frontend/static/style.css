@@ -130,7 +130,7 @@ body {
     color: var(--color-fg-default);
     text-decoration: none;
     font-size: 14px;
-    padding: 8px 0; /* Increased touch target */
+    padding: 12px 0; /* Increased touch target (min 44px) */
     display: inline-block;
 }
 .file-tree a:hover {
@@ -159,7 +159,7 @@ body {
 }
 
 .toolbar button {
-    padding: 8px 16px; /* Increased touch target */
+    padding: 12px 16px; /* Increased touch target (min 44px) */
     font-size: 12px;
     line-height: 20px;
     color: var(--color-btn-text);
@@ -350,7 +350,7 @@ body {
 
 .search-bar input {
     width: 100%;
-    padding: 10px 12px; /* Increased touch target */
+    padding: 12px 12px; /* Increased touch target (min 44px) */
     font-size: 14px;
     line-height: 20px;
     color: var(--color-fg-default);
@@ -498,7 +498,9 @@ body {
     top: 10px;
     right: 10px;
     z-index: 1001;
-    padding: 10px;
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
     background: var(--color-btn-bg);
     border: 1px solid var(--color-btn-border);
     color: var(--color-btn-text);
