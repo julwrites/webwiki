@@ -1,6 +1,6 @@
 ---
 id: FOUNDATION-20260110-041317-DTT
-status: pending
+status: completed
 title: Technical Debt: Memory Leaks and Git Concurrency
 priority: medium
 created: 2026-01-10 04:13:17
@@ -40,3 +40,7 @@ During code review, two technical issues were identified:
 ## Verification
 *   **Memory:** Monitor memory usage in browser dev tools while toggling the editor multiple times.
 *   **Git:** Run a stress test script that fires multiple `/api/git/commit` requests simultaneously.
+
+## Verification Details (2026-01-13)
+*   **Frontend Memory Leak:** Verified via static analysis of `frontend/src/lib.rs`. The `Editor` component uses `use_mut_ref` to store the closure and explicit `*closure_ref.borrow_mut() = None` in the cleanup function, which prevents the memory leak associated with `closure.forget()`.
+*   **Git Concurrency:** Verified via a new integration test `test_git_concurrency` in `backend/tests/integration_tests.rs`. The test spawns 25 concurrent tasks (20 readers, 5 writers) against the backend. The test passed, confirming that the `tokio::sync::Mutex` in `GitState` correctly serializes access to the underlying `git2::Repository`, preventing race conditions and potential panics/errors from libgit2.

@@ -519,3 +519,88 @@ async fn test_git_commits_ahead() {
     // We are 1 commit ahead of origin/master
     assert_eq!(status.commits_ahead, 1);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn test_git_concurrency() {
+    let temp_dir = TempDir::new().unwrap();
+    let repo_path = temp_dir.path().to_path_buf();
+    let repo = git2::Repository::init(&repo_path).unwrap();
+
+    {
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Test User").unwrap();
+        config.set_str("user.email", "test@example.com").unwrap();
+    }
+
+    let (app, cookie) = setup_auth_app(repo_path.clone()).await;
+    let cookie = Arc::new(cookie);
+
+    let mut set = tokio::task::JoinSet::new();
+
+    // Spawn 20 concurrent readers (status)
+    for _ in 0..20 {
+        let app = app.clone();
+        let cookie = cookie.clone();
+        set.spawn(async move {
+            let req = Request::builder()
+                .uri("/api/git/status")
+                .header("Cookie", cookie.as_str())
+                .body(Body::empty())
+                .unwrap();
+            app.oneshot(req).await.unwrap()
+        });
+    }
+
+    // Spawn 5 concurrent writers (commit)
+    // To avoid conflicts on the SAME file content, we will create different files.
+    for i in 0..5 {
+        let app = app.clone();
+        let cookie = cookie.clone();
+        let filename = format!("concurrent_{}.md", i);
+
+        set.spawn(async move {
+            // 1. Write file
+            let page = WikiPage {
+                path: filename.clone(),
+                content: format!("# Content {}", i),
+            };
+            let req = Request::builder()
+                .method("PUT")
+                .uri(format!("/api/wiki/{}", filename))
+                .header("content-type", "application/json")
+                .header("Cookie", cookie.as_str())
+                .body(Body::from(serde_json::to_string(&page).unwrap()))
+                .unwrap();
+            let res = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(res.status(), StatusCode::OK);
+
+            // 2. Commit
+            let commit_req = git::CommitRequest {
+                message: format!("Commit {}", i),
+                files: vec![filename],
+                author_name: "Tester".to_string(),
+                author_email: "tester@example.com".to_string(),
+            };
+            let req = Request::builder()
+                .method("POST")
+                .uri("/api/git/commit")
+                .header("content-type", "application/json")
+                .header("Cookie", cookie.as_str())
+                .body(Body::from(serde_json::to_string(&commit_req).unwrap()))
+                .unwrap();
+            app.oneshot(req).await.unwrap()
+        });
+    }
+
+    while let Some(res) = set.join_next().await {
+        let response = res.unwrap();
+        // We expect OK. If race condition (index locked), we might get 500.
+        // However, since we write different files, git add should be fine IF serialized.
+        // If parallel, git index lock might fail.
+        assert_ne!(
+            response.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Request failed with 500"
+        );
+    }
+}
