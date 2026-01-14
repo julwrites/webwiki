@@ -46,7 +46,20 @@ pub fn app() -> Html {
     let show_commit_modal = use_state(|| false);
     let is_authenticated = use_state(|| false);
     let is_sidebar_open = use_state(|| false);
-    let vim_mode = use_state(|| true);
+    let vim_mode = use_state(|| {
+        if let Ok(stored) = gloo_storage::LocalStorage::get("vim_mode") {
+            return stored;
+        }
+        // Check User Agent
+        let window = gloo_utils::window();
+        let navigator = window.navigator();
+        if let Ok(ua) = navigator.user_agent() {
+            if ua.to_lowercase().contains("mobile") {
+                return false;
+            }
+        }
+        true
+    });
 
     // Theme state
     let theme = use_state(|| {
@@ -87,7 +100,9 @@ pub fn app() -> Html {
         let vim_mode = vim_mode.clone();
         Callback::from(move |e: yew::Event| {
             let input: web_sys::HtmlInputElement = e.target_unchecked_into();
-            vim_mode.set(input.checked());
+            let checked = input.checked();
+            let _ = gloo_storage::LocalStorage::set("vim_mode", checked);
+            vim_mode.set(checked);
         })
     };
 
