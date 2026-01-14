@@ -12,6 +12,7 @@ use gloo_storage::Storage;
 use pulldown_cmark::{html, CowStr, LinkType, Options, Parser, Tag, TagEnd};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -106,6 +107,54 @@ pub fn app() -> Html {
         })
     };
 
+    // Sidebar resizing state
+    let sidebar_width = use_state(|| 250);
+    let is_resizing = use_state(|| false);
+
+    let start_resizing = {
+        let is_resizing = is_resizing.clone();
+        Callback::from(move |e: MouseEvent| {
+            e.prevent_default();
+            is_resizing.set(true);
+        })
+    };
+
+    {
+        let sidebar_width = sidebar_width.clone();
+        let is_resizing = is_resizing.clone();
+        use_effect_with(*is_resizing, move |resizing| {
+            if *resizing {
+                let window = gloo_utils::window();
+
+                let on_move = {
+                    let sidebar_width = sidebar_width.clone();
+                    Closure::wrap(Box::new(move |e: web_sys::MouseEvent| {
+                        let new_width = e.client_x();
+                        let new_width = new_width.max(200).min(600);
+                        sidebar_width.set(new_width);
+                    }) as Box<dyn FnMut(_)>)
+                };
+
+                let on_up = {
+                    let is_resizing = is_resizing.clone();
+                    Closure::wrap(Box::new(move |_e: web_sys::MouseEvent| {
+                        is_resizing.set(false);
+                    }) as Box<dyn FnMut(_)>)
+                };
+
+                let _ = window.add_event_listener_with_callback("mousemove", on_move.as_ref().unchecked_ref());
+                let _ = window.add_event_listener_with_callback("mouseup", on_up.as_ref().unchecked_ref());
+
+                Box::new(move || {
+                     let _ = window.remove_event_listener_with_callback("mousemove", on_move.as_ref().unchecked_ref());
+                     let _ = window.remove_event_listener_with_callback("mouseup", on_up.as_ref().unchecked_ref());
+                }) as Box<dyn FnOnce()>
+            } else {
+                Box::new(|| {}) as Box<dyn FnOnce()>
+            }
+        });
+    }
+
     let on_commit_click = {
         let show_commit_modal = show_commit_modal.clone();
         Callback::from(move |_| show_commit_modal.set(true))
@@ -153,10 +202,18 @@ pub fn app() -> Html {
                         class={classes!("sidebar-overlay", if *is_sidebar_open { "visible" } else { "" })}
                         onclick={close_sidebar.clone()}
                     ></div>
-                    <nav class={classes!("sidebar", if *is_sidebar_open { "open" } else { "" })}>
+                    <nav
+                        class={classes!("sidebar", if *is_sidebar_open { "open" } else { "" })}
+                        style={format!("width: {}px", *sidebar_width)}
+                    >
                         <div class="sidebar-header">
+                            <SearchBar />
+                        </div>
+                        <div class="sidebar-content" onclick={close_sidebar}>
+                            <FileTree />
+                        </div>
+                        <div class="sidebar-footer">
                             <div class="sidebar-controls">
-                                <SearchBar />
                                 <div class="action-buttons">
                                     <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
                                     <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
@@ -173,9 +230,10 @@ pub fn app() -> Html {
                                 </div>
                             </div>
                         </div>
-                        <div onclick={close_sidebar}>
-                            <FileTree />
-                        </div>
+                        <div
+                            class={classes!("sidebar-resizer", if *is_resizing { "resizing" } else { "" })}
+                            onmousedown={start_resizing}
+                        ></div>
                     </nav>
                     <main class="content">
                         <Switch<Route> render={move |routes| switch(routes, *vim_mode)} />
@@ -300,20 +358,36 @@ struct FileTreeNodeProps {
 #[function_component(FileTreeNode)]
 fn file_tree_node(props: &FileTreeNodeProps) -> Html {
     let node = &props.node;
+    // Default to collapsed for directories
+    let is_expanded = use_state(|| false);
+
+    let toggle_expanded = {
+        let is_expanded = is_expanded.clone();
+        Callback::from(move |e: MouseEvent| {
+            e.stop_propagation();
+            is_expanded.set(!*is_expanded);
+        })
+    };
+
     if node.is_dir {
+        let icon = if *is_expanded { "▼" } else { "▶" };
         html! {
             <li>
-                <span class="folder">{ &node.name }</span>
-                if let Some(children) = &node.children {
-                    <ul>
-                        { for children.iter().map(|child| html! { <FileTreeNode node={child.clone()} /> }) }
-                    </ul>
+                <div onclick={toggle_expanded}>
+                    <span class="tree-toggle">{ icon }</span>
+                    <span class="folder-label folder">{ &node.name }</span>
+                </div>
+                if *is_expanded {
+                    if let Some(children) = &node.children {
+                        <ul>
+                            { for children.iter().map(|child| html! { <FileTreeNode node={child.clone()} /> }) }
+                        </ul>
+                    }
                 }
             </li>
         }
     } else {
         // Link to /wiki/path/to/file
-        let _link_path = format!("/wiki/{}", node.path);
         html! {
             <li>
                 <Link<Route> to={Route::Wiki { path: node.path.clone() }}>{ &node.name }</Link<Route>>
