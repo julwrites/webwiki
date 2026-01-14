@@ -62,6 +62,60 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
     });
 };
 
+window.wrapSelection = function(elementId, prefix, suffix) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return;
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (!cm) return;
+
+    var selection = cm.getSelection();
+    if (selection) {
+        cm.replaceSelection(prefix + selection + suffix);
+    } else {
+        // No selection, insert prefix + suffix and place cursor in middle
+        var cursor = cm.getCursor();
+        cm.replaceSelection(prefix + suffix);
+        cm.setCursor({line: cursor.line, ch: cursor.ch + prefix.length});
+    }
+    cm.focus();
+};
+
+window.insertTextAtCursor = function(elementId, text) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return;
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (!cm) return;
+
+    cm.replaceSelection(text);
+    cm.focus();
+};
+
+window.toggleHeader = function(elementId, level) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return;
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (!cm) return;
+
+    var cursor = cm.getCursor();
+    var lineContent = cm.getLine(cursor.line);
+    var hashes = "#".repeat(level) + " ";
+
+    var match = lineContent.match(/^(#+ )/);
+    if (match) {
+        if (match[1] === hashes) {
+            // Remove header
+            cm.replaceRange("", {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
+        } else {
+            // Change header level
+            cm.replaceRange(hashes, {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
+        }
+    } else {
+        // Add header
+        cm.replaceRange(hashes, {line: cursor.line, ch: 0});
+    }
+    cm.focus();
+};
+
 window.renderMermaid = function() {
     if (window.mermaid) {
         // mermaid.run() is available in v10+

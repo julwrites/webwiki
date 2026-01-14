@@ -639,3 +639,67 @@ body {
         padding: 12px 12px; /* Restore touch target size */
     }
 }
+
+/* Editor Toolbar Styles */
+.editor-container {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    background-color: var(--color-canvas-default);
+}
+
+.editor-toolbar-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid var(--color-border-default);
+    background-color: var(--color-canvas-subtle);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.btn-group {
+    display: flex;
+    gap: 4px;
+    padding-right: 8px;
+    border-right: 1px solid var(--color-border-muted);
+}
+
+.btn-group:last-child {
+    border-right: none;
+}
+
+.toolbar-btn {
+    padding: 4px 8px;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-btn-text);
+    background-color: var(--color-btn-bg);
+    border: 1px solid var(--color-btn-border);
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: var(--color-btn-shadow), var(--color-btn-inset-shadow);
+}
+
+.toolbar-btn:hover {
+    background-color: var(--color-btn-hover-bg);
+    border-color: var(--color-border-muted);
+}
+
+/* Adjust CodeMirror to fit in container without double border */
+.editor-container .CodeMirror {
+    border: none;
+    border-radius: 0 0 6px 6px;
+    height: 550px; /* Adjust height */
+}
+
+/* Fix nested list spacing in Markdown */
+.markdown-body ul ul,
+.markdown-body ul ol,
+.markdown-body ol ul,
+.markdown-body ol ol {
+    margin-top: 0;
+    margin-bottom: 0;
+}
