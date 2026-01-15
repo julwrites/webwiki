@@ -12,6 +12,7 @@ Vimwiki Web is a modern, self-hosted web interface for [Vimwiki](https://github.
     -   **Commit Control**: Manually commit changes with custom messages and authorship.
 -   **Search**: Full-text search across your wiki pages.
 -   **Fast & Efficient**: Built with Rust (Axum for backend, Yew for frontend) and WebAssembly.
+-   **Multi-Volume Support**: Mount multiple independent wiki directories (volumes) with granular access control.
 -   **Dockerized**: Easy deployment using Docker and Docker Compose.
 
 ## Tech Stack
@@ -26,6 +27,35 @@ Vimwiki Web is a modern, self-hosted web interface for [Vimwiki](https://github.
 -   [Docker](https://docs.docker.com/get-docker/)
 -   [Docker Compose](https://docs.docker.com/compose/install/)
 -   [Rust](https://www.rust-lang.org/tools/install) (only for local development)
+
+## Configuration
+
+### Environment Variables
+
+*   `VOLUMES`: (Optional) A JSON string defining the volumes. Example: `{"personal": "/data/personal", "work": "/data/work"}`. If not set, `WIKI_PATH` is used to create a "default" volume.
+*   `WIKI_PATH`: (Optional) Path to the default wiki directory (used if `VOLUMES` is not set). Defaults to `wiki_data`.
+*   `AUTH_SECRET`: Secret key for encrypting `users.json`.
+*   `USERS_FILE`: Path to the users file (default: `users.json`).
+*   `GIT_TOKEN`: (Optional) Token for git push authentication.
+*   `GIT_USERNAME`: (Optional) Username for git push authentication.
+
+### Multi-Volume Support
+
+The application supports mounting multiple independent directories as "Volumes".
+Configure them using the `VOLUMES` environment variable. Each volume is independent and supports its own Git repository.
+
+### Authentication and Permissions
+
+Users and permissions are stored in an encrypted `users.json` file.
+Use the `wiki-auth` tool to manage users.
+
+1.  **Add/Update User**:
+    ```bash
+    cargo run --bin wiki-auth -- add-user users.json
+    ```
+    It will prompt for username, password, and permissions.
+    Permissions format: `volume:mode`, where mode is `r` (read) or `rw` (read-write).
+    Example: `personal:rw,work:r`
 
 ## Getting Started
 

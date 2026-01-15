@@ -18,7 +18,7 @@ pub struct Props {
 enum CommandType {
     Navigation(Route), // Route
     Action(Callback<()>),
-    Search(String), // Path
+    Search(String, Option<String>), // Path, Volume
 }
 
 #[derive(Clone, PartialEq)]
@@ -82,10 +82,18 @@ pub fn command_palette(props: &Props) -> Html {
 
                 // Add search results
                 for result in results.iter() {
+                    let title = if let Some(ref v) = result.volume {
+                        format!("{}: {}", v, result.path)
+                    } else {
+                        result.path.clone()
+                    };
                     items.push(CommandItem {
-                        title: result.path.clone(),
+                        title,
                         description: result.matches.first().cloned().unwrap_or_default(),
-                        command_type: CommandType::Search(result.path.clone()),
+                        command_type: CommandType::Search(
+                            result.path.clone(),
+                            result.volume.clone(),
+                        ),
                     });
                 }
 
@@ -225,7 +233,10 @@ pub fn command_palette(props: &Props) -> Html {
             is_open.set(false);
             match item.command_type {
                 CommandType::Navigation(route) => navigator.push(&route),
-                CommandType::Search(path) => navigator.push(&Route::Wiki { path }),
+                CommandType::Search(path, volume) => navigator.push(&Route::Wiki {
+                    volume: volume.unwrap_or_else(|| "default".to_string()),
+                    path,
+                }),
                 CommandType::Action(cb) => cb.emit(()),
             }
         })

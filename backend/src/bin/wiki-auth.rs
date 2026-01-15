@@ -1,4 +1,5 @@
 use common::auth::{encrypt_users, hash_password, User};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -41,11 +42,29 @@ fn main() {
     io::stdin().read_line(&mut password).unwrap();
     let password = password.trim();
 
+    // Prompt for permissions
+    print!("Enter permissions (e.g. default:rw,work:r) [default: none]: ");
+    io::stdout().flush().unwrap();
+    let mut perms_str = String::new();
+    io::stdin().read_line(&mut perms_str).unwrap();
+    let perms_str = perms_str.trim();
+
+    let mut permissions = HashMap::new();
+    if !perms_str.is_empty() {
+        for part in perms_str.split(',') {
+            let parts: Vec<&str> = part.split(':').collect();
+            if parts.len() == 2 {
+                permissions.insert(parts[0].trim().to_string(), parts[1].trim().to_string());
+            }
+        }
+    }
+
     let (hash, salt) = hash_password(password);
     let new_user = User {
         username: username.clone(),
         password_hash: hash,
         salt,
+        permissions,
     };
 
     let mut users = Vec::new();

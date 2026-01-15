@@ -1,5 +1,6 @@
+use crate::AppState;
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
@@ -50,7 +51,7 @@ pub struct RestoreRequest {
     pub files: Vec<String>,
 }
 
-pub fn git_routes() -> Router<Arc<GitState>> {
+pub fn git_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/status", get(get_status))
         .route("/commit", post(commit_changes))
@@ -59,12 +60,15 @@ pub fn git_routes() -> Router<Arc<GitState>> {
 }
 
 async fn get_status(
-    State(state): State<Arc<GitState>>,
+    State(state): State<Arc<AppState>>,
+    Path(volume): Path<String>,
 ) -> Result<Json<GitStatusResponse>, StatusCode> {
+    let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
     // Acquire lock to ensure we don't read status while a commit/restore is happening
-    let _lock = state.write_lock.lock().await;
+    let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let repo =
+        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
 
@@ -134,12 +138,15 @@ fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
 }
 
 async fn commit_changes(
-    State(state): State<Arc<GitState>>,
+    State(state): State<Arc<AppState>>,
+    Path(volume): Path<String>,
     Json(payload): Json<CommitRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let _lock = state.write_lock.lock().await;
+    let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
+    let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let repo =
+        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut index = repo
         .index()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -193,12 +200,15 @@ async fn commit_changes(
 }
 
 async fn restore_changes(
-    State(state): State<Arc<GitState>>,
+    State(state): State<Arc<AppState>>,
+    Path(volume): Path<String>,
     Json(payload): Json<RestoreRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let _lock = state.write_lock.lock().await;
+    let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
+    let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let repo =
+        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.force(); // Overwrite working directory changes
@@ -214,10 +224,17 @@ async fn restore_changes(
     Ok(StatusCode::OK)
 }
 
-async fn push_changes(State(state): State<Arc<GitState>>) -> Result<StatusCode, String> {
-    let _lock = state.write_lock.lock().await;
+async fn push_changes(
+    State(state): State<Arc<AppState>>,
+    Path(volume): Path<String>,
+) -> Result<StatusCode, String> {
+    let git_state = state
+        .git_states
+        .get(&volume)
+        .ok_or("Volume not found".to_string())?;
+    let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&state.repo_path)
+    let repo = Repository::open(&git_state.repo_path)
         .map_err(|e| format!("Failed to open repository: {}", e))?;
 
     let mut remote = repo

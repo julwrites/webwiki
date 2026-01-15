@@ -6,6 +6,7 @@ use walkdir::WalkDir;
 pub struct SearchResult {
     pub path: String,
     pub matches: Vec<String>,
+    pub volume: Option<String>,
 }
 
 pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
@@ -46,6 +47,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
                 results.push(SearchResult {
                     path: relative_path,
                     matches: file_matches,
+                    volume: None,
                 });
             }
         }
