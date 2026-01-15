@@ -1,6 +1,6 @@
 ---
 id: FEATURES-20260110-041314-OGG
-status: pending
+status: completed
 title: Multi-Volume Support and Access Control
 priority: medium
 created: 2026-01-10 04:13:14
