@@ -90,7 +90,10 @@ pub fn command_palette(props: &Props) -> Html {
                     items.push(CommandItem {
                         title,
                         description: result.matches.first().cloned().unwrap_or_default(),
-                        command_type: CommandType::Search(result.path.clone(), result.volume.clone()),
+                        command_type: CommandType::Search(
+                            result.path.clone(),
+                            result.volume.clone(),
+                        ),
                     });
                 }
 

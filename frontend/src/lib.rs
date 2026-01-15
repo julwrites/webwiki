@@ -345,8 +345,12 @@ pub fn run_app() {
 fn switch(routes: Route, vim_mode: bool) -> Html {
     match routes {
         Route::Login => html! { <Login /> },
-        Route::Wiki { volume, path } => html! { <WikiViewer volume={volume} path={path} vim_mode={vim_mode} /> },
-        Route::Home => html! { <WikiViewer volume={"default".to_string()} path={"index.md".to_string()} vim_mode={vim_mode} /> },
+        Route::Wiki { volume, path } => {
+            html! { <WikiViewer volume={volume} path={path} vim_mode={vim_mode} /> }
+        }
+        Route::Home => {
+            html! { <WikiViewer volume={"default".to_string()} path={"index.md".to_string()} vim_mode={vim_mode} /> }
+        }
         Route::NotFound => html! { <h1>{ "404 Not Found" }</h1> },
     }
 }

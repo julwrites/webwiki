@@ -70,10 +70,7 @@ pub fn search_bar() -> Html {
             query.set(String::new());
             results.set(Vec::new());
             let vol = volume.unwrap_or_else(|| "default".to_string());
-            navigator.push(&Route::Wiki {
-                volume: vol,
-                path,
-            });
+            navigator.push(&Route::Wiki { volume: vol, path });
         })
     };
 

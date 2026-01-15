@@ -110,11 +110,8 @@ async fn serve_wiki_asset(
             .to_lowercase();
 
         if !text_extensions.contains(&ext.as_str()) {
-            match fs::read(&file_path) {
-                Ok(bytes) => {
-                    return ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response()
-                }
-                Err(_) => {}
+            if let Ok(bytes) = fs::read(&file_path) {
+                return ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response();
             }
         }
     }
@@ -370,7 +367,7 @@ async fn get_tree(
         let mut nodes = Vec::new();
         for volume_name in state.volumes.keys() {
             if has_permission(user, volume_name, "r") {
-                 nodes.push(FileNode {
+                nodes.push(FileNode {
                     name: volume_name.clone(),
                     path: volume_name.clone(), // Path is just the volume name
                     is_dir: true,

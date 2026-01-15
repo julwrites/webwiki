@@ -67,7 +67,8 @@ async fn get_status(
     // Acquire lock to ensure we don't read status while a commit/restore is happening
     let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let repo =
+        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
 
@@ -144,7 +145,8 @@ async fn commit_changes(
     let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
     let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let repo =
+        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut index = repo
         .index()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -205,7 +207,8 @@ async fn restore_changes(
     let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
     let _lock = git_state.write_lock.lock().await;
 
-    let repo = Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let repo =
+        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.force(); // Overwrite working directory changes
