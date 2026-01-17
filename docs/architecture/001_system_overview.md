@@ -14,7 +14,7 @@ Vimwiki-Web is a self-hosted web interface for Vimwiki, designed to replicate th
 ### Infrastructure
 *   **Containerization:** Docker
 *   **Orchestration:** Docker Compose
-*   **Storage:** Local filesystem mount (Bind mount of the user's vimwiki directory).
+*   **Storage:** Local filesystem mounts (Bind mount of the user's vimwiki directories). Supports multiple volumes via `VOLUMES` configuration.
 *   **Network:** Exposed via Cloudflare Tunnel (assumed external configuration, app listens on internal port).
 
 ## Components
@@ -30,7 +30,7 @@ The backend serves as the bridge between the browser and the filesystem/git repo
     *   Path resolution: Mapping URL slugs to filesystem paths (handling `[[WikiLinks]]`).
     *   Markdown Parsing (Server-side for search indexing/metadata, Client-side for preview).
 *   **Auth Middleware:**
-    *   Simple session/token-based auth to identify the commit author.
+    *   Session-based authentication (`tower-sessions`) backed by an encrypted `users.json` store.
 
 ### 2. Frontend Application (Yew)
 A Single Page Application (SPA) compiled to WebAssembly.
@@ -52,9 +52,9 @@ A Single Page Application (SPA) compiled to WebAssembly.
 2.  **Edit:** User modifies text in Browser (Vim mode). Frontend maintains local state (Draft).
 3.  **Save (Draft):** User explicitly saves or auto-save triggers. Frontend PUTs content to Backend. Backend writes to filesystem (Working Directory). *Git status is now "Modified".*
 4.  **Commit:** User clicks "Commit". Frontend POSTs commit metadata (message, author). Backend uses `git2` to stage and commit the file.
-5.  **Search:** User types in search bar. Backend scans files (using `ripgrep` or `tantivy` index) and returns matches.
+5.  **Search:** User types in search bar. Backend scans files (using `WalkDir`) and performs simple case-insensitive line matching.
 
 ## Security Considerations
-*   **Authentication:** Application assumes it is behind a trusted proxy (Cloudflare Zero Trust) for access control.
-*   **Internal Auth:** A minimal login screen or environment config to set the "Committer Name/Email" to ensure Git history is attributed correctly.
+*   **Authentication:** Authentication is handled internally using an AES-256-GCM encrypted `users.json` file. Users must log in to access the wiki.
+*   **Authorization:** User permissions (read/write) are defined per volume.
 *   **FileSystem Access:** Strictly scoped to the mounted volume to prevent directory traversal attacks.
