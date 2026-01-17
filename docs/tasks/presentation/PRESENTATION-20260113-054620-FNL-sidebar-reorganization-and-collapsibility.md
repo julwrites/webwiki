@@ -1,6 +1,6 @@
 ---
 id: PRESENTATION-20260113-054620-FNL
-status: review_requested
+status: completed
 title: Sidebar Reorganization and Collapsibility
 priority: medium
 created: 2026-01-13 05:46:20
