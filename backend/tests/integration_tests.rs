@@ -618,3 +618,58 @@ async fn test_git_concurrency() {
         );
     }
 }
+
+#[tokio::test]
+async fn test_read_additional_file_types() {
+    let temp_dir = TempDir::new().unwrap();
+    let json_path = temp_dir.path().join("data.json");
+    fs::write(&json_path, "{\"key\": \"value\"}").unwrap();
+
+    let mermaid_path = temp_dir.path().join("diagram.mermaid");
+    fs::write(&mermaid_path, "graph TD; A-->B;").unwrap();
+
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
+
+    // Test JSON file
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/wiki/default/data.json")
+                .header("Cookie", cookie.clone())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    // It should be deserializable as WikiPage
+    let body: WikiPage = serde_json::from_slice(&body_bytes).expect("Should be WikiPage JSON");
+    assert_eq!(body.content, "{\"key\": \"value\"}");
+    assert_eq!(body.path, "data.json");
+
+    // Test Mermaid file
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/wiki/default/diagram.mermaid")
+                .header("Cookie", cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    // It should be deserializable as WikiPage
+    let body: WikiPage = serde_json::from_slice(&body_bytes).expect("Should be WikiPage JSON");
+    assert_eq!(body.content, "graph TD; A-->B;");
+    assert_eq!(body.path, "diagram.mermaid");
+}

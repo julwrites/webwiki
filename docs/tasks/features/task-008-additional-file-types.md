@@ -1,7 +1,7 @@
 ---
 id: task-008-additional-file-types
 category: features
-status: proposed
+status: completed
 title: Support for Additional File Types
 created: 2025-12-31 00:00:00
 description: |
