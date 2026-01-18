@@ -12,6 +12,7 @@ use crate::Route;
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub on_theme_toggle: Callback<MouseEvent>,
+    pub current_volume: String,
 }
 
 #[derive(Clone, PartialEq)]
@@ -19,6 +20,7 @@ enum CommandType {
     Navigation(Route), // Route
     Action(Callback<()>),
     Search(String, Option<String>), // Path, Volume
+    CreateFile,
 }
 
 #[derive(Clone, PartialEq)]
@@ -54,6 +56,11 @@ pub fn command_palette(props: &Props) -> Html {
                     command_type: CommandType::Action(Callback::from(move |_| {
                         on_theme_toggle.emit(MouseEvent::new("click").unwrap());
                     })),
+                },
+                CommandItem {
+                    title: "Create New File".to_string(),
+                    description: "Create a new file in the current volume".to_string(),
+                    command_type: CommandType::CreateFile,
                 },
             ]
         })
@@ -228,6 +235,7 @@ pub fn command_palette(props: &Props) -> Html {
     let execute_command = {
         let is_open = is_open.clone();
         let navigator = navigator.clone();
+        let current_volume = props.current_volume.clone();
 
         Callback::from(move |item: CommandItem| {
             is_open.set(false);
@@ -238,6 +246,16 @@ pub fn command_palette(props: &Props) -> Html {
                     path,
                 }),
                 CommandType::Action(cb) => cb.emit(()),
+                CommandType::CreateFile => {
+                    if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None) {
+                        if !path.trim().is_empty() {
+                            navigator.push(&Route::Wiki {
+                                volume: current_volume.clone(),
+                                path: path.trim().to_string(),
+                            });
+                        }
+                    }
+                }
             }
         })
     };

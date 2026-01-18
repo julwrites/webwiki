@@ -100,12 +100,29 @@ fn layout() -> Html {
         });
     }
 
+    let navigator = use_navigator().unwrap();
+
     let toggle_theme = {
         let theme = theme.clone();
         Callback::from(move |_| {
             let new_theme = if *theme == "dark" { "light" } else { "dark" };
             let _ = gloo_storage::LocalStorage::set("theme", new_theme);
             theme.set(new_theme.to_string());
+        })
+    };
+
+    let on_new_file_click = {
+        let navigator = navigator.clone();
+        let current_volume = current_volume.clone();
+        Callback::from(move |_| {
+            if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None) {
+                if !path.trim().is_empty() {
+                    navigator.push(&Route::Wiki {
+                        volume: current_volume.clone(),
+                        path: path.trim().to_string(),
+                    });
+                }
+            }
         })
     };
 
@@ -251,8 +268,11 @@ fn layout() -> Html {
                 <div class="sidebar-footer">
                     <div class="sidebar-controls">
                         <div class="action-buttons">
+                            <button onclick={on_new_file_click} class="new-file-btn">{"New File"}</button>
                             <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
                             <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                        </div>
+                        <div class="action-buttons">
                             <button onclick={on_logout_click} class="logout-btn">{"Logout"}</button>
                         </div>
                         <button onclick={toggle_theme.clone()} class="theme-btn">
@@ -274,7 +294,7 @@ fn layout() -> Html {
             <main class="content">
                 <Switch<Route> render={move |routes| switch(routes, *vim_mode)} />
             </main>
-            <CommandPalette on_theme_toggle={toggle_theme.clone()} />
+            <CommandPalette on_theme_toggle={toggle_theme.clone()} current_volume={current_volume.clone()} />
             if *show_commit_modal {
                 <CommitModal on_close={on_close_commit_modal} volume={current_volume} />
             }
