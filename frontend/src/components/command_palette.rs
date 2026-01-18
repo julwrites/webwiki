@@ -247,7 +247,9 @@ pub fn command_palette(props: &Props) -> Html {
                 }),
                 CommandType::Action(cb) => cb.emit(()),
                 CommandType::CreateFile => {
-                    if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None) {
+                    if let Some(path) =
+                        gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None)
+                    {
                         if !path.trim().is_empty() {
                             navigator.push(&Route::Wiki {
                                 volume: current_volume.clone(),

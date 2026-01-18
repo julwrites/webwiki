@@ -115,7 +115,8 @@ fn layout() -> Html {
         let navigator = navigator.clone();
         let current_volume = current_volume.clone();
         Callback::from(move |_| {
-            if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None) {
+            if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None)
+            {
                 if !path.trim().is_empty() {
                     navigator.push(&Route::Wiki {
                         volume: current_volume.clone(),
