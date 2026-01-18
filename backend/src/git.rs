@@ -82,13 +82,19 @@ async fn get_status(
             let path = entry.path().unwrap_or("").to_string();
             let status = entry.status();
 
-            let status_str = if status.contains(Status::INDEX_NEW) || status.contains(Status::WT_NEW) {
+            let status_str = if status.contains(Status::INDEX_NEW)
+                || status.contains(Status::WT_NEW)
+            {
                 "New"
-            } else if status.contains(Status::INDEX_MODIFIED) || status.contains(Status::WT_MODIFIED) {
+            } else if status.contains(Status::INDEX_MODIFIED)
+                || status.contains(Status::WT_MODIFIED)
+            {
                 "Modified"
-            } else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED) {
+            } else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED)
+            {
                 "Deleted"
-            } else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED) {
+            } else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED)
+            {
                 "Renamed"
             } else {
                 "Unknown"
