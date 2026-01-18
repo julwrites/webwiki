@@ -66,46 +66,58 @@ async fn get_status(
     let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
     // Acquire lock to ensure we don't read status while a commit/restore is happening
     let _lock = git_state.write_lock.lock().await;
+    let repo_path = git_state.repo_path.clone();
 
-    let repo =
-        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut opts = StatusOptions::new();
-    opts.include_untracked(true);
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(true);
 
-    let statuses = repo
-        .statuses(Some(&mut opts))
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let statuses = repo
+            .statuses(Some(&mut opts))
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let mut file_statuses = Vec::new();
-    for entry in statuses.iter() {
-        let path = entry.path().unwrap_or("").to_string();
-        let status = entry.status();
+        let mut file_statuses = Vec::new();
+        for entry in statuses.iter() {
+            let path = entry.path().unwrap_or("").to_string();
+            let status = entry.status();
 
-        let status_str = if status.contains(Status::INDEX_NEW) || status.contains(Status::WT_NEW) {
-            "New"
-        } else if status.contains(Status::INDEX_MODIFIED) || status.contains(Status::WT_MODIFIED) {
-            "Modified"
-        } else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED) {
-            "Deleted"
-        } else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED) {
-            "Renamed"
-        } else {
-            "Unknown"
-        };
+            let status_str = if status.contains(Status::INDEX_NEW)
+                || status.contains(Status::WT_NEW)
+            {
+                "New"
+            } else if status.contains(Status::INDEX_MODIFIED)
+                || status.contains(Status::WT_MODIFIED)
+            {
+                "Modified"
+            } else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED)
+            {
+                "Deleted"
+            } else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED)
+            {
+                "Renamed"
+            } else {
+                "Unknown"
+            };
 
-        file_statuses.push(FileStatus {
-            path,
-            status: status_str.to_string(),
-        });
-    }
+            file_statuses.push(FileStatus {
+                path,
+                status: status_str.to_string(),
+            });
+        }
 
-    // Calculate commits ahead
-    let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
+        // Calculate commits ahead
+        let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
 
-    Ok(Json(GitStatusResponse {
-        files: file_statuses,
-        commits_ahead,
-    }))
+        Ok(Json(GitStatusResponse {
+            files: file_statuses,
+            commits_ahead,
+        }))
+    })
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    result
 }
 
 fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
@@ -144,59 +156,65 @@ async fn commit_changes(
 ) -> Result<StatusCode, StatusCode> {
     let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
     let _lock = git_state.write_lock.lock().await;
+    let repo_path = git_state.repo_path.clone();
 
-    let repo =
-        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut index = repo
-        .index()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    for file in payload.files {
-        let path = std::path::Path::new(&file);
-        index
-            .add_path(path)
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mut index = repo
+            .index()
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    }
 
-    index
-        .write()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let tree_id = index
-        .write_tree()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let tree = repo
-        .find_tree(tree_id)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let signature = git2::Signature::now(&payload.author_name, &payload.author_email)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let parent_commit = match repo.head() {
-        Ok(head) => {
-            let target = head.target().unwrap();
-            Some(repo.find_commit(target).unwrap())
+        for file in payload.files {
+            let path = std::path::Path::new(&file);
+            index
+                .add_path(path)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         }
-        Err(_) => None,
-    };
 
-    let parents = if let Some(ref parent) = parent_commit {
-        vec![parent]
-    } else {
-        vec![]
-    };
+        index
+            .write()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    repo.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        &payload.message,
-        &tree,
-        &parents,
-    )
+        let tree_id = index
+            .write_tree()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let tree = repo
+            .find_tree(tree_id)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let signature = git2::Signature::now(&payload.author_name, &payload.author_email)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let parent_commit = match repo.head() {
+            Ok(head) => {
+                let target = head.target().unwrap();
+                Some(repo.find_commit(target).unwrap())
+            }
+            Err(_) => None,
+        };
+
+        let parents = if let Some(ref parent) = parent_commit {
+            vec![parent]
+        } else {
+            vec![]
+        };
+
+        repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            &payload.message,
+            &tree,
+            &parents,
+        )
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        Ok(StatusCode::OK)
+    })
+    .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(StatusCode::OK)
+    result
 }
 
 async fn restore_changes(
@@ -206,22 +224,28 @@ async fn restore_changes(
 ) -> Result<StatusCode, StatusCode> {
     let git_state = state.git_states.get(&volume).ok_or(StatusCode::NOT_FOUND)?;
     let _lock = git_state.write_lock.lock().await;
+    let repo_path = git_state.repo_path.clone();
 
-    let repo =
-        Repository::open(&git_state.repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let mut checkout_builder = git2::build::CheckoutBuilder::new();
-    checkout_builder.force(); // Overwrite working directory changes
+        let mut checkout_builder = git2::build::CheckoutBuilder::new();
+        checkout_builder.force(); // Overwrite working directory changes
 
-    for file in &payload.files {
-        checkout_builder.path(file);
-    }
+        for file in &payload.files {
+            checkout_builder.path(file);
+        }
 
-    // Checkout HEAD to restore files
-    repo.checkout_head(Some(&mut checkout_builder))
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        // Checkout HEAD to restore files
+        repo.checkout_head(Some(&mut checkout_builder))
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(StatusCode::OK)
+        Ok(StatusCode::OK)
+    })
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    result
 }
 
 async fn push_changes(
@@ -233,49 +257,56 @@ async fn push_changes(
         .get(&volume)
         .ok_or("Volume not found".to_string())?;
     let _lock = git_state.write_lock.lock().await;
+    let repo_path = git_state.repo_path.clone();
 
-    let repo = Repository::open(&git_state.repo_path)
-        .map_err(|e| format!("Failed to open repository: {}", e))?;
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path)
+            .map_err(|e| format!("Failed to open repository: {}", e))?;
 
-    let mut remote = repo
-        .find_remote("origin")
-        .map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
+        let mut remote = repo
+            .find_remote("origin")
+            .map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
 
-    let mut callbacks = git2::RemoteCallbacks::new();
+        let mut callbacks = git2::RemoteCallbacks::new();
 
-    let env_token = std::env::var("GIT_TOKEN").ok();
-    let env_username = std::env::var("GIT_USERNAME").ok();
+        let env_token = std::env::var("GIT_TOKEN").ok();
+        let env_username = std::env::var("GIT_USERNAME").ok();
 
-    // Set up authentication callback
-    callbacks.credentials(move |_url, username_from_url, _allowed_types| {
-        let username = env_username
-            .as_deref()
-            .or(username_from_url)
-            .unwrap_or("git");
+        // Set up authentication callback
+        callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+            let username = env_username
+                .as_deref()
+                .or(username_from_url)
+                .unwrap_or("git");
 
-        if let Some(token) = &env_token {
-            git2::Cred::userpass_plaintext(username, token.trim())
-        } else {
-            Err(git2::Error::from_str(
-                "No GIT_TOKEN provided in environment",
-            ))
-        }
-    });
+            if let Some(token) = &env_token {
+                git2::Cred::userpass_plaintext(username, token.trim())
+            } else {
+                Err(git2::Error::from_str(
+                    "No GIT_TOKEN provided in environment",
+                ))
+            }
+        });
 
-    let mut push_options = git2::PushOptions::new();
-    push_options.remote_callbacks(callbacks);
+        let mut push_options = git2::PushOptions::new();
+        push_options.remote_callbacks(callbacks);
 
-    // Get the current branch name to push
-    let head = repo
-        .head()
-        .map_err(|e| format!("Failed to get HEAD: {}", e))?;
-    let branch_name = head.shorthand().ok_or("Failed to get branch name")?;
+        // Get the current branch name to push
+        let head = repo
+            .head()
+            .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+        let branch_name = head.shorthand().ok_or("Failed to get branch name")?;
 
-    let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
+        let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
 
-    remote
-        .push(&[&refspec], Some(&mut push_options))
-        .map_err(|e| format!("Git push failed: {}", e))?;
+        remote
+            .push(&[&refspec], Some(&mut push_options))
+            .map_err(|e| format!("Git push failed: {}", e))?;
 
-    Ok(StatusCode::OK)
+        Ok(StatusCode::OK)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?;
+
+    result
 }
