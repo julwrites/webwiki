@@ -5,12 +5,12 @@ mod parsers;
 mod search_bar;
 
 use commit_modal::CommitModal;
-use parsers::WikiLinkParser;
 use common::{FileNode, WikiPage};
 use components::command_palette::CommandPalette;
 use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
+use parsers::WikiLinkParser;
 use pulldown_cmark::{html, Options, Parser};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
