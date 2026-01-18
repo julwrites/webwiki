@@ -596,6 +596,33 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         Callback::from(move |_| is_editing.set(true))
     };
 
+    let on_delete_click = {
+        let path = path.clone();
+        let volume = volume.clone();
+        Callback::from(move |_| {
+            if gloo_dialogs::confirm(&format!("Are you sure you want to delete {}?", path)) {
+                let path = path.clone();
+                let volume = volume.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let url = format!("/api/wiki/{}/{}", volume, path);
+                    let resp = Request::delete(&url).send().await;
+                    match resp {
+                        Ok(r) if r.ok() => {
+                            gloo_dialogs::alert("File deleted.");
+                            // Force reload to update file tree
+                            let _ = gloo_utils::window().location().set_href("/");
+                        }
+                        Ok(r) => {
+                            let text = r.text().await.unwrap_or_default();
+                            gloo_dialogs::alert(&format!("Failed to delete: {}", text));
+                        }
+                        Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+                    }
+                });
+            }
+        })
+    };
+
     let on_save = {
         let path = path.clone();
         let volume = volume.clone();
@@ -703,7 +730,10 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <div class="wiki-viewer">
                         <div class="toolbar">
                             <span class="path">{ &path }</span>
-                            <button onclick={on_edit_click}>{ "Edit" }</button>
+                            <div class="toolbar-controls">
+                                <button onclick={on_edit_click}>{ "Edit" }</button>
+                                <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
+                            </div>
                         </div>
                         <div class="markdown-body">
                             { render_content }
@@ -715,6 +745,9 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 <div class="wiki-viewer">
                     <div class="toolbar">
                         <span class="path">{ &path }</span>
+                        <div class="toolbar-controls">
+                            <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
+                        </div>
                     </div>
                     <div class="image-viewer">
                         <img src={url.clone()} alt={path.clone()} />
@@ -725,6 +758,9 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 <div class="wiki-viewer">
                      <div class="toolbar">
                         <span class="path">{ &path }</span>
+                        <div class="toolbar-controls">
+                            <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
+                        </div>
                     </div>
                     <div class="pdf-viewer">
                         <embed src={url.clone()} type="application/pdf" width="100%" height="800px" />

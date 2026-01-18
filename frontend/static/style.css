@@ -940,3 +940,20 @@ body {
     margin-bottom: 16px;
     font-size: 14px;
 }
+
+/* Toolbar Controls */
+.toolbar-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.delete-btn {
+    color: var(--color-danger-fg) !important;
+    border-color: var(--color-danger-border) !important;
+    background-color: transparent;
+}
+
+.delete-btn:hover {
+    background-color: var(--color-danger-bg) !important;
+    border-color: var(--color-danger-fg) !important;
+}
