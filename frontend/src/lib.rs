@@ -1,6 +1,7 @@
 mod api;
 mod commit_modal;
 mod components;
+mod parsers;
 mod search_bar;
 
 use commit_modal::CommitModal;
@@ -9,7 +10,8 @@ use components::command_palette::CommandPalette;
 use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
-use pulldown_cmark::{html, CowStr, LinkType, Options, Parser, Tag, TagEnd};
+use parsers::WikiLinkParser;
+use pulldown_cmark::{html, Options, Parser};
 use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -498,124 +500,6 @@ struct WikiViewerProps {
     volume: String,
     path: String,
     vim_mode: bool,
-}
-
-/// A wrapper around pulldown_cmark::Parser to handle WikiLinks.
-struct WikiLinkParser<'a> {
-    parser: Parser<'a>,
-    events: std::collections::VecDeque<pulldown_cmark::Event<'a>>,
-    volume: String,
-}
-
-impl<'a> WikiLinkParser<'a> {
-    fn new(parser: Parser<'a>, volume: String) -> Self {
-        Self {
-            parser,
-            events: std::collections::VecDeque::new(),
-            volume,
-        }
-    }
-}
-
-impl<'a> Iterator for WikiLinkParser<'a> {
-    type Item = pulldown_cmark::Event<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(event) = self.events.pop_front() {
-            return Some(event);
-        }
-
-        let event = self.parser.next()?;
-
-        // If it's text, try to merge with subsequent text events
-        if let pulldown_cmark::Event::Text(text) = event {
-            let mut buffer = String::from(text.as_ref());
-            let mut next_non_text: Option<pulldown_cmark::Event<'a>> = None;
-
-            for next_event in self.parser.by_ref() {
-                match next_event {
-                    pulldown_cmark::Event::Text(t) => {
-                        buffer.push_str(t.as_ref());
-                    }
-                    other => {
-                        next_non_text = Some(other);
-                        break;
-                    }
-                }
-            }
-
-            // Now `buffer` contains all merged text.
-            // Process `buffer` for wikilinks.
-
-            let mut start_idx = 0;
-            let text_str = buffer.as_str();
-            let mut found_wikilink = false;
-
-            while let Some(open_idx) = text_str[start_idx..].find("[[") {
-                let absolute_open_idx = start_idx + open_idx;
-                if let Some(close_idx) = text_str[absolute_open_idx..].find("]]") {
-                    let absolute_close_idx = absolute_open_idx + close_idx;
-
-                    found_wikilink = true;
-
-                    if absolute_open_idx > start_idx {
-                        self.events
-                            .push_back(pulldown_cmark::Event::Text(CowStr::from(
-                                text_str[start_idx..absolute_open_idx].to_string(),
-                            )));
-                    }
-
-                    let content = &text_str[absolute_open_idx + 2..absolute_close_idx];
-                    let (link, label) = if let Some(pipe_idx) = content.find('|') {
-                        (&content[..pipe_idx], &content[pipe_idx + 1..])
-                    } else {
-                        (content, content)
-                    };
-
-                    let link_url = format!("/wiki/{}/{}", self.volume, link.trim());
-                    let label_text = label.trim().to_string();
-
-                    self.events
-                        .push_back(pulldown_cmark::Event::Start(Tag::Link {
-                            link_type: LinkType::Inline,
-                            dest_url: CowStr::from(link_url),
-                            title: CowStr::from(""),
-                            id: "".into(),
-                        }));
-                    self.events
-                        .push_back(pulldown_cmark::Event::Text(CowStr::from(label_text)));
-                    self.events
-                        .push_back(pulldown_cmark::Event::End(TagEnd::Link));
-
-                    start_idx = absolute_close_idx + 2;
-                } else {
-                    break;
-                }
-            }
-
-            if found_wikilink {
-                if start_idx < text_str.len() {
-                    self.events
-                        .push_back(pulldown_cmark::Event::Text(CowStr::from(
-                            text_str[start_idx..].to_string(),
-                        )));
-                }
-            } else {
-                // No wikilinks found, emit the whole merged text
-                self.events
-                    .push_back(pulldown_cmark::Event::Text(CowStr::from(buffer)));
-            }
-
-            // Finally, append the non-text event if we found one
-            if let Some(e) = next_non_text {
-                self.events.push_back(e);
-            }
-
-            return self.events.pop_front();
-        }
-
-        Some(event)
-    }
 }
 
 #[derive(PartialEq)]
