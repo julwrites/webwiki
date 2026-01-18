@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use common::{auth::User, FileNode, WikiPage};
@@ -49,6 +49,7 @@ pub fn app(state: Arc<AppState>) -> Router {
     let api_router = Router::new()
         .route("/wiki/{volume}/{*path}", get(read_page))
         .route("/wiki/{volume}/{*path}", put(write_page))
+        .route("/wiki/{volume}/{*path}", delete(delete_page))
         .route("/tree", get(get_tree))
         .route("/search", get(search_handler))
         .nest("/git/{volume}", git_routes().with_state(state.clone()))
@@ -87,7 +88,8 @@ async fn serve_wiki_asset(
         return (StatusCode::FORBIDDEN, "Access denied").into_response();
     }
 
-    if path.contains("..") {
+    // Prevent deleting root or navigating up
+    if path.is_empty() || path == "/" || path == "." || path.contains("..") {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -335,6 +337,54 @@ async fn write_page(
     match fs::write(&file_path, payload.content) {
         Ok(_) => (StatusCode::OK, "Saved").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn delete_page(
+    State(state): State<Arc<AppState>>,
+    auth_user: AuthUser,
+    Path((volume, path)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let AuthUser(username) = auth_user;
+    let user = match get_user(&username, &state.users) {
+        Some(u) => u,
+        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
+    };
+
+    let wiki_path = match state.volumes.get(&volume) {
+        Some(p) => p,
+        None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
+    };
+
+    if !has_permission(user, &volume, "rw") {
+        return (StatusCode::FORBIDDEN, "Access denied").into_response();
+    }
+
+    if path.contains("..") {
+        return (StatusCode::FORBIDDEN, "Invalid path").into_response();
+    }
+
+    let file_path = wiki_path.join(&path);
+
+    // Safety check
+    if !file_path.starts_with(wiki_path) {
+        return (StatusCode::FORBIDDEN, "Access denied").into_response();
+    }
+
+    if !file_path.exists() {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    }
+
+    if file_path.is_dir() {
+        match tokio::fs::remove_dir_all(&file_path).await {
+            Ok(_) => (StatusCode::OK, "Deleted").into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        }
+    } else {
+        match tokio::fs::remove_file(&file_path).await {
+            Ok(_) => (StatusCode::OK, "Deleted").into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        }
     }
 }
 

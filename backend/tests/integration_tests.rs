@@ -673,3 +673,33 @@ async fn test_read_additional_file_types() {
     assert_eq!(body.content, "graph TD; A-->B;");
     assert_eq!(body.path, "diagram.mermaid");
 }
+
+#[tokio::test]
+async fn test_delete_page() {
+    let temp_dir = TempDir::new().unwrap();
+    let file_path = temp_dir.path().join("to_delete.md");
+    fs::write(&file_path, "Delete me").unwrap();
+
+    let (app, cookie) = setup_auth_app(temp_dir.path().to_path_buf()).await;
+
+    // Verify it exists
+    assert!(file_path.exists());
+
+    // Delete it
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/wiki/default/to_delete.md")
+                .header("Cookie", cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // Verify it's gone
+    assert!(!file_path.exists());
+}
