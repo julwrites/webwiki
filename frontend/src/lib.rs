@@ -1,6 +1,7 @@
 mod api;
 mod commit_modal;
 mod components;
+mod hooks;
 mod parsers;
 mod search_bar;
 
@@ -10,6 +11,7 @@ use components::command_palette::CommandPalette;
 use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
+use hooks::use_create_file;
 use parsers::WikiLinkParser;
 use pulldown_cmark::{html, Options, Parser};
 use search_bar::SearchBar;
@@ -35,7 +37,7 @@ extern "C" {
 }
 
 #[derive(Clone, Routable, PartialEq)]
-enum Route {
+pub(crate) enum Route {
     #[at("/wiki/:volume/*path")]
     Wiki { volume: String, path: String },
     #[at("/login")]
@@ -100,8 +102,6 @@ fn layout() -> Html {
         });
     }
 
-    let navigator = use_navigator().unwrap();
-
     let toggle_theme = {
         let theme = theme.clone();
         Callback::from(move |_| {
@@ -111,20 +111,10 @@ fn layout() -> Html {
         })
     };
 
+    let create_file = use_create_file(current_volume.clone());
     let on_new_file_click = {
-        let navigator = navigator.clone();
-        let current_volume = current_volume.clone();
-        Callback::from(move |_| {
-            if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None)
-            {
-                if !path.trim().is_empty() {
-                    navigator.push(&Route::Wiki {
-                        volume: current_volume.clone(),
-                        path: path.trim().to_string(),
-                    });
-                }
-            }
-        })
+        let create_file = create_file.clone();
+        Callback::from(move |_| create_file.emit(()))
     };
 
     let toggle_sidebar = {

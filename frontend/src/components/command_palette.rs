@@ -6,6 +6,7 @@ use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+use crate::hooks::use_create_file;
 use crate::search_bar::SearchResult;
 use crate::Route;
 
@@ -232,10 +233,12 @@ pub fn command_palette(props: &Props) -> Html {
         })
     };
 
+    let create_file = use_create_file(props.current_volume.clone());
+
     let execute_command = {
         let is_open = is_open.clone();
         let navigator = navigator.clone();
-        let current_volume = props.current_volume.clone();
+        let create_file = create_file.clone();
 
         Callback::from(move |item: CommandItem| {
             is_open.set(false);
@@ -247,16 +250,7 @@ pub fn command_palette(props: &Props) -> Html {
                 }),
                 CommandType::Action(cb) => cb.emit(()),
                 CommandType::CreateFile => {
-                    if let Some(path) =
-                        gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None)
-                    {
-                        if !path.trim().is_empty() {
-                            navigator.push(&Route::Wiki {
-                                volume: current_volume.clone(),
-                                path: path.trim().to_string(),
-                            });
-                        }
-                    }
+                    create_file.emit(());
                 }
             }
         })
