@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend
-FROM rust:1.85 as frontend-builder
+FROM rust:1.85 AS frontend-builder
 
 # Install wasm-pack
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -12,7 +12,7 @@ WORKDIR /app/frontend
 RUN wasm-pack build --target web --out-name wasm --out-dir ./static
 
 # Stage 2: Build Backend
-FROM rust:1.85 as backend-builder
+FROM rust:1.85 AS backend-builder
 
 WORKDIR /app
 COPY . .
