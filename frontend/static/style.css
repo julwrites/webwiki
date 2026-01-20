@@ -594,7 +594,9 @@ body {
     top: 10px;
     right: 10px;
     z-index: 1001;
-    padding: 10px;
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
     background: var(--color-btn-bg);
     border: 1px solid var(--color-btn-border);
     color: var(--color-btn-text);
