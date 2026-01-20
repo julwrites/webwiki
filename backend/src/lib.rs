@@ -1,22 +1,18 @@
-pub mod auth;
 pub mod git;
 
-use crate::auth::handlers::{check_auth, login, logout};
-use crate::auth::middleware::{auth_middleware, AuthUser};
 use axum::extract::Query;
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{delete, get, put},
     Json, Router,
 };
-use common::{auth::User, FileNode, WikiPage};
+use common::{FileNode, WikiPage};
 use git::{git_routes, GitState};
 use std::collections::HashMap;
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
-use tower_sessions::{MemoryStore, SessionManagerLayer};
 
 pub mod search;
 use search::search_wiki;
@@ -35,16 +31,9 @@ pub struct TreeParams {
 pub struct AppState {
     pub volumes: HashMap<String, PathBuf>,
     pub git_states: HashMap<String, Arc<GitState>>,
-    pub users: Vec<User>,
 }
 
 pub fn app(state: Arc<AppState>) -> Router {
-    // Session layer (Memory Store for now)
-    let session_store = MemoryStore::default();
-    let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Set to true in production with HTTPS
-        .with_same_site(tower_sessions::cookie::SameSite::Lax); // Allow cross-site navigation
-
     // API Router
     let api_router = Router::new()
         .route("/wiki/{volume}/{*path}", get(read_page))
@@ -52,41 +41,24 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route("/wiki/{volume}/{*path}", delete(delete_page))
         .route("/tree", get(get_tree))
         .route("/search", get(search_handler))
-        .nest("/git/{volume}", git_routes().with_state(state.clone()))
-        // Auth endpoints
-        .route("/login", post(login))
-        .route("/logout", post(logout))
-        .route("/check-auth", get(check_auth));
+        .nest("/git/{volume}", git_routes().with_state(state.clone()));
 
     Router::new()
         .route("/wiki/{volume}/{*path}", get(serve_wiki_asset))
         .nest("/api", api_router)
         // Serve all other static files from "static" dir, falling back to index.html for SPA routing
         .fallback_service(ServeDir::new("static").fallback(ServeFile::new("static/index.html")))
-        .layer(axum::middleware::from_fn(auth_middleware))
-        .layer(session_layer)
         .with_state(state)
 }
 
 async fn serve_wiki_asset(
     State(state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     Path((volume, path)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let AuthUser(username) = auth_user;
-    let user = match get_user(&username, &state.users) {
-        Some(u) => u,
-        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
-    };
-
     let wiki_path = match state.volumes.get(&volume) {
         Some(p) => p,
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
-
-    if !has_permission(user, &volume, "r") {
-        return (StatusCode::FORBIDDEN, "Access denied").into_response();
-    }
 
     // Prevent deleting root or navigating up
     if path.is_empty() || path == "/" || path == "." || path.contains("..") {
@@ -125,39 +97,18 @@ async fn serve_wiki_asset(
     }
 }
 
-fn has_permission(user: &User, volume: &str, mode: &str) -> bool {
-    if let Some(perm) = user.permissions.get(volume) {
-        if mode == "r" {
-            return perm == "r" || perm == "rw";
-        } else if mode == "rw" {
-            return perm == "rw";
-        }
-    }
-    // Deny by default
-    false
-}
 
-fn get_user<'a>(username: &str, users: &'a [User]) -> Option<&'a User> {
-    users.iter().find(|u| u.username == username)
-}
 
 async fn search_handler(
     State(state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     Query(params): Query<SearchParams>,
 ) -> impl IntoResponse {
-    let AuthUser(username) = auth_user;
-    let user = match get_user(&username, &state.users) {
-        Some(u) => u,
-        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
-    };
-
     let mut results = Vec::new();
 
     if let Some(volume_name) = params.volume {
         // Search in specific volume
         if let Some(path) = state.volumes.get(&volume_name) {
-            if has_permission(user, &volume_name, "r") {
+             {
                 let mut vol_results = tokio::task::spawn_blocking({
                     let path = path.clone();
                     let q = params.q.clone();
@@ -175,7 +126,7 @@ async fn search_handler(
     } else {
         // Search in all allowed volumes
         for (volume_name, path) in &state.volumes {
-            if has_permission(user, volume_name, "r") {
+             {
                 let mut vol_results = tokio::task::spawn_blocking({
                     let path = path.clone();
                     let q = params.q.clone();
@@ -197,23 +148,12 @@ async fn search_handler(
 
 async fn read_page(
     State(state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     Path((volume, path)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let AuthUser(username) = auth_user;
-    let user = match get_user(&username, &state.users) {
-        Some(u) => u,
-        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
-    };
-
     let wiki_path = match state.volumes.get(&volume) {
         Some(p) => p,
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
-
-    if !has_permission(user, &volume, "r") {
-        return (StatusCode::FORBIDDEN, "Access denied").into_response();
-    }
 
     if path.contains("..") {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
@@ -293,24 +233,13 @@ async fn read_page(
 
 async fn write_page(
     State(state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     Path((volume, path)): Path<(String, String)>,
     Json(payload): Json<WikiPage>,
 ) -> impl IntoResponse {
-    let AuthUser(username) = auth_user;
-    let user = match get_user(&username, &state.users) {
-        Some(u) => u,
-        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
-    };
-
     let wiki_path = match state.volumes.get(&volume) {
         Some(p) => p,
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
-
-    if !has_permission(user, &volume, "rw") {
-        return (StatusCode::FORBIDDEN, "Access denied").into_response();
-    }
 
     if path.contains("..") {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
@@ -342,23 +271,12 @@ async fn write_page(
 
 async fn delete_page(
     State(state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     Path((volume, path)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let AuthUser(username) = auth_user;
-    let user = match get_user(&username, &state.users) {
-        Some(u) => u,
-        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
-    };
-
     let wiki_path = match state.volumes.get(&volume) {
         Some(p) => p,
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
-
-    if !has_permission(user, &volume, "rw") {
-        return (StatusCode::FORBIDDEN, "Access denied").into_response();
-    }
 
     if path.contains("..") {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
@@ -390,15 +308,8 @@ async fn delete_page(
 
 async fn get_tree(
     State(state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     Query(params): Query<TreeParams>,
 ) -> impl IntoResponse {
-    let AuthUser(username) = auth_user;
-    let user = match get_user(&username, &state.users) {
-        Some(u) => u,
-        None => return (StatusCode::UNAUTHORIZED, "User not found").into_response(),
-    };
-
     if let Some(volume) = params.volume {
         // Return tree for specific volume
         let wiki_path = match state.volumes.get(&volume) {
@@ -406,24 +317,18 @@ async fn get_tree(
             None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
         };
 
-        if !has_permission(user, &volume, "r") {
-            return (StatusCode::FORBIDDEN, "Access denied").into_response();
-        }
-
         let tree = build_file_tree(wiki_path, wiki_path);
         Json(tree).into_response()
     } else {
         // Return list of volumes as directories
         let mut nodes = Vec::new();
         for volume_name in state.volumes.keys() {
-            if has_permission(user, volume_name, "r") {
-                nodes.push(FileNode {
-                    name: volume_name.clone(),
-                    path: volume_name.clone(), // Path is just the volume name
-                    is_dir: true,
-                    children: None, // Frontend can fetch children when expanded
-                });
-            }
+            nodes.push(FileNode {
+                name: volume_name.clone(),
+                path: volume_name.clone(), // Path is just the volume name
+                is_dir: true,
+                children: None, // Frontend can fetch children when expanded
+            });
         }
         // Sort volumes alphabetically
         nodes.sort_by(|a, b| a.name.cmp(&b.name));

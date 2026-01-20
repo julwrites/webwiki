@@ -1,4 +1,3 @@
-mod api;
 mod commit_modal;
 mod components;
 mod hooks;
@@ -8,7 +7,6 @@ mod search_bar;
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use components::command_palette::CommandPalette;
-use components::login::Login;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
 use hooks::use_create_file;
@@ -40,8 +38,6 @@ extern "C" {
 pub(crate) enum Route {
     #[at("/wiki/:volume/*path")]
     Wiki { volume: String, path: String },
-    #[at("/login")]
-    Login,
     #[at("/")]
     Home,
     #[not_found]
@@ -53,9 +49,7 @@ pub(crate) enum Route {
 pub fn app() -> Html {
     html! {
         <BrowserRouter>
-            <AuthWrapper>
-                <Layout />
-            </AuthWrapper>
+            <Layout />
         </BrowserRouter>
     }
 }
@@ -69,7 +63,6 @@ fn layout() -> Html {
     };
 
     let show_commit_modal = use_state(|| false);
-    let is_authenticated = use_state(|| false);
     let is_sidebar_open = use_state(|| false);
     let vim_mode = use_state(|| {
         if let Ok(stored) = gloo_storage::LocalStorage::get("vim_mode") {
@@ -224,18 +217,6 @@ fn layout() -> Html {
         })
     };
 
-    let on_logout_click = {
-        let is_authenticated = is_authenticated.clone();
-        Callback::from(move |_| {
-            let is_authenticated = is_authenticated.clone();
-            wasm_bindgen_futures::spawn_local(async move {
-                let _ = Request::post("/api/logout").send().await;
-                is_authenticated.set(false);
-                gloo_utils::window().location().reload().unwrap();
-            });
-        })
-    };
-
     html! {
         <div class="container">
             <button class="sidebar-toggle-btn" onclick={toggle_sidebar}>
@@ -262,9 +243,6 @@ fn layout() -> Html {
                             <button onclick={on_new_file_click} class="new-file-btn">{"New File"}</button>
                             <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
                             <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
-                        </div>
-                        <div class="action-buttons">
-                            <button onclick={on_logout_click} class="logout-btn">{"Logout"}</button>
                         </div>
                         <button onclick={toggle_theme.clone()} class="theme-btn">
                             { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
@@ -293,71 +271,9 @@ fn layout() -> Html {
     }
 }
 
-// Wrapper to handle initial auth check and redirect to Login
-#[function_component(AuthWrapper)]
-fn auth_wrapper(props: &HtmlProperties) -> Html {
-    let navigator = use_navigator().expect("AuthWrapper must be inside BrowserRouter");
-    let is_loading = use_state(|| true);
-
-    // Check if we are on the login page to avoid infinite loop
-    let location = use_location().expect("AuthWrapper must be inside BrowserRouter");
-    let is_login_page = location.path() == "/login";
-
-    {
-        let navigator = navigator.clone();
-        let is_loading = is_loading.clone();
-        use_effect_with((), move |_| {
-            if is_login_page {
-                is_loading.set(false);
-                // Return dummy cleanup
-                return;
-            }
-
-            wasm_bindgen_futures::spawn_local(async move {
-                let resp = Request::get("/api/check-auth").send().await;
-                match resp {
-                    Ok(r) if r.ok() => {
-                        is_loading.set(false);
-                    }
-                    _ => {
-                        navigator.push(&Route::Login);
-                        is_loading.set(false);
-                    }
-                }
-            });
-        });
-    }
-
-    if *is_loading {
-        return html! { <div class="loading-screen">{"Loading..."}</div> };
-    }
-
-    if is_login_page {
-        // Login page doesn't really care about vim mode, but we need to satisfy the signature
-        // or just pass false.
-        return html! { <Switch<Route> render={|routes| switch(routes, false)} /> };
-    }
-
-    html! {
-        <>
-            { for props.children.iter() }
-        </>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct HtmlProperties {
-    pub children: Children,
-}
-
-#[wasm_bindgen(start)]
-pub fn run_app() {
-    yew::Renderer::<App>::new().render();
-}
-
+// Switch function
 fn switch(routes: Route, vim_mode: bool) -> Html {
     match routes {
-        Route::Login => html! { <Login /> },
         Route::Wiki { volume, path } => {
             html! { <WikiViewer volume={volume} path={path} vim_mode={vim_mode} /> }
         }
@@ -366,6 +282,11 @@ fn switch(routes: Route, vim_mode: bool) -> Html {
         }
         Route::NotFound => html! { <h1>{ "404 Not Found" }</h1> },
     }
+}
+
+#[wasm_bindgen(start)]
+pub fn run_app() {
+    yew::Renderer::<App>::new().render();
 }
 
 #[function_component(VolumeSwitcher)]

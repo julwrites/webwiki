@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub mod auth;
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WikiPage {
     pub path: String,

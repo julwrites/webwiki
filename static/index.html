@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Vimwiki Web</title>
+    <link rel="stylesheet" href="/style.css" />
+
+    <!-- CodeMirror 5 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/keymap/vim.min.js"></script>
+
+    <!-- Diagram Libraries -->
+    <!-- Pinning versions for stability -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
+    <script src="https://viewer.diagrams.net/js/viewer-static.min.js"></script>
+
+    <!-- Custom Interop -->
+    <script src="/editor_interop.js"></script>
+
+    <!-- Theme Initialization to prevent flash -->
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+  </head>
+  <body>
+    <script type="module">
+        // Cache busting to prevent LinkErrors
+        const v = Date.now();
+        const { default: init, run_app } = await import(`/wasm.js?v=${v}`);
+        await init(`/wasm_bg.wasm?v=${v}`);
+        run_app();
+    </script>
+  </body>
+</html>
