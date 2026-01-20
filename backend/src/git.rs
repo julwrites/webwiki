@@ -194,7 +194,7 @@ async fn fetch_changes(
     let _lock = git_state.write_lock.lock().await;
     let repo_path = git_state.repo_path.clone();
 
-    let result = tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || -> Result<Json<GitStatusResponse>, String> {
         let repo = Repository::open(&repo_path)
             .map_err(|e| format!("Failed to open repository: {}", e))?;
 
@@ -232,17 +232,13 @@ async fn fetch_changes(
         let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
         let commits_behind = calculate_commits_behind(&repo).unwrap_or_default();
         
-        // Re-calculate file status (simplified reuse of logic would be better but duplication is safer for now)
         let mut opts = StatusOptions::new();
         opts.include_untracked(true);
         let statuses = repo.statuses(Some(&mut opts)).map_err(|e| format!("Status error: {}", e))?;
         let mut file_statuses = Vec::new();
-        // ... (We can skip file status for just updating counts, but frontend might expect full object.
-        // Let's return full status to be consistent.)
          for entry in statuses.iter() {
             let path = entry.path().unwrap_or("").to_string();
             let status = entry.status();
-            // Simple mapping
              let status_str = if status.contains(Status::INDEX_NEW) || status.contains(Status::WT_NEW) { "New" }
              else if status.contains(Status::INDEX_MODIFIED) || status.contains(Status::WT_MODIFIED) { "Modified" }
              else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED) { "Deleted" }
@@ -261,6 +257,128 @@ async fn fetch_changes(
     .map_err(|e| format!("Task join error: {}", e))??;
 
     Ok(result)
+}
+
+async fn pull_changes(
+    State(state): State<Arc<AppState>>,
+    Path(volume): Path<String>,
+) -> Result<StatusCode, String> {
+    let git_state = state
+        .git_states
+        .get(&volume)
+        .ok_or("Volume not found".to_string())?;
+    // Lock to prevent concurrent git operations
+    let _lock = git_state.write_lock.lock().await;
+    let repo_path = git_state.repo_path.clone();
+
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path)
+            .map_err(|e| format!("Failed to open repository: {}", e))?;
+
+        let mut remote = repo
+            .find_remote("origin")
+            .map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
+
+        // 1. Fetch
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let env_token = std::env::var("GIT_TOKEN").ok();
+        let env_username = std::env::var("GIT_USERNAME").ok();
+
+        callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+            let username = env_username
+                .as_deref()
+                .or(username_from_url)
+                .unwrap_or("git");
+
+            if let Some(token) = &env_token {
+                git2::Cred::userpass_plaintext(username, token.trim())
+            } else {
+                Err(git2::Error::from_str(
+                    "No GIT_TOKEN provided in environment",
+                ))
+            }
+        });
+
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
+
+        remote
+            .fetch(&[] as &[&str], Some(&mut fetch_options), None)
+            .map_err(|e| format!("Git fetch failed: {}", e))?;
+
+        // 2. Merge Analysis
+        let fetch_head = repo
+            .find_reference("FETCH_HEAD")
+            .map_err(|e| format!("Failed to find FETCH_HEAD: {}", e))?;
+        let fetch_commit = repo
+            .reference_to_annotated_commit(&fetch_head)
+            .map_err(|e| format!("Failed to get annotated commit: {}", e))?;
+        let analysis = repo
+            .merge_analysis(&[&fetch_commit])
+            .map_err(|e| format!("Merge analysis failed: {}", e))?;
+
+        if analysis.0.is_up_to_date() {
+            return Ok(StatusCode::OK);
+        } else if analysis.0.is_fast_forward() {
+            let mut reference = repo
+                .find_reference("HEAD")
+                .map_err(|e| format!("Failed to find HEAD: {}", e))?;
+            let name = reference.name().unwrap_or("HEAD").to_string();
+            let msg = format!("Fast-Forward: Setting {} to id: {}", name, fetch_commit.id());
+            reference
+                .set_target(fetch_commit.id(), &msg)
+                .map_err(|e| format!("Failed to set HEAD target: {}", e))?;
+            repo.set_head(&name)
+                .map_err(|e| format!("Failed to set HEAD: {}", e))?;
+            repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
+                .map_err(|e| format!("Failed to checkout HEAD: {}", e))?;
+        } else if analysis.0.is_normal() {
+            let head_commit = repo
+                .head()
+                .and_then(|h| h.peel_to_commit())
+                .map_err(|e| format!("Failed to get HEAD commit: {}", e))?;
+            
+            repo.merge(&[&fetch_commit], None, None)
+                .map_err(|e| format!("Merge failed: {}", e))?;
+
+            if repo.index().unwrap().has_conflicts() {
+                 return Err("Merge resulted in conflicts. Please resolve manually.".to_string());
+            }
+
+            // Create Merge Commit
+            let signature = repo
+                .signature()
+                .map_err(|e| format!("Failed to get signature: {}", e))?;
+            
+            let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
+            let tree_id = index.write_tree().map_err(|e| format!("Failed to write tree: {}", e))?;
+            let tree = repo.find_tree(tree_id).map_err(|e| format!("Failed to find tree: {}", e))?;
+
+            let fetch_commit_obj = repo.find_commit(fetch_commit.id())
+                .map_err(|e| format!("Failed to find fetch commit: {}", e))?;
+            let parents = vec![&head_commit, &fetch_commit_obj];
+            
+            repo.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "Merge remote-tracking branch 'origin/HEAD'",
+                &tree,
+                &parents,
+            ).map_err(|e| format!("Failed to create merge commit: {}", e))?;
+
+            // Cleanup
+            repo.cleanup_state().map_err(|e| format!("Failed to cleanup state: {}", e))?;
+        } else {
+             return Err("Merge analysis returned unsupported result".to_string());
+        }
+
+        Ok(StatusCode::OK)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?;
+
+    result
 }
 
 async fn commit_changes(
