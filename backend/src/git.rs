@@ -36,6 +36,7 @@ pub struct FileStatus {
 pub struct GitStatusResponse {
     pub files: Vec<FileStatus>,
     pub commits_ahead: usize,
+    pub commits_behind: usize,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -54,8 +55,10 @@ pub struct RestoreRequest {
 pub fn git_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/status", get(get_status))
+        .route("/fetch", post(fetch_changes))
         .route("/commit", post(commit_changes))
         .route("/push", post(push_changes))
+        .route("/pull", post(pull_changes))
         .route("/restore", post(restore_changes))
 }
 
@@ -106,12 +109,14 @@ async fn get_status(
             });
         }
 
-        // Calculate commits ahead
+        // Calculate commits ahead and behind
         let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
+        let commits_behind = calculate_commits_behind(&repo).unwrap_or_default();
 
         Ok(Json(GitStatusResponse {
             files: file_statuses,
             commits_ahead,
+            commits_behind,
         }))
     })
     .await
@@ -147,6 +152,115 @@ fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
 
     let (ahead, _) = repo.graph_ahead_behind(head_oid, upstream_oid)?;
     Ok(ahead)
+}
+
+fn calculate_commits_behind(repo: &Repository) -> Result<usize, git2::Error> {
+    let head = repo.head()?;
+    let head_oid = head
+        .target()
+        .ok_or_else(|| git2::Error::from_str("HEAD not a ref"))?;
+
+    let head_name = head
+        .name()
+        .ok_or_else(|| git2::Error::from_str("HEAD has no name"))?;
+
+    let upstream_name_buf = match repo.branch_upstream_name(head_name) {
+        Ok(name) => name,
+        Err(_) => return Ok(0),
+    };
+
+    let upstream_name = upstream_name_buf
+        .as_str()
+        .ok_or_else(|| git2::Error::from_str("Upstream name not valid UTF-8"))?;
+
+    let upstream = repo.find_reference(upstream_name)?;
+
+    let upstream_oid = upstream
+        .target()
+        .ok_or_else(|| git2::Error::from_str("Upstream not a ref"))?;
+
+    let (_, behind) = repo.graph_ahead_behind(head_oid, upstream_oid)?;
+    Ok(behind)
+}
+
+async fn fetch_changes(
+    State(state): State<Arc<AppState>>,
+    Path(volume): Path<String>,
+) -> Result<Json<GitStatusResponse>, String> {
+    let git_state = state
+        .git_states
+        .get(&volume)
+        .ok_or("Volume not found".to_string())?;
+    let _lock = git_state.write_lock.lock().await;
+    let repo_path = git_state.repo_path.clone();
+
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path)
+            .map_err(|e| format!("Failed to open repository: {}", e))?;
+
+        let mut remote = repo
+            .find_remote("origin")
+            .map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        let env_token = std::env::var("GIT_TOKEN").ok();
+        let env_username = std::env::var("GIT_USERNAME").ok();
+
+        callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+            let username = env_username
+                .as_deref()
+                .or(username_from_url)
+                .unwrap_or("git");
+
+            if let Some(token) = &env_token {
+                git2::Cred::userpass_plaintext(username, token.trim())
+            } else {
+                Err(git2::Error::from_str(
+                    "No GIT_TOKEN provided in environment",
+                ))
+            }
+        });
+
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
+
+        remote
+            .fetch(&[] as &[&str], Some(&mut fetch_options), None)
+            .map_err(|e| format!("Git fetch failed: {}", e))?;
+
+        // Re-calculate counts
+        let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
+        let commits_behind = calculate_commits_behind(&repo).unwrap_or_default();
+        
+        // Re-calculate file status (simplified reuse of logic would be better but duplication is safer for now)
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(true);
+        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| format!("Status error: {}", e))?;
+        let mut file_statuses = Vec::new();
+        // ... (We can skip file status for just updating counts, but frontend might expect full object.
+        // Let's return full status to be consistent.)
+         for entry in statuses.iter() {
+            let path = entry.path().unwrap_or("").to_string();
+            let status = entry.status();
+            // Simple mapping
+             let status_str = if status.contains(Status::INDEX_NEW) || status.contains(Status::WT_NEW) { "New" }
+             else if status.contains(Status::INDEX_MODIFIED) || status.contains(Status::WT_MODIFIED) { "Modified" }
+             else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED) { "Deleted" }
+             else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED) { "Renamed" }
+             else { "Unknown" };
+            file_statuses.push(FileStatus { path, status: status_str.to_string() });
+        }
+
+        Ok(Json(GitStatusResponse {
+            files: file_statuses,
+            commits_ahead,
+            commits_behind,
+        }))
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))??;
+
+    Ok(result)
 }
 
 async fn commit_changes(

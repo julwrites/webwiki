@@ -54,6 +54,14 @@ pub fn app() -> Html {
     }
 }
 
+use serde::Deserialize;
+
+#[derive(Clone, Deserialize, Default)]
+struct GitStatus {
+    commits_ahead: usize,
+    commits_behind: usize,
+}
+
 #[function_component(Layout)]
 fn layout() -> Html {
     let route = use_route::<Route>();
@@ -64,6 +72,9 @@ fn layout() -> Html {
 
     let show_commit_modal = use_state(|| false);
     let is_sidebar_open = use_state(|| false);
+    let commits_ahead = use_state(|| 0);
+    let commits_behind = use_state(|| 0);
+
     let vim_mode = use_state(|| {
         if let Ok(stored) = gloo_storage::LocalStorage::get("vim_mode") {
             return stored;
@@ -94,6 +105,51 @@ fn layout() -> Html {
             || ()
         });
     }
+
+    // Fetch Git Status Effect
+    {
+        let volume = current_volume.clone();
+        let commits_ahead = commits_ahead.clone();
+        let commits_behind = commits_behind.clone();
+        use_effect_with(volume, move |volume| {
+            let volume = volume.clone();
+            let commits_ahead = commits_ahead.clone();
+            let commits_behind = commits_behind.clone();
+            
+            wasm_bindgen_futures::spawn_local(async move {
+                let url = format!("/api/git/{}/fetch", volume);
+                let resp = Request::post(&url).send().await;
+                if let Ok(r) = resp {
+                    if let Ok(status) = r.json::<GitStatus>().await {
+                        commits_ahead.set(status.commits_ahead);
+                        commits_behind.set(status.commits_behind);
+                    }
+                }
+            });
+            || ()
+        });
+    }
+
+    let refresh_git_status = {
+        let volume = current_volume.clone();
+        let commits_ahead = commits_ahead.clone();
+        let commits_behind = commits_behind.clone();
+        Callback::from(move |_| {
+             let volume = volume.clone();
+             let commits_ahead = commits_ahead.clone();
+             let commits_behind = commits_behind.clone();
+             wasm_bindgen_futures::spawn_local(async move {
+                let url = format!("/api/git/{}/fetch", volume);
+                let resp = Request::post(&url).send().await;
+                if let Ok(r) = resp {
+                    if let Ok(status) = r.json::<GitStatus>().await {
+                        commits_ahead.set(status.commits_ahead);
+                        commits_behind.set(status.commits_behind);
+                    }
+                }
+            });
+        })
+    };
 
     let toggle_theme = {
         let theme = theme.clone();
@@ -195,18 +251,51 @@ fn layout() -> Html {
 
     let on_close_commit_modal = {
         let show_commit_modal = show_commit_modal.clone();
-        Callback::from(move |_| show_commit_modal.set(false))
+        let refresh = refresh_git_status.clone();
+        Callback::from(move |_| {
+            show_commit_modal.set(false);
+            refresh.emit(());
+        })
     };
 
-    let on_sync_click = {
+    let on_pull_click = {
         let volume = current_volume.clone();
+        let refresh = refresh_git_status.clone();
         Callback::from(move |_| {
             let volume = volume.clone();
+            let refresh = refresh.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let url = format!("/api/git/{}/pull", volume);
+                let resp = Request::post(&url).send().await;
+                match resp {
+                    Ok(r) if r.ok() => {
+                        gloo_dialogs::alert("Successfully pulled from remote!");
+                        refresh.emit(());
+                    },
+                    Ok(r) => {
+                        let text = r.text().await.unwrap_or_default();
+                        gloo_dialogs::alert(&format!("Failed to pull: {}", text));
+                    }
+                    Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+                }
+            });
+        })
+    };
+
+    let on_push_click = {
+        let volume = current_volume.clone();
+        let refresh = refresh_git_status.clone();
+        Callback::from(move |_| {
+            let volume = volume.clone();
+            let refresh = refresh.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let url = format!("/api/git/{}/push", volume);
                 let resp = Request::post(&url).send().await;
                 match resp {
-                    Ok(r) if r.ok() => gloo_dialogs::alert("Successfully pushed to remote!"),
+                    Ok(r) if r.ok() => {
+                        gloo_dialogs::alert("Successfully pushed to remote!");
+                        refresh.emit(());
+                    },
                     Ok(r) => {
                         let text = r.text().await.unwrap_or_default();
                         gloo_dialogs::alert(&format!("Failed to push: {}", text));
@@ -242,7 +331,20 @@ fn layout() -> Html {
                         <div class="action-buttons">
                             <button onclick={on_new_file_click} class="new-file-btn">{"New File"}</button>
                             <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
-                            <button onclick={on_sync_click} class="sync-btn">{"Sync"}</button>
+                        </div>
+                        <div class="git-buttons">
+                            <button onclick={on_pull_click} class="pull-btn" title="Fetch & Pull">
+                                { "Pull" }
+                                if *commits_behind > 0 {
+                                    <span class="badge">{ *commits_behind }</span>
+                                }
+                            </button>
+                            <button onclick={on_push_click} class="push-btn" title="Push">
+                                { "Push" }
+                                if *commits_ahead > 0 {
+                                    <span class="badge">{ *commits_ahead }</span>
+                                }
+                            </button>
                         </div>
                         <button onclick={toggle_theme.clone()} class="theme-btn">
                             { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
