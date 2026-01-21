@@ -7,6 +7,7 @@ mod search_bar;
 use commit_modal::CommitModal;
 use common::{FileNode, WikiPage};
 use components::command_palette::CommandPalette;
+use components::icons::{IconDownload, IconGitCommit, IconMoon, IconPlus, IconSun, IconUpload};
 use gloo_net::http::Request;
 use gloo_storage::Storage;
 use hooks::use_create_file;
@@ -328,27 +329,42 @@ fn layout() -> Html {
                 </div>
                 <div class="sidebar-footer">
                     <div class="sidebar-controls">
-                        <div class="action-buttons">
-                            <button onclick={on_new_file_click} class="new-file-btn">{"New File"}</button>
-                            <button onclick={on_commit_click} class="commit-btn">{"Commit"}</button>
+                        <div class="sidebar-section">
+                            <div class="btn-row">
+                                <button onclick={on_new_file_click} class="sidebar-btn" title="New File">
+                                    <IconPlus />
+                                    <span>{"New"}</span>
+                                </button>
+                                <button onclick={on_commit_click} class="sidebar-btn" title="Commit Changes">
+                                    <IconGitCommit />
+                                    <span>{"Commit"}</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="git-buttons">
-                            <button onclick={on_pull_click} class="pull-btn" title="Fetch & Pull">
-                                { "Pull" }
-                                if *commits_behind > 0 {
-                                    <span class="badge">{ *commits_behind }</span>
-                                }
-                            </button>
-                            <button onclick={on_push_click} class="push-btn" title="Push">
-                                { "Push" }
-                                if *commits_ahead > 0 {
-                                    <span class="badge">{ *commits_ahead }</span>
-                                }
+                        <div class="sidebar-section">
+                            <div class="btn-row">
+                                <button onclick={on_pull_click} class="sidebar-btn" title="Fetch & Pull">
+                                    <IconDownload />
+                                    <span>{ "Pull" }</span>
+                                    if *commits_behind > 0 {
+                                        <span class="badge">{ *commits_behind }</span>
+                                    }
+                                </button>
+                                <button onclick={on_push_click} class="sidebar-btn" title="Push">
+                                    <IconUpload />
+                                    <span>{ "Push" }</span>
+                                    if *commits_ahead > 0 {
+                                        <span class="badge">{ *commits_ahead }</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                        <div class="sidebar-section">
+                            <button onclick={toggle_theme.clone()} class="sidebar-btn theme-btn">
+                                { if *theme == "dark" { html!{<IconSun />} } else { html!{<IconMoon />} } }
+                                <span>{ if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }</span>
                             </button>
                         </div>
-                        <button onclick={toggle_theme.clone()} class="theme-btn">
-                            { if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }
-                        </button>
                         <div class="toggle-switch">
                             <label>
                                 <input type="checkbox" checked={*vim_mode} onchange={toggle_vim_mode} />
