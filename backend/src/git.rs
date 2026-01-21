@@ -231,20 +231,37 @@ async fn fetch_changes(
         // Re-calculate counts
         let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
         let commits_behind = calculate_commits_behind(&repo).unwrap_or_default();
-        
+
         let mut opts = StatusOptions::new();
         opts.include_untracked(true);
-        let statuses = repo.statuses(Some(&mut opts)).map_err(|e| format!("Status error: {}", e))?;
+        let statuses = repo
+            .statuses(Some(&mut opts))
+            .map_err(|e| format!("Status error: {}", e))?;
         let mut file_statuses = Vec::new();
-         for entry in statuses.iter() {
+        for entry in statuses.iter() {
             let path = entry.path().unwrap_or("").to_string();
             let status = entry.status();
-             let status_str = if status.contains(Status::INDEX_NEW) || status.contains(Status::WT_NEW) { "New" }
-             else if status.contains(Status::INDEX_MODIFIED) || status.contains(Status::WT_MODIFIED) { "Modified" }
-             else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED) { "Deleted" }
-             else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED) { "Renamed" }
-             else { "Unknown" };
-            file_statuses.push(FileStatus { path, status: status_str.to_string() });
+            let status_str = if status.contains(Status::INDEX_NEW)
+                || status.contains(Status::WT_NEW)
+            {
+                "New"
+            } else if status.contains(Status::INDEX_MODIFIED)
+                || status.contains(Status::WT_MODIFIED)
+            {
+                "Modified"
+            } else if status.contains(Status::INDEX_DELETED) || status.contains(Status::WT_DELETED)
+            {
+                "Deleted"
+            } else if status.contains(Status::INDEX_RENAMED) || status.contains(Status::WT_RENAMED)
+            {
+                "Renamed"
+            } else {
+                "Unknown"
+            };
+            file_statuses.push(FileStatus {
+                path,
+                status: status_str.to_string(),
+            });
         }
 
         Ok(Json(GitStatusResponse {
@@ -324,7 +341,11 @@ async fn pull_changes(
                 .find_reference("HEAD")
                 .map_err(|e| format!("Failed to find HEAD: {}", e))?;
             let name = reference.name().unwrap_or("HEAD").to_string();
-            let msg = format!("Fast-Forward: Setting {} to id: {}", name, fetch_commit.id());
+            let msg = format!(
+                "Fast-Forward: Setting {} to id: {}",
+                name,
+                fetch_commit.id()
+            );
             reference
                 .set_target(fetch_commit.id(), &msg)
                 .map_err(|e| format!("Failed to set HEAD target: {}", e))?;
@@ -337,27 +358,34 @@ async fn pull_changes(
                 .head()
                 .and_then(|h| h.peel_to_commit())
                 .map_err(|e| format!("Failed to get HEAD commit: {}", e))?;
-            
+
             repo.merge(&[&fetch_commit], None, None)
                 .map_err(|e| format!("Merge failed: {}", e))?;
 
             if repo.index().unwrap().has_conflicts() {
-                 return Err("Merge resulted in conflicts. Please resolve manually.".to_string());
+                return Err("Merge resulted in conflicts. Please resolve manually.".to_string());
             }
 
             // Create Merge Commit
             let signature = repo
                 .signature()
                 .map_err(|e| format!("Failed to get signature: {}", e))?;
-            
-            let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
-            let tree_id = index.write_tree().map_err(|e| format!("Failed to write tree: {}", e))?;
-            let tree = repo.find_tree(tree_id).map_err(|e| format!("Failed to find tree: {}", e))?;
 
-            let fetch_commit_obj = repo.find_commit(fetch_commit.id())
+            let mut index = repo
+                .index()
+                .map_err(|e| format!("Failed to get index: {}", e))?;
+            let tree_id = index
+                .write_tree()
+                .map_err(|e| format!("Failed to write tree: {}", e))?;
+            let tree = repo
+                .find_tree(tree_id)
+                .map_err(|e| format!("Failed to find tree: {}", e))?;
+
+            let fetch_commit_obj = repo
+                .find_commit(fetch_commit.id())
                 .map_err(|e| format!("Failed to find fetch commit: {}", e))?;
             let parents = vec![&head_commit, &fetch_commit_obj];
-            
+
             repo.commit(
                 Some("HEAD"),
                 &signature,
@@ -365,12 +393,14 @@ async fn pull_changes(
                 "Merge remote-tracking branch 'origin/HEAD'",
                 &tree,
                 &parents,
-            ).map_err(|e| format!("Failed to create merge commit: {}", e))?;
+            )
+            .map_err(|e| format!("Failed to create merge commit: {}", e))?;
 
             // Cleanup
-            repo.cleanup_state().map_err(|e| format!("Failed to cleanup state: {}", e))?;
+            repo.cleanup_state()
+                .map_err(|e| format!("Failed to cleanup state: {}", e))?;
         } else {
-             return Err("Merge analysis returned unsupported result".to_string());
+            return Err("Merge analysis returned unsupported result".to_string());
         }
 
         Ok(StatusCode::OK)
