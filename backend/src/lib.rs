@@ -97,8 +97,6 @@ async fn serve_wiki_asset(
     }
 }
 
-
-
 async fn search_handler(
     State(state): State<Arc<AppState>>,
     Query(params): Query<SearchParams>,
@@ -108,7 +106,7 @@ async fn search_handler(
     if let Some(volume_name) = params.volume {
         // Search in specific volume
         if let Some(path) = state.volumes.get(&volume_name) {
-             {
+            {
                 let mut vol_results = tokio::task::spawn_blocking({
                     let path = path.clone();
                     let q = params.q.clone();
@@ -126,7 +124,7 @@ async fn search_handler(
     } else {
         // Search in all allowed volumes
         for (volume_name, path) in &state.volumes {
-             {
+            {
                 let mut vol_results = tokio::task::spawn_blocking({
                     let path = path.clone();
                     let q = params.q.clone();

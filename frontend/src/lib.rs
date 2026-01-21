@@ -116,7 +116,7 @@ fn layout() -> Html {
             let volume = volume.clone();
             let commits_ahead = commits_ahead.clone();
             let commits_behind = commits_behind.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
                 let url = format!("/api/git/{}/fetch", volume);
                 let resp = Request::post(&url).send().await;
@@ -136,10 +136,10 @@ fn layout() -> Html {
         let commits_ahead = commits_ahead.clone();
         let commits_behind = commits_behind.clone();
         Callback::from(move |_| {
-             let volume = volume.clone();
-             let commits_ahead = commits_ahead.clone();
-             let commits_behind = commits_behind.clone();
-             wasm_bindgen_futures::spawn_local(async move {
+            let volume = volume.clone();
+            let commits_ahead = commits_ahead.clone();
+            let commits_behind = commits_behind.clone();
+            wasm_bindgen_futures::spawn_local(async move {
                 let url = format!("/api/git/{}/fetch", volume);
                 let resp = Request::post(&url).send().await;
                 if let Ok(r) = resp {
@@ -272,7 +272,7 @@ fn layout() -> Html {
                     Ok(r) if r.ok() => {
                         gloo_dialogs::alert("Successfully pulled from remote!");
                         refresh.emit(());
-                    },
+                    }
                     Ok(r) => {
                         let text = r.text().await.unwrap_or_default();
                         gloo_dialogs::alert(&format!("Failed to pull: {}", text));
@@ -296,7 +296,7 @@ fn layout() -> Html {
                     Ok(r) if r.ok() => {
                         gloo_dialogs::alert("Successfully pushed to remote!");
                         refresh.emit(());
-                    },
+                    }
                     Ok(r) => {
                         let text = r.text().await.unwrap_or_default();
                         gloo_dialogs::alert(&format!("Failed to push: {}", text));
