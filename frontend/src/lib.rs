@@ -447,12 +447,16 @@ fn volume_switcher() -> Html {
         })
     };
 
-    html! {
-        <div class="volume-switcher">
-            <select onchange={on_change} value={current_volume}>
-                { for volumes.iter().map(|v| html! { <option value={v.name.clone()}>{ &v.name }</option> }) }
-            </select>
-        </div>
+    if volumes.len() > 1 {
+        html! {
+            <div class="volume-switcher">
+                <select onchange={on_change} value={current_volume}>
+                    { for volumes.iter().map(|v| html! { <option value={v.name.clone()}>{ &v.name }</option> }) }
+                </select>
+            </div>
+        }
+    } else {
+        html! {}
     }
 }
 
