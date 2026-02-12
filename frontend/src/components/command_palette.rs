@@ -1,6 +1,4 @@
 use gloo_net::http::Request;
-use wasm_bindgen::closure::Closure;
-use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
 use yew::prelude::*;
@@ -12,6 +10,8 @@ use crate::Route;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
+    pub is_open: bool,
+    pub on_close: Callback<()>,
     pub on_theme_toggle: Callback<MouseEvent>,
     pub current_volume: String,
 }
@@ -33,7 +33,6 @@ struct CommandItem {
 
 #[function_component(CommandPalette)]
 pub fn command_palette(props: &Props) -> Html {
-    let is_open = use_state(|| false);
     let query = use_state(String::new);
     let selected_index = use_state(|| 0);
     let search_results = use_state(Vec::<SearchResult>::new);
@@ -110,45 +109,15 @@ pub fn command_palette(props: &Props) -> Html {
         )
     };
 
-    // Keyboard listener for opening/closing
-    {
-        let is_open = is_open.clone();
-        use_effect(move || {
-            let window = gloo_utils::window();
-
-            let on_keydown = Closure::wrap(Box::new(move |e: KeyboardEvent| {
-                if (e.meta_key() || e.ctrl_key()) && e.key() == "k" {
-                    e.prevent_default();
-                    is_open.set(!*is_open);
-                } else if e.key() == "Escape" && *is_open {
-                    is_open.set(false);
-                }
-            }) as Box<dyn FnMut(KeyboardEvent)>);
-
-            window
-                .add_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref())
-                .unwrap();
-
-            move || {
-                window
-                    .remove_event_listener_with_callback(
-                        "keydown",
-                        on_keydown.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-            }
-        });
-    }
-
     // Reset state when opening
     {
-        let is_open = is_open.clone();
+        let is_open = props.is_open;
         let query = query.clone();
         let selected_index = selected_index.clone();
         let search_results = search_results.clone();
         let input_ref = input_ref.clone();
 
-        use_effect_with(*is_open, move |open| {
+        use_effect_with(is_open, move |open| {
             if *open {
                 query.set(String::new());
                 selected_index.set(0);
@@ -201,20 +170,7 @@ pub fn command_palette(props: &Props) -> Html {
                     let url = format!("/api/search?q={}", encoded_value);
                     match Request::get(&url).send().await {
                         Ok(resp) if resp.ok() => {
-                            // Race condition check:
-                            // Ideally we'd compare request IDs, but timestamp check on receive
-                            // isn't perfect if requests return out of order.
-                            // However, with debouncing, we only send one request every 300ms.
-                            // A simple check is to verify if the query still matches the current input.
-                            // But we can't easily access the live input value here without another ref.
-                            // Instead, we just trust the latest response for now as debouncing mitigates mostly.
-                            // For robust race handling, we'd need to capture the timestamp in the closure
-                            // and compare it against last_request_timestamp, but that needs to be updated.
-
-                            // Let's implement a simple "latest wins" by checking if this task's timestamp
-                            // matches the latest one.
-
-                            if *last_request_timestamp == current_timestamp {
+                             if *last_request_timestamp == current_timestamp {
                                 if let Ok(data) = resp.json::<Vec<SearchResult>>().await {
                                     search_results.set(data);
                                 }
@@ -236,12 +192,12 @@ pub fn command_palette(props: &Props) -> Html {
     let create_file = use_create_file(props.current_volume.clone());
 
     let execute_command = {
-        let is_open = is_open.clone();
+        let on_close = props.on_close.clone();
         let navigator = navigator.clone();
         let create_file = create_file.clone();
 
         Callback::from(move |item: CommandItem| {
-            is_open.set(false);
+            on_close.emit(());
             match item.command_type {
                 CommandType::Navigation(route) => navigator.push(&route),
                 CommandType::Search(path, volume) => navigator.push(&Route::Wiki {
@@ -260,7 +216,7 @@ pub fn command_palette(props: &Props) -> Html {
         let selected_index = selected_index.clone();
         let filtered_items = filtered_items.clone();
         let execute_command = execute_command.clone();
-        let is_open = is_open.clone();
+        let on_close = props.on_close.clone();
 
         Callback::from(move |e: KeyboardEvent| {
             let max_index = if filtered_items.is_empty() {
@@ -292,19 +248,21 @@ pub fn command_palette(props: &Props) -> Html {
                 }
                 "Escape" => {
                     e.prevent_default();
-                    is_open.set(false);
+                    on_close.emit(());
                 }
                 _ => {}
             }
         })
     };
 
-    if !*is_open {
+    if !props.is_open {
         return html! {};
     }
 
+    let on_close = props.on_close.clone();
+
     html! {
-        <div class="command-palette-overlay" onclick={let is_open = is_open.clone(); move |_| is_open.set(false)}>
+        <div class="command-palette-overlay" onclick={move |_| on_close.emit(())}>
             <div class="command-palette-modal" onclick={|e: MouseEvent| e.stop_propagation()}>
                 <input
                     ref={input_ref}

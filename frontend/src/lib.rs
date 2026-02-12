@@ -5,17 +5,16 @@ mod parsers;
 mod search_bar;
 
 use commit_modal::CommitModal;
-use common::{FileNode, WikiPage};
+use common::WikiPage;
+use components::bottom_bar::BottomBar;
 use components::command_palette::CommandPalette;
-use components::icons::{IconDownload, IconGitCommit, IconMoon, IconPlus, IconSun, IconUpload};
+use components::drawer::Drawer;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
-use hooks::use_create_file;
+use hooks::{use_key_handler, KeyHandlerProps};
 use parsers::WikiLinkParser;
 use pulldown_cmark::{html, Options, Parser};
-use search_bar::SearchBar;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -72,9 +71,21 @@ fn layout() -> Html {
     };
 
     let show_commit_modal = use_state(|| false);
-    let is_sidebar_open = use_state(|| false);
+    let is_drawer_open = use_state(|| false);
+    let is_search_open = use_state(|| false);
+    let is_editing = use_state(|| false);
+
     let commits_ahead = use_state(|| 0);
     let commits_behind = use_state(|| 0);
+
+    // Reset editing state on navigation
+    {
+        let is_editing = is_editing.clone();
+        use_effect_with(current_volume.clone(), move |_| {
+            is_editing.set(false);
+            || ()
+        });
+    }
 
     let vim_mode = use_state(|| {
         if let Ok(stored) = gloo_storage::LocalStorage::get("vim_mode") {
@@ -161,102 +172,25 @@ fn layout() -> Html {
         })
     };
 
-    let create_file = use_create_file(current_volume.clone());
-    let on_new_file_click = {
-        let create_file = create_file.clone();
-        Callback::from(move |_| create_file.emit(()))
+    // Actions
+    let on_toggle_drawer = {
+        let is_drawer_open = is_drawer_open.clone();
+        Callback::from(move |_| is_drawer_open.set(!*is_drawer_open))
     };
 
-    let toggle_sidebar = {
-        let is_sidebar_open = is_sidebar_open.clone();
-        Callback::from(move |_| is_sidebar_open.set(!*is_sidebar_open))
+    let on_search_trigger = {
+        let is_search_open = is_search_open.clone();
+        Callback::from(move |_| is_search_open.set(true))
     };
 
-    let close_sidebar = {
-        let is_sidebar_open = is_sidebar_open.clone();
-        Callback::from(move |_| is_sidebar_open.set(false))
+    let on_edit_trigger = {
+        let is_editing = is_editing.clone();
+        Callback::from(move |_| is_editing.set(true))
     };
 
-    let toggle_vim_mode = {
-        let vim_mode = vim_mode.clone();
-        Callback::from(move |e: yew::Event| {
-            let input: web_sys::HtmlInputElement = e.target_unchecked_into();
-            let checked = input.checked();
-            let _ = gloo_storage::LocalStorage::set("vim_mode", checked);
-            vim_mode.set(checked);
-        })
-    };
-
-    // Sidebar resizing state
-    let sidebar_width = use_state(|| 250);
-    let is_resizing = use_state(|| false);
-
-    let start_resizing = {
-        let is_resizing = is_resizing.clone();
-        Callback::from(move |e: MouseEvent| {
-            e.prevent_default();
-            is_resizing.set(true);
-        })
-    };
-
-    {
-        let sidebar_width = sidebar_width.clone();
-        let is_resizing = is_resizing.clone();
-        use_effect_with(*is_resizing, move |resizing| {
-            if *resizing {
-                let window = gloo_utils::window();
-
-                let on_move = {
-                    let sidebar_width = sidebar_width.clone();
-                    Closure::wrap(Box::new(move |e: web_sys::MouseEvent| {
-                        let new_width = e.client_x();
-                        let new_width = new_width.clamp(200, 600);
-                        sidebar_width.set(new_width);
-                    }) as Box<dyn FnMut(_)>)
-                };
-
-                let on_up = {
-                    let is_resizing = is_resizing.clone();
-                    Closure::wrap(Box::new(move |_e: web_sys::MouseEvent| {
-                        is_resizing.set(false);
-                    }) as Box<dyn FnMut(_)>)
-                };
-
-                let _ = window.add_event_listener_with_callback(
-                    "mousemove",
-                    on_move.as_ref().unchecked_ref(),
-                );
-                let _ = window
-                    .add_event_listener_with_callback("mouseup", on_up.as_ref().unchecked_ref());
-
-                Box::new(move || {
-                    let _ = window.remove_event_listener_with_callback(
-                        "mousemove",
-                        on_move.as_ref().unchecked_ref(),
-                    );
-                    let _ = window.remove_event_listener_with_callback(
-                        "mouseup",
-                        on_up.as_ref().unchecked_ref(),
-                    );
-                }) as Box<dyn FnOnce()>
-            } else {
-                Box::new(|| {}) as Box<dyn FnOnce()>
-            }
-        });
-    }
-
-    let on_commit_click = {
-        let show_commit_modal = show_commit_modal.clone();
-        Callback::from(move |_| show_commit_modal.set(true))
-    };
-
-    let on_close_commit_modal = {
-        let show_commit_modal = show_commit_modal.clone();
-        let refresh = refresh_git_status.clone();
-        Callback::from(move |_| {
-            show_commit_modal.set(false);
-            refresh.emit(());
-        })
+    let on_edit_toggle = {
+        let is_editing = is_editing.clone();
+        Callback::from(move |val: bool| is_editing.set(val))
     };
 
     let on_pull_click = {
@@ -307,81 +241,67 @@ fn layout() -> Html {
         })
     };
 
+    let on_commit_click = {
+        let show_commit_modal = show_commit_modal.clone();
+        Callback::from(move |_| show_commit_modal.set(true))
+    };
+
+    let on_close_commit_modal = {
+        let show_commit_modal = show_commit_modal.clone();
+        let refresh = refresh_git_status.clone();
+        Callback::from(move |_| {
+            show_commit_modal.set(false);
+            refresh.emit(());
+        })
+    };
+
+    // Key Handler
+    use_key_handler(KeyHandlerProps {
+        on_search: {
+             let is_search_open = is_search_open.clone();
+             Callback::from(move |_| is_search_open.set(true))
+        },
+        on_pull: on_pull_click.clone(),
+        on_push: on_push_click.clone(),
+        on_commit: on_commit_click.clone(),
+        on_edit: on_edit_trigger.clone(),
+    });
+
     html! {
         <div class="container">
-            <button class="sidebar-toggle-btn" onclick={toggle_sidebar}>
-                {"☰"}
-            </button>
-            <div
-                class={classes!("sidebar-overlay", if *is_sidebar_open { "visible" } else { "" })}
-                onclick={close_sidebar.clone()}
-            ></div>
-            <nav
-                class={classes!("sidebar", if *is_sidebar_open { "open" } else { "" })}
-                style={format!("width: {}px", *sidebar_width)}
-            >
-                <div class="sidebar-header">
-                    <VolumeSwitcher />
-                    <SearchBar />
-                </div>
-                <div class="sidebar-content" onclick={close_sidebar}>
-                    <FileTree />
-                </div>
-                <div class="sidebar-footer">
-                    <div class="sidebar-controls">
-                        <div class="sidebar-section">
-                            <div class="btn-row">
-                                <button onclick={on_new_file_click} class="sidebar-btn" title="New File">
-                                    <IconPlus />
-                                    <span>{"New"}</span>
-                                </button>
-                                <button onclick={on_commit_click} class="sidebar-btn" title="Commit Changes">
-                                    <IconGitCommit />
-                                    <span>{"Commit"}</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="sidebar-section">
-                            <div class="btn-row">
-                                <button onclick={on_pull_click} class="sidebar-btn" title="Fetch & Pull">
-                                    <IconDownload />
-                                    <span>{ "Pull" }</span>
-                                    if *commits_behind > 0 {
-                                        <span class="badge">{ *commits_behind }</span>
-                                    }
-                                </button>
-                                <button onclick={on_push_click} class="sidebar-btn" title="Push">
-                                    <IconUpload />
-                                    <span>{ "Push" }</span>
-                                    if *commits_ahead > 0 {
-                                        <span class="badge">{ *commits_ahead }</span>
-                                    }
-                                </button>
-                            </div>
-                        </div>
-                        <div class="sidebar-section">
-                            <button onclick={toggle_theme.clone()} class="sidebar-btn theme-btn">
-                                { if *theme == "dark" { html!{<IconSun />} } else { html!{<IconMoon />} } }
-                                <span>{ if *theme == "dark" { "Light Mode" } else { "Dark Mode" } }</span>
-                            </button>
-                        </div>
-                        <div class="toggle-switch">
-                            <label>
-                                <input type="checkbox" checked={*vim_mode} onchange={toggle_vim_mode} />
-                                {" Vim Mode"}
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div
-                    class={classes!("sidebar-resizer", if *is_resizing { "resizing" } else { "" })}
-                    onmousedown={start_resizing}
-                ></div>
-            </nav>
+            <Drawer
+                is_open={*is_drawer_open}
+                on_close={let is_drawer_open = is_drawer_open.clone(); move |_| is_drawer_open.set(false)}
+            />
+
             <main class="content">
-                <Switch<Route> render={move |routes| switch(routes, *vim_mode)} />
+                <Switch<Route> render={
+                    let vim_mode = *vim_mode;
+                    let is_editing_val = *is_editing;
+                    let on_edit_toggle = on_edit_toggle.clone();
+                    move |routes| switch(routes, vim_mode, is_editing_val, on_edit_toggle.clone())
+                } />
             </main>
-            <CommandPalette on_theme_toggle={toggle_theme.clone()} current_volume={current_volume.clone()} />
+
+            <BottomBar
+                on_toggle_drawer={on_toggle_drawer}
+                on_search={on_search_trigger}
+                on_pull={on_pull_click}
+                on_push={on_push_click}
+                on_commit={on_commit_click}
+                on_edit={on_edit_trigger}
+                commits_ahead={*commits_ahead}
+                commits_behind={*commits_behind}
+                is_drawer_open={*is_drawer_open}
+            />
+
+            <CommandPalette
+                is_open={*is_search_open}
+                on_close={let is_search_open = is_search_open.clone(); move |_| is_search_open.set(false)}
+                on_theme_toggle={toggle_theme.clone()}
+                current_volume={current_volume.clone()}
+            />
+
             if *show_commit_modal {
                 <CommitModal on_close={on_close_commit_modal} volume={current_volume} />
             }
@@ -390,13 +310,25 @@ fn layout() -> Html {
 }
 
 // Switch function
-fn switch(routes: Route, vim_mode: bool) -> Html {
+fn switch(routes: Route, vim_mode: bool, is_editing: bool, on_edit_toggle: Callback<bool>) -> Html {
     match routes {
         Route::Wiki { volume, path } => {
-            html! { <WikiViewer volume={volume} path={path} vim_mode={vim_mode} /> }
+            html! { <WikiViewer
+                volume={volume}
+                path={path}
+                vim_mode={vim_mode}
+                is_editing={is_editing}
+                on_edit_toggle={on_edit_toggle}
+            /> }
         }
         Route::Home => {
-            html! { <WikiViewer volume={"default".to_string()} path={"index.md".to_string()} vim_mode={vim_mode} /> }
+            html! { <WikiViewer
+                volume={"default".to_string()}
+                path={"index.md".to_string()}
+                vim_mode={vim_mode}
+                is_editing={is_editing}
+                on_edit_toggle={on_edit_toggle}
+            /> }
         }
         Route::NotFound => html! { <h1>{ "404 Not Found" }</h1> },
     }
@@ -407,153 +339,13 @@ pub fn run_app() {
     yew::Renderer::<App>::new().render();
 }
 
-#[function_component(VolumeSwitcher)]
-fn volume_switcher() -> Html {
-    let volumes = use_state(Vec::<FileNode>::new);
-    let navigator = use_navigator().unwrap();
-    let route = use_route::<Route>();
-
-    let current_volume = match route {
-        Some(Route::Wiki { volume, .. }) => volume,
-        _ => "default".to_string(),
-    };
-
-    {
-        let volumes = volumes.clone();
-        use_effect_with((), move |_| {
-            wasm_bindgen_futures::spawn_local(async move {
-                let fetched_volumes: Vec<FileNode> = Request::get("/api/tree")
-                    .send()
-                    .await
-                    .unwrap()
-                    .json()
-                    .await
-                    .unwrap_or_default();
-                volumes.set(fetched_volumes);
-            });
-            || ()
-        });
-    }
-
-    let on_change = {
-        let navigator = navigator.clone();
-        Callback::from(move |e: Event| {
-            let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
-            let value = select.value();
-            navigator.push(&Route::Wiki {
-                volume: value,
-                path: "index.md".to_string(),
-            });
-        })
-    };
-
-    if volumes.len() > 1 {
-        html! {
-            <div class="volume-switcher">
-                <select onchange={on_change} value={current_volume}>
-                    { for volumes.iter().map(|v| html! { <option value={v.name.clone()}>{ &v.name }</option> }) }
-                </select>
-            </div>
-        }
-    } else {
-        html! {}
-    }
-}
-
-#[function_component(FileTree)]
-fn file_tree() -> Html {
-    let tree = use_state(Vec::<FileNode>::new);
-    let route = use_route::<Route>();
-
-    let current_volume = match route {
-        Some(Route::Wiki { volume, .. }) => volume,
-        _ => "default".to_string(),
-    };
-
-    {
-        let tree = tree.clone();
-        let volume = current_volume.clone();
-        use_effect_with(volume, move |volume| {
-            let tree = tree.clone();
-            let volume = volume.clone();
-            wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("/api/tree?volume={}", volume);
-                let fetched_tree: Vec<FileNode> = Request::get(&url)
-                    .send()
-                    .await
-                    .unwrap()
-                    .json()
-                    .await
-                    .unwrap_or_default();
-                tree.set(fetched_tree);
-            });
-            || ()
-        });
-    }
-
-    html! {
-        <div class="file-tree">
-            <h3>{ "Files" }</h3>
-            <ul>
-                { for tree.iter().map(|node| html! { <FileTreeNode node={node.clone()} volume={current_volume.clone()} /> }) }
-            </ul>
-        </div>
-    }
-}
-
-#[derive(Properties, PartialEq, Clone)]
-struct FileTreeNodeProps {
-    node: FileNode,
-    volume: String,
-}
-
-#[function_component(FileTreeNode)]
-fn file_tree_node(props: &FileTreeNodeProps) -> Html {
-    let node = &props.node;
-    let volume = &props.volume;
-    // Default to collapsed for directories
-    let is_expanded = use_state(|| false);
-
-    let toggle_expanded = {
-        let is_expanded = is_expanded.clone();
-        Callback::from(move |e: MouseEvent| {
-            e.stop_propagation();
-            is_expanded.set(!*is_expanded);
-        })
-    };
-
-    if node.is_dir {
-        let icon = if *is_expanded { "▼" } else { "▶" };
-        html! {
-            <li>
-                <div onclick={toggle_expanded}>
-                    <span class="tree-toggle">{ icon }</span>
-                    <span class="folder-label folder">{ &node.name }</span>
-                </div>
-                if *is_expanded {
-                    if let Some(children) = &node.children {
-                        <ul>
-                            { for children.iter().map(|child| html! { <FileTreeNode node={child.clone()} volume={volume.clone()} /> }) }
-                        </ul>
-                    }
-                }
-            </li>
-        }
-    } else {
-        // Link to /wiki/path/to/file
-        html! {
-            <li>
-                <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
-            </li>
-        }
-    }
-}
-
 #[derive(Properties, PartialEq, Clone)]
 struct WikiViewerProps {
     volume: String,
     path: String,
     vim_mode: bool,
+    is_editing: bool,
+    on_edit_toggle: Callback<bool>,
 }
 
 #[derive(PartialEq)]
@@ -568,7 +360,11 @@ enum ViewMode {
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let view_mode = use_state(|| ViewMode::Loading);
-    let is_editing = use_state(|| false);
+
+    // We use the prop to control editing state
+    let is_editing = props.is_editing;
+    let on_edit_toggle = props.on_edit_toggle.clone();
+
     let path = props.path.clone();
     let volume = props.volume.clone();
     let vim_mode = props.vim_mode;
@@ -619,9 +415,9 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     // Effect to trigger diagram rendering when content changes or editing ends
     {
         let view_mode = view_mode.clone();
-        let is_editing = is_editing.clone();
+        let is_editing = is_editing;
         use_effect_with(
-            (view_mode.clone(), *is_editing),
+            (view_mode.clone(), is_editing),
             move |(view_mode, is_editing)| {
                 // Only render if we are NOT editing and have a page
                 if !*is_editing {
@@ -646,8 +442,8 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     }
 
     let on_edit_click = {
-        let is_editing = is_editing.clone();
-        Callback::from(move |_| is_editing.set(true))
+        let on_edit_toggle = on_edit_toggle.clone();
+        Callback::from(move |_| on_edit_toggle.emit(true))
     };
 
     let on_delete_click = {
@@ -681,12 +477,14 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         let path = path.clone();
         let volume = volume.clone();
         let view_mode = view_mode.clone();
-        let is_editing = is_editing.clone();
+        let on_edit_toggle = on_edit_toggle.clone();
+
         Callback::from(move |new_content: String| {
             let path = path.clone();
             let volume = volume.clone();
             let view_mode = view_mode.clone();
-            let is_editing = is_editing.clone();
+            let on_edit_toggle = on_edit_toggle.clone();
+
             wasm_bindgen_futures::spawn_local(async move {
                 let page = WikiPage {
                     path: path.clone(),
@@ -701,7 +499,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     if let Ok(r) = resp {
                         if r.ok() {
                             view_mode.set(ViewMode::Page(page));
-                            is_editing.set(false);
+                            on_edit_toggle.emit(false);
                         } else {
                             gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
                         }
@@ -711,7 +509,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         })
     };
 
-    if *is_editing {
+    if is_editing {
         let current_content = match &*view_mode {
             ViewMode::Page(p) => p.content.clone(),
             _ => String::new(),
@@ -721,7 +519,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
              <div class="wiki-editor">
                 <div class="toolbar">
                     <span class="path">{ &path }</span>
-                    <button onclick={let is_editing = is_editing.clone(); move |_| is_editing.set(false)}>{ "Cancel" }</button>
+                    <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)}>{ "Cancel" }</button>
                 </div>
                 <Editor key={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} />
              </div>
