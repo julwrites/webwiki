@@ -132,18 +132,18 @@ pub fn use_key_handler(props: KeyHandlerProps) {
 
                     // Check timeout (1 second for sequence)
                     if timestamp - *last_timeout > 1000.0 {
-                         *buffer = String::new();
+                        *buffer = String::new();
                     }
                     *last_timeout = timestamp;
 
                     if buffer.is_empty() {
-                         if key == bindings.leader {
-                             e.prevent_default();
-                             buffer.push_str(&key);
-                         } else if bindings.edit.contains(&key) {
-                             e.prevent_default();
-                             props.on_edit.emit(());
-                         }
+                        if key == bindings.leader {
+                            e.prevent_default();
+                            buffer.push_str(&key);
+                        } else if bindings.edit.contains(&key) {
+                            e.prevent_default();
+                            props.on_edit.emit(());
+                        }
                     } else {
                         // Buffer not empty, append key
                         e.prevent_default();
@@ -169,9 +169,9 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                             *buffer = String::new();
                         } else {
                             // Check if buffer is still a valid prefix of any command
-                            let is_prefix = expected_pull.starts_with(&*buffer) ||
-                                            expected_push.starts_with(&*buffer) ||
-                                            expected_commit.starts_with(&*buffer);
+                            let is_prefix = expected_pull.starts_with(&*buffer)
+                                || expected_push.starts_with(&*buffer)
+                                || expected_commit.starts_with(&*buffer);
 
                             if !is_prefix {
                                 // Invalid sequence, reset
