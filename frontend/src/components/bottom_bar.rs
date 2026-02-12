@@ -1,5 +1,6 @@
 use crate::components::icons::{
-    IconDownload, IconEdit, IconGitCommit, IconMenu, IconSearch, IconUpload,
+    IconDownload, IconEdit, IconGitCommit, IconHome, IconMenu, IconMoon, IconPlus, IconSearch,
+    IconSun, IconUpload,
 };
 use yew::prelude::*;
 
@@ -11,6 +12,10 @@ pub struct BottomBarProps {
     pub on_push: Callback<()>,
     pub on_commit: Callback<()>,
     pub on_edit: Callback<()>,
+    pub on_home: Callback<()>,
+    pub on_new_file: Callback<()>,
+    pub on_theme_toggle: Callback<()>,
+    pub is_dark: bool,
     pub commits_ahead: usize,
     pub commits_behind: usize,
     pub is_drawer_open: bool,
@@ -24,6 +29,9 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
     let on_push = props.on_push.clone();
     let on_commit = props.on_commit.clone();
     let on_edit = props.on_edit.clone();
+    let on_home = props.on_home.clone();
+    let on_new_file = props.on_new_file.clone();
+    let on_theme_toggle = props.on_theme_toggle.clone();
 
     html! {
         <div class="bottom-bar">
@@ -36,11 +44,21 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                 <IconMenu />
             </button>
 
+            // Home
+            <button class="bottom-bar-btn" onclick={move |_| on_home.emit(())} title="Home">
+                <IconHome />
+            </button>
+
             // Search Trigger (Dominant)
             <div class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())}>
                 <IconSearch />
                 <span>{"Search files..."}</span>
             </div>
+
+            // New File
+            <button class="bottom-bar-btn" onclick={move |_| on_new_file.emit(())} title="New File">
+                <IconPlus />
+            </button>
 
             // Git Controls Group
             <div class="bottom-bar-group">
@@ -64,6 +82,15 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             // Edit Action
              <button class="bottom-bar-btn" onclick={move |_| on_edit.emit(())} title="Edit Page">
                 <IconEdit />
+            </button>
+
+            // Theme Toggle
+             <button class="bottom-bar-btn" onclick={move |_| on_theme_toggle.emit(())} title="Toggle Theme">
+                if props.is_dark {
+                    <IconSun />
+                } else {
+                    <IconMoon />
+                }
             </button>
         </div>
     }
