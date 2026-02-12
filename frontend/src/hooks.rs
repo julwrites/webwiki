@@ -75,11 +75,11 @@ pub fn use_key_handler(props: KeyHandlerProps) {
             let on_keydown = Closure::wrap(Box::new(move |e: KeyboardEvent| {
                 // Ignore if focus is on an input or textarea
                 if let Some(target) = e.target() {
-                    if let Some(_) = target.dyn_ref::<web_sys::HtmlInputElement>() {
+                    if target.dyn_ref::<web_sys::HtmlInputElement>().is_some() {
                         // Allow normal typing in inputs
                         return;
                     }
-                    if let Some(_) = target.dyn_ref::<web_sys::HtmlTextAreaElement>() {
+                    if target.dyn_ref::<web_sys::HtmlTextAreaElement>().is_some() {
                         // Allow normal typing in textareas
                         return;
                     }

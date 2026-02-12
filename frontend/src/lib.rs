@@ -415,7 +415,6 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     // Effect to trigger diagram rendering when content changes or editing ends
     {
         let view_mode = view_mode.clone();
-        let is_editing = is_editing;
         use_effect_with(
             (view_mode.clone(), is_editing),
             move |(view_mode, is_editing)| {
