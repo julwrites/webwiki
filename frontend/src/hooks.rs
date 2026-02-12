@@ -64,7 +64,7 @@ pub fn use_key_handler(props: KeyHandlerProps) {
 
     let last_ctrl_f = use_mut_ref(|| 0.0);
     // Buffer for Leader key sequences
-    let key_buffer = use_mut_ref(|| String::new());
+    let key_buffer = use_mut_ref(String::new);
     let buffer_timeout = use_mut_ref(|| 0.0);
 
     {
