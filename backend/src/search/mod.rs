@@ -19,37 +19,52 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
             continue;
         }
 
-        if let Some(ext) = path.extension() {
-            if ext != "md" {
-                continue;
-            }
-        } else {
+        // Check extension
+        let is_md = path.extension().map_or(false, |ext| ext == "md");
+        
+        // Check filename match
+        let file_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+            
+        let filename_match = file_name.contains(&query_lower);
+
+        if !is_md && !filename_match {
             continue;
         }
 
-        if let Ok(content) = std::fs::read_to_string(path) {
-            let mut file_matches = Vec::new();
-            for line in content.lines() {
-                if line.to_lowercase().contains(&query_lower) {
-                    file_matches.push(line.trim().to_string());
-                    if file_matches.len() >= 3 {
-                        break;
+        let mut file_matches = Vec::new();
+        
+        if filename_match {
+            file_matches.push(format!("Filename match: {}", file_name));
+        }
+
+        if is_md {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                for line in content.lines() {
+                    if line.to_lowercase().contains(&query_lower) {
+                        file_matches.push(line.trim().to_string());
+                        if file_matches.len() >= 3 {
+                            break;
+                        }
                     }
                 }
             }
+        }
 
-            if !file_matches.is_empty() {
-                let relative_path = path
-                    .strip_prefix(root)
-                    .unwrap_or(path)
-                    .to_string_lossy()
-                    .to_string();
-                results.push(SearchResult {
-                    path: relative_path,
-                    matches: file_matches,
-                    volume: None,
-                });
-            }
+        if !file_matches.is_empty() {
+            let relative_path = path
+                .strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .to_string();
+            results.push(SearchResult {
+                path: relative_path,
+                matches: file_matches,
+                volume: None,
+            });
         }
     }
 

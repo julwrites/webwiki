@@ -25,6 +25,7 @@ extern "C" {
         initial_content: &str,
         callback: &Closure<dyn FnMut(String)>,
         vim_mode: bool,
+        on_quit_callback: &Closure<dyn FnMut()>,
     );
     fn wrapSelection(element_id: &str, prefix: &str, suffix: &str);
     fn insertTextAtCursor(element_id: &str, text: &str);
@@ -534,7 +535,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <span class="path">{ &path }</span>
                     <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)}>{ "Cancel" }</button>
                 </div>
-                <Editor key={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} />
+                <Editor key={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
              </div>
         }
     } else {
@@ -647,6 +648,7 @@ struct EditorProps {
     content: String,
     on_save: Callback<String>,
     vim_mode: bool,
+    on_edit_toggle: Callback<bool>,
 }
 
 #[function_component(Editor)]
@@ -654,25 +656,48 @@ fn editor(props: &EditorProps) -> Html {
     let content = props.content.clone();
     let on_save = props.on_save.clone();
     let vim_mode = props.vim_mode;
+    let on_edit_toggle = props.on_edit_toggle.clone();
 
     // Store the closure in a ref to keep it alive
     let closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut(String)>>::None);
+    let quit_closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut()>>::None);
 
     use_effect_with(vim_mode, move |&vim_mode| {
         let on_save = on_save.clone();
+        let on_edit_toggle = on_edit_toggle.clone();
+        let content_initial = content.clone();
 
         let closure = Closure::wrap(Box::new(move |text: String| {
             on_save.emit(text);
         }) as Box<dyn FnMut(String)>);
 
-        setupEditor("code-editor", &content, &closure, vim_mode);
+        let quit_closure = Closure::wrap(Box::new(move || {
+            let window = web_sys::window().unwrap();
+            let confirmed = if let Some(editor) = window
+                .document()
+                .unwrap()
+                .get_element_by_id("code-editor")
+                .and_then(|el| el.dyn_into::<web_sys::HtmlTextAreaElement>().ok()) {
+                    editor.value() == content_initial
+                } else {
+                    true
+                };
+
+            if confirmed || gloo_dialogs::confirm("You have unsaved changes. Are you sure you want to quit?") {
+                on_edit_toggle.emit(false);
+            }
+        }) as Box<dyn FnMut()>);
+
+        setupEditor("code-editor", &content, &closure, vim_mode, &quit_closure);
 
         // Store closure in the ref instead of forgetting it
         *closure_ref.borrow_mut() = Some(closure);
+        *quit_closure_ref.borrow_mut() = Some(quit_closure);
 
         move || {
             // Drop the closure when component unmounts
             *closure_ref.borrow_mut() = None;
+            *quit_closure_ref.borrow_mut() = None;
         }
     });
 

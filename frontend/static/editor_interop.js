@@ -1,4 +1,4 @@
-window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode) {
+window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode, onQuitCallback) {
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
 
@@ -11,6 +11,7 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
             // Already have CodeMirror, just ensure Vim mode
             existingEditor.setOption("keyMap", "vim");
             existingEditor._saveCallback = onSaveCallback;
+            existingEditor._quitCallback = onQuitCallback;
             return;
         }
 
@@ -36,8 +37,16 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
             }
         });
 
+        // Quit command (:q)
+        CodeMirror.Vim.defineEx("quit", "q", function(cm) {
+            if (cm._quitCallback) {
+                cm._quitCallback();
+            }
+        });
+
         // Store the callback on the instance
         editor._saveCallback = onSaveCallback;
+        editor._quitCallback = onQuitCallback;
 
         // Save with Ctrl+S
         editor.setOption("extraKeys", {

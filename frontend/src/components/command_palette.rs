@@ -1,3 +1,4 @@
+use common::FileNode;
 use gloo_net::http::Request;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
@@ -31,15 +32,55 @@ struct CommandItem {
     command_type: CommandType,
 }
 
+fn flatten_tree(node: &FileNode, acc: &mut Vec<String>) {
+    if !node.is_dir {
+        acc.push(node.path.clone());
+    }
+    if let Some(children) = &node.children {
+        for child in children {
+            flatten_tree(child, acc);
+        }
+    }
+}
+
 #[function_component(CommandPalette)]
 pub fn command_palette(props: &Props) -> Html {
     let query = use_state(String::new);
     let selected_index = use_state(|| 0);
     let search_results = use_state(Vec::<SearchResult>::new);
+    let file_list = use_state(Vec::<String>::new); // Client-side file list
     let navigator = use_navigator().unwrap();
     let input_ref = use_node_ref();
     let debounce_timer = use_state(|| None::<gloo_timers::callback::Timeout>);
     let last_request_timestamp = use_state(|| 0.0);
+
+    // Fetch file tree when volume changes or palette opens
+    {
+        let file_list = file_list.clone();
+        let current_volume = props.current_volume.clone();
+        let is_open = props.is_open;
+
+        use_effect_with((current_volume.clone(), is_open), move |(volume, open)| {
+            if *open {
+                let volume = volume.clone();
+                spawn_local(async move {
+                    let url = format!("/api/tree?volume={}", volume);
+                    if let Ok(resp) = Request::get(&url).send().await {
+                        if resp.ok() {
+                            if let Ok(nodes) = resp.json::<Vec<FileNode>>().await {
+                                let mut paths = Vec::new();
+                                for node in nodes {
+                                    flatten_tree(&node, &mut paths);
+                                }
+                                file_list.set(paths);
+                            }
+                        }
+                    }
+                });
+            }
+            || ()
+        });
+    }
 
     let static_commands = {
         let on_theme_toggle = props.on_theme_toggle.clone();
@@ -67,19 +108,21 @@ pub fn command_palette(props: &Props) -> Html {
         })
     };
 
-    // Filtered commands + search results
+    // Filtered commands + file matches + server search results
     let filtered_items = {
         let query = query.clone();
         let static_commands = static_commands.clone();
         let search_results = search_results.clone();
+        let file_list = file_list.clone();
+        let current_volume = props.current_volume.clone();
 
         use_memo(
-            ((*query).clone(), (*search_results).clone()),
-            move |(q, results)| {
+            ((*query).clone(), (*search_results).clone(), (*file_list).clone(), current_volume),
+            move |(q, results, files, volume)| {
                 let mut items = Vec::new();
                 let q_lower = q.to_lowercase();
 
-                // Filter static commands
+                // 1. Static commands
                 for cmd in static_commands.iter() {
                     if cmd.title.to_lowercase().contains(&q_lower)
                         || cmd.description.to_lowercase().contains(&q_lower)
@@ -88,8 +131,30 @@ pub fn command_palette(props: &Props) -> Html {
                     }
                 }
 
-                // Add search results
+                // 2. Client-side file matches (if query length > 1)
+                if q.len() > 1 {
+                    let mut file_matches = 0;
+                    for path in files {
+                        if file_matches >= 10 { break; } // Limit file results
+                        if path.to_lowercase().contains(&q_lower) {
+                             items.push(CommandItem {
+                                title: path.clone(),
+                                description: format!("File in {}", volume),
+                                command_type: CommandType::Navigation(Route::Wiki {
+                                    volume: volume.clone(),
+                                    path: path.clone(),
+                                }),
+                            });
+                            file_matches += 1;
+                        }
+                    }
+                }
+
+                // 3. Server search results
                 for result in results.iter() {
+                    // Avoid duplicates if client-side found it (simple check)
+                    // (Optional optimization: check if path is already in items)
+                    
                     let title = if let Some(ref v) = result.volume {
                         format!("{}: {}", v, result.path)
                     } else {
@@ -265,7 +330,8 @@ pub fn command_palette(props: &Props) -> Html {
 
     html! {
         <div class="command-palette-overlay" onclick={move |_| on_close.emit(())}>
-            <div class="command-palette-modal" onclick={|e: MouseEvent| e.stop_propagation()}>
+            <div class={classes!("command-palette-modal", "bottom-sheet")} onclick={|e: MouseEvent| e.stop_propagation()}>
+                <div class="command-palette-handle"></div>
                 <input
                     ref={input_ref}
                     id="command-palette-input"

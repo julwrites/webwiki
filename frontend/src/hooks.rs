@@ -62,7 +62,6 @@ pub fn use_key_handler(props: KeyHandlerProps) {
     let props_ref = use_mut_ref(move || initial_props);
     *props_ref.borrow_mut() = props;
 
-    let last_ctrl_f = use_mut_ref(|| 0.0);
     // Buffer for Leader key sequences
     let key_buffer = use_mut_ref(String::new);
     let buffer_timeout = use_mut_ref(|| 0.0);
@@ -75,7 +74,6 @@ pub fn use_key_handler(props: KeyHandlerProps) {
             let window = gloo_utils::window();
             let bindings = bindings.clone();
             let props_ref = props_ref.clone();
-            let last_ctrl_f = last_ctrl_f.clone();
             let key_buffer = key_buffer.clone();
             let buffer_timeout = buffer_timeout.clone();
 
@@ -102,24 +100,11 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                 let key = e.key();
                 let timestamp = e.time_stamp();
 
-                // SEARCH CHORD: <Ctrl+f> <Ctrl+f>
-                // Note: browser treats Ctrl+f as a single key event with ctrl_key=true
-                if (e.ctrl_key() || e.meta_key()) && key.to_lowercase() == "f" {
-                    // Prevent browser "Find"
+                // SEARCH SHORTCUT: <Ctrl+o>
+                if (e.ctrl_key() || e.meta_key()) && key.to_lowercase() == "o" {
                     e.prevent_default();
-
-                    let mut last = last_ctrl_f.borrow_mut();
-                    let diff = timestamp - *last;
-
-                    // 50ms < diff < 500ms (debounce slight bounces but catch double taps)
-                    if diff < 500.0 && diff > 50.0 {
-                        // Double press detected
-                        props.on_search.emit(());
-                        *last = 0.0; // Reset
-                    } else {
-                        *last = timestamp;
-                    }
-                    // Reset leader buffer on Ctrl+F
+                    props.on_search.emit(());
+                    // Reset leader buffer
                     *key_buffer.borrow_mut() = String::new();
                     return;
                 }

@@ -418,7 +418,7 @@ body {
     height: 70vh; /* Responsive height */
 }
 
-/* Command Palette */
+/* Command Palette (Bottom Sheet) */
 .command-palette-overlay {
     position: fixed;
     top: 0;
@@ -429,22 +429,43 @@ body {
     z-index: 2000;
     display: flex;
     justify-content: center;
-    align-items: flex-start;
-    padding-top: 50px;
+    align-items: flex-end; /* Align to bottom */
     backdrop-filter: blur(2px);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
-.command-palette-modal {
+.command-palette-modal.bottom-sheet {
     width: 600px;
-    max-width: 95vw;
+    max-width: 100%;
     background-color: var(--color-canvas-default);
-    border: 1px solid var(--color-border-default);
-    border-radius: 6px;
-    box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+    border-top: 1px solid var(--color-border-default);
+    border-left: 1px solid var(--color-border-default);
+    border-right: 1px solid var(--color-border-default);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     max-height: 80vh;
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-bottom: 0;
+}
+
+.command-palette-handle {
+    width: 36px;
+    height: 4px;
+    background-color: var(--color-border-default);
+    border-radius: 2px;
+    margin: 8px auto;
+    flex-shrink: 0;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
 }
 
 .command-palette-input {
@@ -586,21 +607,61 @@ body {
 }
 
 /* Mobile Optimizations */
-@media (max-width: 480px) {
+/* Mobile Optimizations */
+@media (max-width: 600px) {
     .content {
         padding: 0.5rem;
-        padding-bottom: calc(var(--bottom-bar-height) + 1rem);
+        padding-bottom: calc(var(--bottom-bar-height) + 1.5rem);
     }
 
     .markdown-body {
         font-size: 15px;
+        padding: 0 8px; /* Prevent text hitting edges */
     }
 
+    /* Hide text on toolbar buttons on small screens, keep icon */
+    .toolbar-controls button {
+        padding: 8px;
+    }
     .toolbar-controls button span {
-        display: none; /* Hide text on toolbar buttons on very small screens, keep icon */
+        display: none; 
     }
 
+    /* Adjust Bottom Bar */
     .bottom-bar {
         padding: 0 0.5rem;
+        justify-content: space-between;
+    }
+    
+    .bottom-bar-group {
+        display: none; /* Hide git controls on mobile if space is tight, or move to drawer? */
+        /* For now, let's keep them but maybe compact them */
+    }
+    
+    /* Re-enable git controls but make them smaller/icon only if needed (already icon only) */
+    /* Let's actually keep them visible but ensure search bar shrinks */
+    .bottom-bar-group {
+        display: flex;
+    }
+
+    .bottom-bar-search-trigger {
+        margin: 0 4px;
+        min-width: 40px; /* Allow shrinking to just icon */
+        padding: 0;
+        justify-content: center;
+    }
+    
+    .bottom-bar-search-trigger svg {
+         margin-right: 0;
+    }
+
+    /* Modal Adjustments */
+    .modal {
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+        border-radius: 0;
+        max-width: 100%;
     }
 }
+
