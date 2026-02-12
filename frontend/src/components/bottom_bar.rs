@@ -1,5 +1,7 @@
+use crate::components::icons::{
+    IconDownload, IconEdit, IconGitCommit, IconMenu, IconSearch, IconUpload,
+};
 use yew::prelude::*;
-use crate::components::icons::{IconDownload, IconGitCommit, IconMenu, IconSearch, IconUpload, IconEdit};
 
 #[derive(Properties, PartialEq)]
 pub struct BottomBarProps {

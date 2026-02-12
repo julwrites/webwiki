@@ -170,7 +170,7 @@ pub fn command_palette(props: &Props) -> Html {
                     let url = format!("/api/search?q={}", encoded_value);
                     match Request::get(&url).send().await {
                         Ok(resp) if resp.ok() => {
-                             if *last_request_timestamp == current_timestamp {
+                            if *last_request_timestamp == current_timestamp {
                                 if let Ok(data) = resp.json::<Vec<SearchResult>>().await {
                                     search_results.set(data);
                                 }

@@ -53,9 +53,8 @@ pub struct KeyHandlerProps {
 
 #[hook]
 pub fn use_key_handler(props: KeyHandlerProps) {
-    let bindings = use_state(|| {
-        LocalStorage::get("key_bindings").unwrap_or_else(|_| KeyBindings::default())
-    });
+    let bindings =
+        use_state(|| LocalStorage::get("key_bindings").unwrap_or_else(|_| KeyBindings::default()));
 
     let initial_props = props.clone();
     let props_ref = use_mut_ref(move || initial_props);
@@ -129,7 +128,6 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                         props.on_edit.emit(());
                     }
                 }
-
             }) as Box<dyn FnMut(KeyboardEvent)>);
 
             window
@@ -138,7 +136,10 @@ pub fn use_key_handler(props: KeyHandlerProps) {
 
             move || {
                 window
-                    .remove_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref())
+                    .remove_event_listener_with_callback(
+                        "keydown",
+                        on_keydown.as_ref().unchecked_ref(),
+                    )
                     .unwrap();
             }
         });

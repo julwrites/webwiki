@@ -258,8 +258,8 @@ fn layout() -> Html {
     // Key Handler
     use_key_handler(KeyHandlerProps {
         on_search: {
-             let is_search_open = is_search_open.clone();
-             Callback::from(move |_| is_search_open.set(true))
+            let is_search_open = is_search_open.clone();
+            Callback::from(move |_| is_search_open.set(true))
         },
         on_pull: on_pull_click.clone(),
         on_push: on_push_click.clone(),
