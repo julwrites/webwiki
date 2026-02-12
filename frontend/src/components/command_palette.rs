@@ -12,7 +12,7 @@ use crate::Route;
 pub struct Props {
     pub is_open: bool,
     pub on_close: Callback<()>,
-    pub on_theme_toggle: Callback<MouseEvent>,
+    pub on_theme_toggle: Callback<()>,
     pub current_volume: String,
 }
 
@@ -20,7 +20,7 @@ pub struct Props {
 enum CommandType {
     Navigation(Route), // Route
     Action(Callback<()>),
-    Search(String, Option<String>), // Path, Volume
+    Search(String, Option<String>, Option<String>), // Path, Volume, Matches
     CreateFile,
 }
 
@@ -44,6 +44,7 @@ pub fn command_palette(props: &Props) -> Html {
     let static_commands = {
         let on_theme_toggle = props.on_theme_toggle.clone();
         use_memo((), move |_| {
+            let on_theme_toggle = on_theme_toggle.clone();
             vec![
                 CommandItem {
                     title: "Go to Home".to_string(),
@@ -54,7 +55,7 @@ pub fn command_palette(props: &Props) -> Html {
                     title: "Toggle Theme".to_string(),
                     description: "Switch between light and dark mode".to_string(),
                     command_type: CommandType::Action(Callback::from(move |_| {
-                        on_theme_toggle.emit(MouseEvent::new("click").unwrap());
+                        on_theme_toggle.emit(());
                     })),
                 },
                 CommandItem {
@@ -100,6 +101,7 @@ pub fn command_palette(props: &Props) -> Html {
                         command_type: CommandType::Search(
                             result.path.clone(),
                             result.volume.clone(),
+                            result.matches.first().cloned(),
                         ),
                     });
                 }
@@ -200,7 +202,7 @@ pub fn command_palette(props: &Props) -> Html {
             on_close.emit(());
             match item.command_type {
                 CommandType::Navigation(route) => navigator.push(&route),
-                CommandType::Search(path, volume) => navigator.push(&Route::Wiki {
+                CommandType::Search(path, volume, _) => navigator.push(&Route::Wiki {
                     volume: volume.unwrap_or_else(|| "default".to_string()),
                     path,
                 }),

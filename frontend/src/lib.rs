@@ -11,7 +11,7 @@ use components::command_palette::CommandPalette;
 use components::drawer::Drawer;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
-use hooks::{use_key_handler, KeyHandlerProps};
+use hooks::{use_create_file, use_key_handler, KeyHandlerProps};
 use parsers::WikiLinkParser;
 use pulldown_cmark::{html, Options, Parser};
 use wasm_bindgen::prelude::*;
@@ -65,6 +65,7 @@ struct GitStatus {
 #[function_component(Layout)]
 fn layout() -> Html {
     let route = use_route::<Route>();
+    let navigator = use_navigator().unwrap();
     let current_volume = match route {
         Some(Route::Wiki { volume, .. }) => volume,
         _ => "default".to_string(),
@@ -255,6 +256,13 @@ fn layout() -> Html {
         })
     };
 
+    let on_home_click = {
+        let navigator = navigator.clone();
+        Callback::from(move |_| navigator.push(&Route::Home))
+    };
+
+    let on_new_file_click = use_create_file(current_volume.clone());
+
     // Key Handler
     use_key_handler(KeyHandlerProps {
         on_search: {
@@ -266,6 +274,8 @@ fn layout() -> Html {
         on_commit: on_commit_click.clone(),
         on_edit: on_edit_trigger.clone(),
     });
+
+    let is_dark = *theme == "dark";
 
     html! {
         <div class="container">
@@ -290,6 +300,10 @@ fn layout() -> Html {
                 on_push={on_push_click}
                 on_commit={on_commit_click}
                 on_edit={on_edit_trigger}
+                on_home={on_home_click}
+                on_new_file={on_new_file_click}
+                on_theme_toggle={toggle_theme.clone()}
+                is_dark={is_dark}
                 commits_ahead={*commits_ahead}
                 commits_behind={*commits_behind}
                 is_drawer_open={*is_drawer_open}
