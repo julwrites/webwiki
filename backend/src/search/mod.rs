@@ -21,14 +21,14 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
 
         // Check extension
         let is_md = path.extension().map_or(false, |ext| ext == "md");
-        
+
         // Check filename match
         let file_name = path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_lowercase();
-            
+
         let filename_match = file_name.contains(&query_lower);
 
         if !is_md && !filename_match {
@@ -36,7 +36,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
         }
 
         let mut file_matches = Vec::new();
-        
+
         if filename_match {
             file_matches.push(format!("Filename match: {}", file_name));
         }

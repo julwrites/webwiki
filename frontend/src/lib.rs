@@ -677,13 +677,16 @@ fn editor(props: &EditorProps) -> Html {
                 .document()
                 .unwrap()
                 .get_element_by_id("code-editor")
-                .and_then(|el| el.dyn_into::<web_sys::HtmlTextAreaElement>().ok()) {
-                    editor.value() == content_initial
-                } else {
-                    true
-                };
+                .and_then(|el| el.dyn_into::<web_sys::HtmlTextAreaElement>().ok())
+            {
+                editor.value() == content_initial
+            } else {
+                true
+            };
 
-            if confirmed || gloo_dialogs::confirm("You have unsaved changes. Are you sure you want to quit?") {
+            if confirmed
+                || gloo_dialogs::confirm("You have unsaved changes. Are you sure you want to quit?")
+            {
                 on_edit_toggle.emit(false);
             }
         }) as Box<dyn FnMut()>);
