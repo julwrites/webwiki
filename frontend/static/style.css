@@ -155,9 +155,73 @@ body {
     gap: 4px;
 }
 
+/* Git Menu Popup */
+.git-menu-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.desktop-git-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.mobile-git-toggle {
+    display: none;
+}
+
+.git-menu-popup {
+    position: absolute;
+    bottom: 100%;
+    right: -50%;
+    margin-bottom: 8px;
+    background-color: var(--color-canvas-default);
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    gap: 4px;
+    z-index: 1001;
+    min-width: 150px;
+}
+
+.git-menu-popup button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 8px 12px;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: var(--color-fg-default);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.git-menu-popup button:hover {
+    background-color: var(--color-btn-hover-bg);
+}
+
+.git-menu-popup svg {
+    margin-right: 8px;
+}
+
 @media (max-width: 600px) {
     .bottom-bar-search-trigger span {
         display: none; /* Hide text on very small screens, keep icon */
+    }
+
+    .desktop-git-controls {
+        display: none;
+    }
+
+    .mobile-git-toggle {
+        display: flex;
     }
 }
 
@@ -372,6 +436,16 @@ body {
 
 .markdown-body table tr:nth-child(2n) {
     background-color: var(--color-canvas-subtle);
+}
+
+.markdown-body ul, .markdown-body ol {
+    padding-left: 2rem;
+}
+
+.markdown-body ul ul, .markdown-body ul ol,
+.markdown-body ol ul, .markdown-body ol ol {
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 /* Editor Styles */
@@ -640,9 +714,7 @@ body {
     
     /* Re-enable git controls but make them smaller/icon only if needed (already icon only) */
     /* Let's actually keep them visible but ensure search bar shrinks */
-    .bottom-bar-group {
-        display: flex;
-    }
+    /* .bottom-bar-group { display: flex; } - Removed in favor of .desktop-git-controls logic */
 
     .bottom-bar-search-trigger {
         margin: 0 4px;
