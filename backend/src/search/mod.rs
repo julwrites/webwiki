@@ -20,7 +20,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
         }
 
         // Check extension
-        let is_md = path.extension().map_or(false, |ext| ext == "md");
+        let is_md = path.extension().is_some_and(|ext| ext == "md");
 
         // Check filename match
         let file_name = path
