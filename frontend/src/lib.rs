@@ -63,6 +63,44 @@ struct GitStatus {
     commits_behind: usize,
 }
 
+async fn perform_git_fetch(
+    volume: String,
+    commits_ahead: UseStateHandle<usize>,
+    commits_behind: UseStateHandle<usize>,
+) {
+    let url = format!("/api/git/{}/fetch", volume);
+    let resp = Request::post(&url).send().await;
+    if let Ok(r) = resp {
+        if let Ok(status) = r.json::<GitStatus>().await {
+            commits_ahead.set(status.commits_ahead);
+            commits_behind.set(status.commits_behind);
+        }
+    }
+}
+
+fn handle_git_action(volume: String, action: &'static str, refresh: Callback<()>) {
+    wasm_bindgen_futures::spawn_local(async move {
+        let url = format!("/api/git/{}/{}", volume, action);
+        let resp = Request::post(&url).send().await;
+        let action_past = match action {
+            "pull" => "pulled from",
+            "push" => "pushed to",
+            _ => "completed action on",
+        };
+        match resp {
+            Ok(r) if r.ok() => {
+                gloo_dialogs::alert(&format!("Successfully {} remote!", action_past));
+                refresh.emit(());
+            }
+            Ok(r) => {
+                let text = r.text().await.unwrap_or_default();
+                gloo_dialogs::alert(&format!("Failed to {}: {}", action, text));
+            }
+            Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+        }
+    });
+}
+
 #[function_component(Layout)]
 fn layout() -> Html {
     let route = use_route::<Route>();
@@ -131,14 +169,7 @@ fn layout() -> Html {
             let commits_behind = commits_behind.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("/api/git/{}/fetch", volume);
-                let resp = Request::post(&url).send().await;
-                if let Ok(r) = resp {
-                    if let Ok(status) = r.json::<GitStatus>().await {
-                        commits_ahead.set(status.commits_ahead);
-                        commits_behind.set(status.commits_behind);
-                    }
-                }
+                perform_git_fetch(volume, commits_ahead, commits_behind).await;
             });
             || ()
         });
@@ -153,14 +184,7 @@ fn layout() -> Html {
             let commits_ahead = commits_ahead.clone();
             let commits_behind = commits_behind.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("/api/git/{}/fetch", volume);
-                let resp = Request::post(&url).send().await;
-                if let Ok(r) = resp {
-                    if let Ok(status) = r.json::<GitStatus>().await {
-                        commits_ahead.set(status.commits_ahead);
-                        commits_behind.set(status.commits_behind);
-                    }
-                }
+                perform_git_fetch(volume, commits_ahead, commits_behind).await;
             });
         })
     };
@@ -198,49 +222,13 @@ fn layout() -> Html {
     let on_pull_click = {
         let volume = current_volume.clone();
         let refresh = refresh_git_status.clone();
-        Callback::from(move |_| {
-            let volume = volume.clone();
-            let refresh = refresh.clone();
-            wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("/api/git/{}/pull", volume);
-                let resp = Request::post(&url).send().await;
-                match resp {
-                    Ok(r) if r.ok() => {
-                        gloo_dialogs::alert("Successfully pulled from remote!");
-                        refresh.emit(());
-                    }
-                    Ok(r) => {
-                        let text = r.text().await.unwrap_or_default();
-                        gloo_dialogs::alert(&format!("Failed to pull: {}", text));
-                    }
-                    Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
-                }
-            });
-        })
+        Callback::from(move |_| handle_git_action(volume.clone(), "pull", refresh.clone()))
     };
 
     let on_push_click = {
         let volume = current_volume.clone();
         let refresh = refresh_git_status.clone();
-        Callback::from(move |_| {
-            let volume = volume.clone();
-            let refresh = refresh.clone();
-            wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("/api/git/{}/push", volume);
-                let resp = Request::post(&url).send().await;
-                match resp {
-                    Ok(r) if r.ok() => {
-                        gloo_dialogs::alert("Successfully pushed to remote!");
-                        refresh.emit(());
-                    }
-                    Ok(r) => {
-                        let text = r.text().await.unwrap_or_default();
-                        gloo_dialogs::alert(&format!("Failed to push: {}", text));
-                    }
-                    Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
-                }
-            });
-        })
+        Callback::from(move |_| handle_git_action(volume.clone(), "push", refresh.clone()))
     };
 
     let on_commit_click = {
