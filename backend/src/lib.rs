@@ -39,17 +39,9 @@ pub struct AppState {
 pub fn app(state: Arc<AppState>) -> Router {
     let session_store = MemoryStore::default();
 
-    let secret = std::env::var("AUTH_SECRET").unwrap_or_else(|_| {
-        // Fallback for development, should be set in production
-        "a_very_long_and_secure_secret_that_is_at_least_64_bytes_long_for_signing_cookies"
-            .to_string()
-    });
-    let key = tower_sessions::cookie::Key::from(secret.as_bytes());
-
     let session_layer = SessionManagerLayer::new(session_store)
         .with_secure(false) // Set to true in production with HTTPS (Cloudflare handles this)
-        .with_expiry(tower_sessions::Expiry::OnSessionEnd)
-        .with_signed(key);
+        .with_expiry(tower_sessions::Expiry::OnSessionEnd);
 
     // API Router
     let protected_router = Router::new()
@@ -69,7 +61,7 @@ pub fn app(state: Arc<AppState>) -> Router {
 
     let api_router = Router::new()
         .route("/login", post(auth::login))
-        .nest("/", protected_router);
+        .merge(protected_router);
 
     Router::new()
         .route("/wiki/{volume}/{*path}", get(serve_wiki_asset))
