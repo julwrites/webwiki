@@ -1,4 +1,11 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct User {
+    pub username: String,
+    pub permissions: HashMap<String, String>, // volume_name -> "r" or "rw"
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WikiPage {
