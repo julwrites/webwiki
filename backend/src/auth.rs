@@ -1,15 +1,15 @@
+use crate::AppState;
+use axum::Json;
 use axum::{
     extract::{Path, Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
-use tower_sessions::Session;
-use axum::Json;
 use common::User;
 use serde::Deserialize;
 use std::sync::Arc;
-use crate::AppState;
+use tower_sessions::Session;
 
 pub const USER_SESSION_KEY: &str = "user";
 

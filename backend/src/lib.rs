@@ -41,7 +41,8 @@ pub fn app(state: Arc<AppState>) -> Router {
 
     let secret = std::env::var("AUTH_SECRET").unwrap_or_else(|_| {
         // Fallback for development, should be set in production
-        "a_very_long_and_secure_secret_that_is_at_least_64_bytes_long_for_signing_cookies".to_string()
+        "a_very_long_and_secure_secret_that_is_at_least_64_bytes_long_for_signing_cookies"
+            .to_string()
     });
     let key = tower_sessions::cookie::Key::from(secret.as_bytes());
 
@@ -49,7 +50,6 @@ pub fn app(state: Arc<AppState>) -> Router {
         .with_secure(false) // Set to true in production with HTTPS (Cloudflare handles this)
         .with_expiry(tower_sessions::Expiry::OnSessionEnd)
         .with_signed(key);
-
 
     // API Router
     let protected_router = Router::new()
