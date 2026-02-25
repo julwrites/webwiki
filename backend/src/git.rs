@@ -338,7 +338,7 @@ async fn pull_changes(
             return Ok(StatusCode::OK);
         } else if analysis.0.is_fast_forward() {
             let mut reference = repo
-                .find_reference("HEAD")
+                .head()
                 .map_err(|e| format!("Failed to find HEAD: {}", e))?;
             let name = reference.name().unwrap_or("HEAD").to_string();
             let msg = format!(
@@ -349,8 +349,6 @@ async fn pull_changes(
             reference
                 .set_target(fetch_commit.id(), &msg)
                 .map_err(|e| format!("Failed to set HEAD target: {}", e))?;
-            repo.set_head(&name)
-                .map_err(|e| format!("Failed to set HEAD: {}", e))?;
             repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
                 .map_err(|e| format!("Failed to checkout HEAD: {}", e))?;
         } else if analysis.0.is_normal() {
