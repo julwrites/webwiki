@@ -324,12 +324,28 @@ async fn pull_changes(
             .map_err(|e| format!("Git fetch failed: {}", e))?;
 
         // 2. Merge Analysis
-        let fetch_head = repo
-            .find_reference("FETCH_HEAD")
-            .map_err(|e| format!("Failed to find FETCH_HEAD: {}", e))?;
+        let head = repo
+            .head()
+            .map_err(|e| format!("Failed to get HEAD: {}", e))?;
+        let head_name = head
+            .name()
+            .ok_or_else(|| "HEAD has no name".to_string())?;
+        
+        let upstream_name_buf = repo
+            .branch_upstream_name(head_name)
+            .map_err(|e| format!("Failed to get upstream branch name: {}", e))?;
+            
+        let upstream_name = upstream_name_buf
+            .as_str()
+            .ok_or_else(|| "Upstream name not valid UTF-8".to_string())?;
+            
+        let upstream_ref = repo
+            .find_reference(upstream_name)
+            .map_err(|e| format!("Failed to find upstream reference: {}", e))?;
+            
         let fetch_commit = repo
-            .reference_to_annotated_commit(&fetch_head)
-            .map_err(|e| format!("Failed to get annotated commit: {}", e))?;
+            .reference_to_annotated_commit(&upstream_ref)
+            .map_err(|e| format!("Failed to get annotated commit for upstream: {}", e))?;
         let analysis = repo
             .merge_analysis(&[&fetch_commit])
             .map_err(|e| format!("Merge analysis failed: {}", e))?;
@@ -339,7 +355,8 @@ async fn pull_changes(
         } else if analysis.0.is_fast_forward() {
             let mut reference = repo
                 .head()
-                .map_err(|e| format!("Failed to find HEAD: {}", e))?;
+                .and_then(|r| r.resolve())
+                .map_err(|e| format!("Failed to find/resolve HEAD: {}", e))?;
             let name = reference.name().unwrap_or("HEAD").to_string();
             let msg = format!(
                 "Fast-Forward: Setting {} to id: {}",

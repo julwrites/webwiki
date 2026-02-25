@@ -680,6 +680,32 @@ body {
     background-color: var(--color-danger-bg) !important;
 }
 
+/* Login Page Styles */
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: var(--color-canvas-subtle);
+}
+
+.login-card {
+    background-color: var(--color-canvas-default);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.login-card h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: var(--color-fg-default);
+}
+
 /* Mobile Optimizations */
 /* Mobile Optimizations */
 @media (max-width: 600px) {

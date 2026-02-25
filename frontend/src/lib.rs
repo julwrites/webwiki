@@ -1,6 +1,7 @@
 mod commit_modal;
 mod components;
 mod hooks;
+mod login;
 mod parsers;
 mod search_bar;
 
@@ -12,6 +13,7 @@ use components::drawer::Drawer;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
 use hooks::{use_create_file, use_key_handler, KeyHandlerProps};
+use login::Login;
 use parsers::WikiLinkParser;
 use pulldown_cmark::{html, Options, Parser};
 use wasm_bindgen::prelude::*;
@@ -39,6 +41,8 @@ extern "C" {
 pub(crate) enum Route {
     #[at("/wiki/:volume/*path")]
     Wiki { volume: String, path: String },
+    #[at("/login")]
+    Login,
     #[at("/")]
     Home,
     #[not_found]
@@ -71,6 +75,13 @@ async fn perform_git_fetch(
     let url = format!("/api/git/{}/fetch", volume);
     let resp = Request::post(&url).send().await;
     if let Ok(r) = resp {
+        if r.status() == 401 {
+            let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+            if current_path != "/login" {
+                let _ = gloo_utils::window().location().set_href("/login");
+            }
+            return;
+        }
         if let Ok(status) = r.json::<GitStatus>().await {
             commits_ahead.set(status.commits_ahead);
             commits_behind.set(status.commits_behind);
@@ -88,6 +99,12 @@ fn handle_git_action(volume: String, action: &'static str, refresh: Callback<()>
             _ => "completed action on",
         };
         match resp {
+            Ok(r) if r.status() == 401 => {
+                let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                if current_path != "/login" {
+                    let _ = gloo_utils::window().location().set_href("/login");
+                }
+            }
             Ok(r) if r.ok() => {
                 gloo_dialogs::alert(&format!("Successfully {} remote!", action_past));
                 refresh.emit(());
@@ -169,7 +186,10 @@ fn layout() -> Html {
             let commits_behind = commits_behind.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                perform_git_fetch(volume, commits_ahead, commits_behind).await;
+                let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                if current_path != "/login" {
+                    perform_git_fetch(volume, commits_ahead, commits_behind).await;
+                }
             });
             || ()
         });
@@ -184,7 +204,10 @@ fn layout() -> Html {
             let commits_ahead = commits_ahead.clone();
             let commits_behind = commits_behind.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                perform_git_fetch(volume, commits_ahead, commits_behind).await;
+                let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                if current_path != "/login" {
+                    perform_git_fetch(volume, commits_ahead, commits_behind).await;
+                }
             });
         })
     };
@@ -315,6 +338,7 @@ fn layout() -> Html {
 // Switch function
 fn switch(routes: Route, vim_mode: bool, is_editing: bool, on_edit_toggle: Callback<bool>) -> Html {
     match routes {
+        Route::Login => html! { <Login /> },
         Route::Wiki { volume, path } => {
             html! { <WikiViewer
                 volume={volume}
@@ -383,6 +407,13 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 let resp = Request::get(&url).send().await;
 
                 match resp {
+                    Ok(r) if r.status() == 401 => {
+                        let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                        if current_path != "/login" {
+                            let _ = gloo_utils::window().location().set_href("/login");
+                        }
+                        view_mode.set(ViewMode::Error("Unauthorized".to_string()));
+                    }
                     Ok(r) if r.ok() => {
                         let content_type = r.headers().get("Content-Type").unwrap_or_default();
                         if content_type.contains("application/json") {
@@ -459,6 +490,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     let url = format!("/api/wiki/{}/{}", volume, path);
                     let resp = Request::delete(&url).send().await;
                     match resp {
+                        Ok(r) if r.status() == 401 => {
+                            let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                            if current_path != "/login" {
+                                let _ = gloo_utils::window().location().set_href("/login");
+                            }
+                        }
                         Ok(r) if r.ok() => {
                             gloo_dialogs::alert("File deleted.");
                             // Force reload to update file tree
@@ -499,7 +536,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 if let Ok(req) = req {
                     let resp = req.send().await;
                     if let Ok(r) = resp {
-                        if r.ok() {
+                        if r.status() == 401 {
+                            let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                            if current_path != "/login" {
+                                let _ = gloo_utils::window().location().set_href("/login");
+                            }
+                        } else if r.ok() {
                             view_mode.set(ViewMode::Page(page));
                             on_edit_toggle.emit(false);
                         } else {
