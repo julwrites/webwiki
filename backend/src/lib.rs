@@ -1,11 +1,13 @@
+pub mod auth;
 pub mod git;
 
 use axum::extract::Query;
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
+    middleware,
     response::IntoResponse,
-    routing::{delete, get, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use common::{FileNode, WikiPage};
@@ -13,6 +15,7 @@ use git::{git_routes, GitState};
 use std::collections::HashMap;
 use std::{fs, path::PathBuf, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
+use tower_sessions::{MemoryStore, SessionManagerLayer};
 
 pub mod search;
 use search::search_wiki;
@@ -34,20 +37,46 @@ pub struct AppState {
 }
 
 pub fn app(state: Arc<AppState>) -> Router {
+    let session_store = MemoryStore::default();
+
+    let secret = std::env::var("AUTH_SECRET").unwrap_or_else(|_| {
+        // Fallback for development, should be set in production
+        "a_very_long_and_secure_secret_that_is_at_least_64_bytes_long_for_signing_cookies".to_string()
+    });
+    let key = tower_sessions::cookie::Key::from(secret.as_bytes());
+
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_secure(false) // Set to true in production with HTTPS (Cloudflare handles this)
+        .with_expiry(tower_sessions::Expiry::OnSessionEnd)
+        .with_signed(key);
+
+
     // API Router
-    let api_router = Router::new()
+    let protected_router = Router::new()
+        .route("/logout", post(logout_handler))
         .route("/wiki/{volume}/{*path}", get(read_page))
         .route("/wiki/{volume}/{*path}", put(write_page))
         .route("/wiki/{volume}/{*path}", delete(delete_page))
         .route("/tree", get(get_tree))
         .route("/search", get(search_handler))
-        .nest("/git/{volume}", git_routes().with_state(state.clone()));
+        .nest(
+            "/git/{volume}",
+            git_routes()
+                .with_state(state.clone())
+                .layer(middleware::from_fn(auth::require_write_access)),
+        )
+        .layer(middleware::from_fn(auth::require_auth));
+
+    let api_router = Router::new()
+        .route("/login", post(auth::login))
+        .nest("/", protected_router);
 
     Router::new()
         .route("/wiki/{volume}/{*path}", get(serve_wiki_asset))
         .nest("/api", api_router)
         // Serve all other static files from "static" dir, falling back to index.html for SPA routing
         .fallback_service(ServeDir::new("static").fallback(ServeFile::new("static/index.html")))
+        .layer(session_layer)
         .with_state(state)
 }
 
@@ -386,4 +415,9 @@ fn build_file_tree(root: &PathBuf, current: &PathBuf) -> Vec<FileNode> {
     });
 
     nodes
+}
+
+async fn logout_handler(session: tower_sessions::Session) -> impl IntoResponse {
+    let _ = session.delete().await;
+    StatusCode::OK
 }
