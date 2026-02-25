@@ -117,7 +117,12 @@ pub fn command_palette(props: &Props) -> Html {
         let current_volume = props.current_volume.clone();
 
         use_memo(
-            ((*query).clone(), (*search_results).clone(), (*file_list).clone(), current_volume),
+            (
+                (*query).clone(),
+                (*search_results).clone(),
+                (*file_list).clone(),
+                current_volume,
+            ),
             move |(q, results, files, volume)| {
                 let mut items = Vec::new();
                 let q_lower = q.to_lowercase();
@@ -135,9 +140,11 @@ pub fn command_palette(props: &Props) -> Html {
                 if q.len() > 1 {
                     let mut file_matches = 0;
                     for path in files {
-                        if file_matches >= 10 { break; } // Limit file results
+                        if file_matches >= 10 {
+                            break;
+                        } // Limit file results
                         if path.to_lowercase().contains(&q_lower) {
-                             items.push(CommandItem {
+                            items.push(CommandItem {
                                 title: path.clone(),
                                 description: format!("File in {}", volume),
                                 command_type: CommandType::Navigation(Route::Wiki {
@@ -154,7 +161,7 @@ pub fn command_palette(props: &Props) -> Html {
                 for result in results.iter() {
                     // Avoid duplicates if client-side found it (simple check)
                     // (Optional optimization: check if path is already in items)
-                    
+
                     let title = if let Some(ref v) = result.volume {
                         format!("{}: {}", v, result.path)
                     } else {
