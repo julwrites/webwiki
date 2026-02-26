@@ -239,7 +239,9 @@ mod tests {
     fn test_consecutive_wikilinks() {
         let input = "[[Page1]][[Page2]]";
         let output = render(input, "default");
-        assert!(output.contains(r#"<a href="/wiki/default/Page1">Page1</a><a href="/wiki/default/Page2">Page2</a>"#));
+        assert!(output.contains(
+            r#"<a href="/wiki/default/Page1">Page1</a><a href="/wiki/default/Page2">Page2</a>"#
+        ));
     }
 
     #[test]
