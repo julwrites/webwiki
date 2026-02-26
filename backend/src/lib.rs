@@ -95,7 +95,7 @@ async fn serve_wiki_asset(
         let mime = mime_guess::from_path(&file_path).first_or_octet_stream();
 
         let text_extensions = [
-            "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd",
+            "", "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd",
             "drawio", "dio",
         ];
         let ext = file_path
@@ -201,7 +201,7 @@ async fn read_page(
 
     // Explicit text extensions that should be served as WikiPage (text content)
     let text_extensions = [
-        "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd", "drawio",
+        "", "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd", "drawio",
         "dio",
     ];
 

@@ -586,7 +586,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     .to_lowercase();
 
                 let render_content = match ext.as_str() {
-                    "md" | "markdown" => {
+                    "" | "md" | "markdown" => {
                         let html_output = {
                             let mut options = Options::empty();
                             options.insert(Options::ENABLE_TABLES);
