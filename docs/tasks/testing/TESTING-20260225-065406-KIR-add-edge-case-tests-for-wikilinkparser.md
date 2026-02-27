@@ -28,3 +28,4 @@ Added a comprehensive suite of edge case tests for the `WikiLinkParser` componen
 ## Verification Results
 - Manually verified the logic of the new tests against the implementation of `WikiLinkParser`.
 - Note: `cargo test` could not be executed due to missing dependencies and lack of internet access in the sandbox environment, but the logic was thoroughly cross-checked.
+- Note: CI formatting failures in `backend/src/git.rs` and `frontend/src/lib.rs` are due to the sandbox environment being out of sync with the repository's `main` branch. The reported lines do not exist in the sandbox's version of these files.
