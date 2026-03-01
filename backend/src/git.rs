@@ -327,22 +327,20 @@ async fn pull_changes(
         let head = repo
             .head()
             .map_err(|e| format!("Failed to get HEAD: {}", e))?;
-        let head_name = head
-            .name()
-            .ok_or_else(|| "HEAD has no name".to_string())?;
-        
+        let head_name = head.name().ok_or_else(|| "HEAD has no name".to_string())?;
+
         let upstream_name_buf = repo
             .branch_upstream_name(head_name)
             .map_err(|e| format!("Failed to get upstream branch name: {}", e))?;
-            
+
         let upstream_name = upstream_name_buf
             .as_str()
             .ok_or_else(|| "Upstream name not valid UTF-8".to_string())?;
-            
+
         let upstream_ref = repo
             .find_reference(upstream_name)
             .map_err(|e| format!("Failed to find upstream reference: {}", e))?;
-            
+
         let fetch_commit = repo
             .reference_to_annotated_commit(&upstream_ref)
             .map_err(|e| format!("Failed to get annotated commit for upstream: {}", e))?;

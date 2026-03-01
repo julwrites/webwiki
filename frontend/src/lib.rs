@@ -76,7 +76,10 @@ async fn perform_git_fetch(
     let resp = Request::post(&url).send().await;
     if let Ok(r) = resp {
         if r.status() == 401 {
-            let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+            let current_path = gloo_utils::window()
+                .location()
+                .pathname()
+                .unwrap_or_default();
             if current_path != "/login" {
                 let _ = gloo_utils::window().location().set_href("/login");
             }
@@ -100,7 +103,10 @@ fn handle_git_action(volume: String, action: &'static str, refresh: Callback<()>
         };
         match resp {
             Ok(r) if r.status() == 401 => {
-                let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                let current_path = gloo_utils::window()
+                    .location()
+                    .pathname()
+                    .unwrap_or_default();
                 if current_path != "/login" {
                     let _ = gloo_utils::window().location().set_href("/login");
                 }
@@ -186,7 +192,10 @@ fn layout() -> Html {
             let commits_behind = commits_behind.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                let current_path = gloo_utils::window()
+                    .location()
+                    .pathname()
+                    .unwrap_or_default();
                 if current_path != "/login" {
                     perform_git_fetch(volume, commits_ahead, commits_behind).await;
                 }
@@ -204,7 +213,10 @@ fn layout() -> Html {
             let commits_ahead = commits_ahead.clone();
             let commits_behind = commits_behind.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                let current_path = gloo_utils::window()
+                    .location()
+                    .pathname()
+                    .unwrap_or_default();
                 if current_path != "/login" {
                     perform_git_fetch(volume, commits_ahead, commits_behind).await;
                 }
@@ -408,7 +420,10 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 
                 match resp {
                     Ok(r) if r.status() == 401 => {
-                        let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                        let current_path = gloo_utils::window()
+                            .location()
+                            .pathname()
+                            .unwrap_or_default();
                         if current_path != "/login" {
                             let _ = gloo_utils::window().location().set_href("/login");
                         }
@@ -491,7 +506,10 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     let resp = Request::delete(&url).send().await;
                     match resp {
                         Ok(r) if r.status() == 401 => {
-                            let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                            let current_path = gloo_utils::window()
+                                .location()
+                                .pathname()
+                                .unwrap_or_default();
                             if current_path != "/login" {
                                 let _ = gloo_utils::window().location().set_href("/login");
                             }
@@ -537,7 +555,10 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     let resp = req.send().await;
                     if let Ok(r) = resp {
                         if r.status() == 401 {
-                            let current_path = gloo_utils::window().location().pathname().unwrap_or_default();
+                            let current_path = gloo_utils::window()
+                                .location()
+                                .pathname()
+                                .unwrap_or_default();
                             if current_path != "/login" {
                                 let _ = gloo_utils::window().location().set_href("/login");
                             }
