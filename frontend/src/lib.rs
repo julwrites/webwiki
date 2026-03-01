@@ -35,6 +35,7 @@ extern "C" {
     fn renderMermaid();
     fn renderGraphviz(element_id: &str, content: &str);
     fn renderDrawio(element_id: &str, xml: &str);
+    fn getEditorContent(element_id: &str) -> String;
 }
 
 #[derive(Clone, Routable, PartialEq)]
@@ -692,8 +693,10 @@ fn editor(props: &EditorProps) -> Html {
     let closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut(String)>>::None);
     let quit_closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut()>>::None);
 
+    let on_save_for_effect = on_save.clone();
+
     use_effect_with(vim_mode, move |&vim_mode| {
-        let on_save = on_save.clone();
+        let on_save = on_save_for_effect;
         let on_edit_toggle = on_edit_toggle.clone();
         let content_initial = content.clone();
 
@@ -758,9 +761,20 @@ fn editor(props: &EditorProps) -> Html {
         toggleHeader("code-editor", 3);
     });
 
+    let on_save_click = {
+        let on_save = on_save.clone();
+        Callback::from(move |_| {
+            let current_content = getEditorContent("code-editor");
+            on_save.emit(current_content);
+        })
+    };
+
     html! {
         <div class="editor-container">
             <div class="editor-toolbar-actions">
+                <div class="btn-group">
+                    <button class="toolbar-btn" onclick={on_save_click} title="Save"><strong>{"Save"}</strong></button>
+                </div>
                 <div class="btn-group">
                     <button class="toolbar-btn" onclick={on_bold_click} title="Bold"><strong>{"B"}</strong></button>
                     <button class="toolbar-btn" onclick={on_italic_click} title="Italic"><em>{"I"}</em></button>
