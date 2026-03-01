@@ -192,6 +192,17 @@ window.toggleHeader = function(elementId, level) {
     }
 };
 
+window.getEditorContent = function(elementId) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return "";
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (cm) {
+        return cm.getValue();
+    } else {
+        return textArea.value;
+    }
+};
+
 window.renderMermaid = function() {
     if (window.mermaid) {
         // mermaid.run() is available in v10+

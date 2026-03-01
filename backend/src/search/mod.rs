@@ -20,8 +20,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
         }
 
         // Check extension
-        let is_md = path.extension().map_or(
-            true, // Treat no-extension files as markdown
+        let is_md = path.extension().is_none_or(
             |ext| ext == "md" || ext == "markdown",
         );
 
