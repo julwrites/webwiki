@@ -11,8 +11,8 @@ struct LoginRequest {
 
 #[function_component(Login)]
 pub fn login() -> Html {
-    let username = use_state(String::new);
-    let password = use_state(String::new);
+    let username = use_state(|| String::new());
+    let password = use_state(|| String::new());
     let error_msg = use_state(|| Option::<String>::None);
     let is_loading = use_state(|| false);
 
