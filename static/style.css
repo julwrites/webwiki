@@ -624,7 +624,7 @@ body {
         padding: 8px;
     }
     .toolbar-controls button span {
-        display: none; 
+        display: none;
     }
 
     /* Adjust Bottom Bar */
@@ -632,12 +632,12 @@ body {
         padding: 0 0.5rem;
         justify-content: space-between;
     }
-    
+
     .bottom-bar-group {
         display: none; /* Hide git controls on mobile if space is tight, or move to drawer? */
         /* For now, let's keep them but maybe compact them */
     }
-    
+
     /* Re-enable git controls but make them smaller/icon only if needed (already icon only) */
     /* Let's actually keep them visible but ensure search bar shrinks */
     .bottom-bar-group {
@@ -650,7 +650,7 @@ body {
         padding: 0;
         justify-content: center;
     }
-    
+
     .bottom-bar-search-trigger svg {
          margin-right: 0;
     }
@@ -664,4 +664,3 @@ body {
         max-width: 100%;
     }
 }
-

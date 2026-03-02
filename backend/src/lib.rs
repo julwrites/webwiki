@@ -201,8 +201,8 @@ async fn read_page(
 
     // Explicit text extensions that should be served as WikiPage (text content)
     let text_extensions = [
-        "", "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd", "drawio",
-        "dio",
+        "", "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd",
+        "drawio", "dio",
     ];
 
     let ext = file_path
