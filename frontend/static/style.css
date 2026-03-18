@@ -506,8 +506,9 @@ body {
 
 .editor-container .CodeMirror {
     border: none;
-    height: 70vh;
-    /* Responsive height */
+    height: 70dvh;
+    min-height: 400px;
+    /* Responsive height with fallback to prevent squishing on mobile */
 }
 
 /* Command Palette (Bottom Sheet) */
