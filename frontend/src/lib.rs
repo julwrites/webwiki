@@ -35,6 +35,8 @@ extern "C" {
     fn renderMermaid();
     fn renderGraphviz(element_id: &str, content: &str);
     fn renderDrawio(element_id: &str, xml: &str);
+    fn triggerSave(element_id: &str);
+    fn insertDateTime(element_id: &str);
 }
 
 #[derive(Clone, Routable, PartialEq)]
@@ -779,6 +781,14 @@ fn editor(props: &EditorProps) -> Html {
         toggleHeader("code-editor", 3);
     });
 
+    let on_save_click = Callback::from(|_| {
+        triggerSave("code-editor");
+    });
+
+    let on_date_click = Callback::from(|_| {
+        insertDateTime("code-editor");
+    });
+
     html! {
         <div class="editor-container">
             <div class="editor-toolbar-actions">
@@ -791,6 +801,10 @@ fn editor(props: &EditorProps) -> Html {
                     <button class="toolbar-btn" onclick={on_h1_click} title="Heading 1">{"H1"}</button>
                     <button class="toolbar-btn" onclick={on_h2_click} title="Heading 2">{"H2"}</button>
                     <button class="toolbar-btn" onclick={on_h3_click} title="Heading 3">{"H3"}</button>
+                </div>
+                <div class="btn-group">
+                    <button class="toolbar-btn save-btn" onclick={on_save_click} title="Save">{"Save"}</button>
+                    <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time">{"Date"}</button>
                 </div>
             </div>
             <textarea id="code-editor" />

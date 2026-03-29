@@ -473,6 +473,8 @@ body {
     border-radius: 6px;
     background-color: var(--color-canvas-default);
     height: 100%;
+    flex: 1;
+    min-height: 400px;
 }
 
 .editor-toolbar-actions {
@@ -506,7 +508,8 @@ body {
 
 .editor-container .CodeMirror {
     border: none;
-    height: 70dvh;
+    flex: 1;
+    height: auto;
     min-height: 400px;
     /* Responsive height with fallback to prevent squishing on mobile */
 }
