@@ -586,7 +586,10 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
              <div class="wiki-editor">
                 <div class="toolbar">
                     <span class="path">{ &path }</span>
-                    <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)}>{ "Cancel" }</button>
+                    <div class="toolbar-controls">
+                        <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)}>{ "Cancel" }</button>
+                        <button onclick={Callback::from(|_| triggerSave("code-editor"))} style="background-color: var(--color-accent-fg); color: #ffffff; border-color: transparent;">{ "Save" }</button>
+                    </div>
                 </div>
                 <Editor key={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
              </div>
@@ -781,10 +784,6 @@ fn editor(props: &EditorProps) -> Html {
         toggleHeader("code-editor", 3);
     });
 
-    let on_save_click = Callback::from(|_| {
-        triggerSave("code-editor");
-    });
-
     let on_date_click = Callback::from(|_| {
         insertDateTime("code-editor");
     });
@@ -803,7 +802,6 @@ fn editor(props: &EditorProps) -> Html {
                     <button class="toolbar-btn" onclick={on_h3_click} title="Heading 3">{"H3"}</button>
                 </div>
                 <div class="btn-group">
-                    <button class="toolbar-btn save-btn" onclick={on_save_click} title="Save">{"Save"}</button>
                     <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time">{"Date"}</button>
                 </div>
             </div>
