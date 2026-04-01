@@ -13,7 +13,7 @@ use axum::{
 use common::{FileNode, WikiPage};
 use git::{git_routes, GitState};
 use std::collections::HashMap;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 
@@ -91,28 +91,30 @@ async fn serve_wiki_asset(
         return (StatusCode::FORBIDDEN, "Access denied").into_response();
     }
 
-    if file_path.exists() && file_path.is_file() {
-        let mime = mime_guess::from_path(&file_path).first_or_octet_stream();
+    if let Ok(meta) = tokio::fs::metadata(&file_path).await {
+        if meta.is_file() {
+            let mime = mime_guess::from_path(&file_path).first_or_octet_stream();
 
-        let text_extensions = [
-            "", "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid", "mmd",
-            "drawio", "dio",
-        ];
-        let ext = file_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+            let text_extensions = [
+                "", "md", "markdown", "json", "toml", "yaml", "yml", "opml", "dot", "mermaid",
+                "mmd", "drawio", "dio",
+            ];
+            let ext = file_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
 
-        if !text_extensions.contains(&ext.as_str()) {
-            if let Ok(bytes) = fs::read(&file_path) {
-                return ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response();
+            if !text_extensions.contains(&ext.as_str()) {
+                if let Ok(bytes) = tokio::fs::read(&file_path).await {
+                    return ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response();
+                }
             }
         }
     }
 
     // Fallback to index.html
-    match fs::read_to_string("static/index.html") {
+    match tokio::fs::read_to_string("static/index.html").await {
         Ok(content) => ([(header::CONTENT_TYPE, "text/html")], content).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "index.html not found").into_response(),
     }
@@ -181,9 +183,10 @@ async fn read_page(
     let mut file_path = wiki_path.join(&path);
 
     // If it's a directory or likely a wikilink without extension, try adding .md
-    if !file_path.exists() || file_path.is_dir() {
+    let meta = tokio::fs::metadata(&file_path).await.ok();
+    if meta.is_none() || meta.map(|m| m.is_dir()).unwrap_or(false) {
         let md_path = file_path.with_extension("md");
-        if md_path.exists() {
+        if tokio::fs::metadata(&md_path).await.is_ok() {
             file_path = md_path;
         }
     }
@@ -193,9 +196,10 @@ async fn read_page(
         return (StatusCode::FORBIDDEN, "Access denied").into_response();
     }
 
-    if !file_path.exists() {
-        return (StatusCode::NOT_FOUND, "Page not found").into_response();
-    }
+    let final_meta = match tokio::fs::metadata(&file_path).await {
+        Ok(meta) => meta,
+        Err(_) => return (StatusCode::NOT_FOUND, "Page not found").into_response(),
+    };
 
     let mime = mime_guess::from_path(&file_path).first_or_text_plain();
 
@@ -214,10 +218,7 @@ async fn read_page(
     let is_explicit_text = text_extensions.contains(&ext.as_str());
 
     // Check if file is small (< 2MB)
-    let is_small = match fs::metadata(&file_path) {
-        Ok(meta) => meta.len() < 2 * 1024 * 1024,
-        Err(_) => false,
-    };
+    let is_small = final_meta.len() < 2 * 1024 * 1024;
 
     // Determine if we should attempt to serve as WikiPage (text content)
     // 1. Explicit text extension
@@ -228,7 +229,7 @@ async fn read_page(
     let should_try_text = is_explicit_text || (is_small && !is_image_or_pdf);
 
     if should_try_text {
-        match fs::read(&file_path) {
+        match tokio::fs::read(&file_path).await {
             Ok(bytes) => {
                 // Try to convert to UTF-8 string
                 match String::from_utf8(bytes.clone()) {
@@ -243,7 +244,7 @@ async fn read_page(
         }
     } else {
         // Binary / Image / PDF / Large Unknown
-        match fs::read(&file_path) {
+        match tokio::fs::read(&file_path).await {
             Ok(bytes) => ([(header::CONTENT_TYPE, mime.to_string())], bytes).into_response(),
             Err(_) => (StatusCode::NOT_FOUND, "File not found").into_response(),
         }
@@ -273,7 +274,7 @@ async fn write_page(
 
     // Ensure parent directory exists
     if let Some(parent) = file_path.parent() {
-        if fs::create_dir_all(parent).is_err() {
+        if tokio::fs::create_dir_all(parent).await.is_err() {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to create directory",
@@ -282,7 +283,7 @@ async fn write_page(
         }
     }
 
-    match fs::write(&file_path, payload.content) {
+    match tokio::fs::write(&file_path, payload.content).await {
         Ok(_) => (StatusCode::OK, "Saved").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -308,11 +309,12 @@ async fn delete_page(
         return (StatusCode::FORBIDDEN, "Access denied").into_response();
     }
 
-    if !file_path.exists() {
-        return (StatusCode::NOT_FOUND, "File not found").into_response();
-    }
+    let meta = match tokio::fs::metadata(&file_path).await {
+        Ok(m) => m,
+        Err(_) => return (StatusCode::NOT_FOUND, "File not found").into_response(),
+    };
 
-    if file_path.is_dir() {
+    if meta.is_dir() {
         match tokio::fs::remove_dir_all(&file_path).await {
             Ok(_) => (StatusCode::OK, "Deleted").into_response(),
             Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
@@ -336,7 +338,12 @@ async fn get_tree(
             None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
         };
 
-        let tree = build_file_tree(wiki_path, wiki_path);
+        let wiki_path_clone = wiki_path.clone();
+        let tree = tokio::task::spawn_blocking(move || {
+            build_file_tree(&wiki_path_clone, &wiki_path_clone)
+        })
+        .await
+        .unwrap_or_default();
         Json(tree).into_response()
     } else {
         // Return list of volumes as directories
@@ -358,7 +365,7 @@ async fn get_tree(
 fn build_file_tree(root: &PathBuf, current: &PathBuf) -> Vec<FileNode> {
     let mut nodes = Vec::new();
 
-    if let Ok(entries) = fs::read_dir(current) {
+    if let Ok(entries) = std::fs::read_dir(current) {
         for entry in entries.flatten() {
             let path = entry.path();
 
