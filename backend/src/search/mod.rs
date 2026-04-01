@@ -102,7 +102,9 @@ mod tests {
         let results = search_wiki(&root, "secret");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "note.md");
-        assert!(results[0].matches.contains(&"This is a secret note about Rust.".to_string()));
+        assert!(results[0]
+            .matches
+            .contains(&"This is a secret note about Rust.".to_string()));
     }
 
     #[test]
@@ -134,7 +136,10 @@ mod tests {
         let results = search_wiki(&root, "rust");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].path, "Note.md");
-        assert!(results[0].matches.iter().any(|m| m.contains("RUST IS GREAT")));
+        assert!(results[0]
+            .matches
+            .iter()
+            .any(|m| m.contains("RUST IS GREAT")));
     }
 
     #[test]
