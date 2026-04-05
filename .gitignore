@@ -2,3 +2,16 @@ target/
 **/*.rs.bk
 *.swp
 .env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.DS_Store
+
+.agents/registry/*.json
+.agents/messages/**/*.json
+!.agents/**/.keep
+logs/
