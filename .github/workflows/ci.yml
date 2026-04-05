@@ -92,3 +92,33 @@ jobs:
           context: .
           push: false
           tags: vimwiki-server:latest
+
+  test-python:
+    name: Test Python Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Run Unit Tests
+        run: python3 -m unittest discover tests
+
+  automerge:
+    needs: [test-backend-common, test-frontend, test-python, build-docker]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'julwrites' && github.event.pull_request.base.ref == 'main'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Automerge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr review --approve "$PR_URL" || true
+          gh pr merge --rebase --delete-branch "$PR_URL"
