@@ -1,6 +1,6 @@
 use crate::components::icons::{
     IconDownload, IconEdit, IconGitCommit, IconHome, IconMenu, IconMoon, IconPlus, IconSearch,
-    IconSun, IconUpload,
+    IconSun, IconUpload, IconSettings,
 };
 use yew::prelude::*;
 
@@ -15,6 +15,7 @@ pub struct BottomBarProps {
     pub on_home: Callback<()>,
     pub on_new_file: Callback<()>,
     pub on_theme_toggle: Callback<()>,
+    pub on_settings: Callback<()>,
     pub is_dark: bool,
     pub commits_ahead: usize,
     pub commits_behind: usize,
@@ -152,6 +153,11 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             // Edit Action
              <button class="bottom-bar-btn" onclick={move |_| on_edit.emit(())} title="Edit Page">
                 <IconEdit />
+            </button>
+
+            // Settings
+            <button class="bottom-bar-btn" onclick={let on_settings = props.on_settings.clone(); move |_| on_settings.emit(())} title="Settings">
+                <IconSettings />
             </button>
 
             // Theme Toggle

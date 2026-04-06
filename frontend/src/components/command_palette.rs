@@ -14,6 +14,7 @@ pub struct Props {
     pub is_open: bool,
     pub on_close: Callback<()>,
     pub on_theme_toggle: Callback<()>,
+    pub on_settings: Callback<()>,
     pub current_volume: String,
 }
 
@@ -84,8 +85,10 @@ pub fn command_palette(props: &Props) -> Html {
 
     let static_commands = {
         let on_theme_toggle = props.on_theme_toggle.clone();
+        let on_settings = props.on_settings.clone();
         use_memo((), move |_| {
             let on_theme_toggle = on_theme_toggle.clone();
+            let on_settings = on_settings.clone();
             vec![
                 CommandItem {
                     title: "Go to Home".to_string(),
@@ -97,6 +100,13 @@ pub fn command_palette(props: &Props) -> Html {
                     description: "Switch between light and dark mode".to_string(),
                     command_type: CommandType::Action(Callback::from(move |_| {
                         on_theme_toggle.emit(());
+                    })),
+                },
+                CommandItem {
+                    title: "Configure Keybindings".to_string(),
+                    description: "Open settings to configure keybindings".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_settings.emit(());
                     })),
                 },
                 CommandItem {
