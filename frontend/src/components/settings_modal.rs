@@ -79,7 +79,7 @@ pub fn settings_modal(props: &Props) -> Html {
             let kb = (*keybindings).clone();
 
             // Validation to prevent conflicts
-            let actions = vec![
+            let actions = [
                 (&kb.pull, "Pull"),
                 (&kb.push, "Push"),
                 (&kb.commit, "Commit"),
