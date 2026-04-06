@@ -90,7 +90,10 @@ pub fn settings_modal(props: &Props) -> Html {
             for i in 0..actions.len() {
                 for j in (i + 1)..actions.len() {
                     if actions[i].0 == actions[j].0 {
-                        error_msg.set(format!("Conflict: {} and {} have the same keybinding", actions[i].1, actions[j].1));
+                        error_msg.set(format!(
+                            "Conflict: {} and {} have the same keybinding",
+                            actions[i].1, actions[j].1
+                        ));
                         has_conflict = true;
                         break;
                     }
@@ -112,7 +115,9 @@ pub fn settings_modal(props: &Props) -> Html {
             // Right now use_key_handler only picks up on mount. We will fix that later or force reload.
             // For now, prompt the user that a reload is required for changes to take effect,
             // or we'll solve it in the hook logic directly.
-            gloo_dialogs::alert("Keybindings saved! A page reload might be required for changes to fully apply.");
+            gloo_dialogs::alert(
+                "Keybindings saved! A page reload might be required for changes to fully apply.",
+            );
             on_close.emit(());
         })
     };

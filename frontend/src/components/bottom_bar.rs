@@ -1,6 +1,6 @@
 use crate::components::icons::{
     IconDownload, IconEdit, IconGitCommit, IconHome, IconMenu, IconMoon, IconPlus, IconSearch,
-    IconSun, IconUpload, IconSettings,
+    IconSettings, IconSun, IconUpload,
 };
 use yew::prelude::*;
 
