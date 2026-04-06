@@ -10,6 +10,7 @@ use common::WikiPage;
 use components::bottom_bar::BottomBar;
 use components::command_palette::CommandPalette;
 use components::drawer::Drawer;
+use components::settings_modal::SettingsModal;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
 use hooks::{use_create_file, use_key_handler, KeyHandlerProps};
@@ -136,6 +137,7 @@ fn layout() -> Html {
     };
 
     let show_commit_modal = use_state(|| false);
+    let show_settings_modal = use_state(|| false);
     let is_drawer_open = use_state(|| false);
     let is_search_open = use_state(|| false);
     let is_editing = use_state(|| false);
@@ -233,6 +235,16 @@ fn layout() -> Html {
             let _ = gloo_storage::LocalStorage::set("theme", new_theme);
             theme.set(new_theme.to_string());
         })
+    };
+
+    let on_toggle_settings = {
+        let show_settings_modal = show_settings_modal.clone();
+        Callback::from(move |_| show_settings_modal.set(!*show_settings_modal))
+    };
+
+    let on_close_settings = {
+        let show_settings_modal = show_settings_modal.clone();
+        Callback::from(move |_| show_settings_modal.set(false))
     };
 
     // Actions
@@ -333,17 +345,23 @@ fn layout() -> Html {
                 commits_ahead={*commits_ahead}
                 commits_behind={*commits_behind}
                 is_drawer_open={*is_drawer_open}
+                on_settings={on_toggle_settings.clone()}
             />
 
             <CommandPalette
                 is_open={*is_search_open}
                 on_close={let is_search_open = is_search_open.clone(); move |_| is_search_open.set(false)}
                 on_theme_toggle={toggle_theme.clone()}
+                on_settings={on_toggle_settings.clone()}
                 current_volume={current_volume.clone()}
             />
 
             if *show_commit_modal {
                 <CommitModal on_close={on_close_commit_modal} volume={current_volume} />
+            }
+
+            if *show_settings_modal {
+                <SettingsModal on_close={on_close_settings} />
             }
         </div>
     }
