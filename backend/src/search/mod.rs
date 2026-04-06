@@ -2,6 +2,24 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
+fn is_fuzzy_match(text: &str, query: &str) -> bool {
+    let mut query_chars = query.chars().peekable();
+    if query_chars.peek().is_none() {
+        return true;
+    }
+    for c in text.chars() {
+        if let Some(&qc) = query_chars.peek() {
+            if c == qc {
+                query_chars.next();
+                if query_chars.peek().is_none() {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct SearchResult {
     pub path: String,
@@ -31,7 +49,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
             .unwrap_or("")
             .to_lowercase();
 
-        let filename_match = file_name.contains(&query_lower);
+        let filename_match = is_fuzzy_match(&file_name, &query_lower);
 
         if !is_md && !filename_match {
             continue;
@@ -169,6 +187,28 @@ mod tests {
 
         let results = search_wiki(&root, "nonexistent");
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_fuzzy_match() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+
+        // Create files that should match "note2026"
+        fs::write(root.join("DailyNotes2026.md"), "content").unwrap();
+        fs::write(root.join("Notes_2026.md"), "content").unwrap();
+        fs::write(root.join("DiscussionNotes2026.md"), "content").unwrap();
+
+        // Create a file that should NOT match
+        fs::write(root.join("Notes_2025.md"), "content").unwrap();
+
+        let results = search_wiki(&root, "note2026");
+        assert_eq!(results.len(), 3);
+
+        let paths: std::collections::HashSet<_> = results.into_iter().map(|r| r.path).collect();
+        assert!(paths.contains("DailyNotes2026.md"));
+        assert!(paths.contains("Notes_2026.md"));
+        assert!(paths.contains("DiscussionNotes2026.md"));
     }
 
     #[test]
