@@ -375,7 +375,11 @@ async fn pull_changes(
             repo.merge(&[&fetch_commit], None, None)
                 .map_err(|e| format!("Merge failed: {}", e))?;
 
-            if repo.index().unwrap().has_conflicts() {
+            let mut index = repo
+                .index()
+                .map_err(|e| format!("Failed to get index: {}", e))?;
+
+            if index.has_conflicts() {
                 return Err("Merge resulted in conflicts. Please resolve manually.".to_string());
             }
 
@@ -384,9 +388,6 @@ async fn pull_changes(
                 .signature()
                 .map_err(|e| format!("Failed to get signature: {}", e))?;
 
-            let mut index = repo
-                .index()
-                .map_err(|e| format!("Failed to get index: {}", e))?;
             let tree_id = index
                 .write_tree()
                 .map_err(|e| format!("Failed to write tree: {}", e))?;
@@ -460,13 +461,7 @@ async fn commit_changes(
         let signature = git2::Signature::now(&payload.author_name, &payload.author_email)
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let parent_commit = match repo.head() {
-            Ok(head) => {
-                let target = head.target().unwrap();
-                Some(repo.find_commit(target).unwrap())
-            }
-            Err(_) => None,
-        };
+        let parent_commit = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
 
         let parents = if let Some(ref parent) = parent_commit {
             vec![parent]
