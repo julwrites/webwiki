@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Volume Configuration
     let volumes_env = std::env::var("VOLUMES").ok();
     let volumes: HashMap<String, PathBuf> = if let Some(v_str) = volumes_env {
@@ -33,6 +33,8 @@ async fn main() {
     // run it
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
