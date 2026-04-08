@@ -123,13 +123,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
 
                 let request = match Request::post(&url)
                     .header("Content-Type", "application/json")
-                    .body(body_str) {
-                        Ok(req) => req,
-                        Err(e) => {
-                            error.set(format!("Failed to build request: {}", e));
-                            return;
-                        }
-                    };
+                    .body(body_str)
+                {
+                    Ok(req) => req,
+                    Err(e) => {
+                        error.set(format!("Failed to build request: {}", e));
+                        return;
+                    }
+                };
 
                 let resp = request.send().await;
 
@@ -178,13 +179,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
 
                 let request = match Request::post(&url)
                     .header("Content-Type", "application/json")
-                    .body(body_str) {
-                        Ok(req) => req,
-                        Err(e) => {
-                            error.set(format!("Failed to build request: {}", e));
-                            return;
-                        }
-                    };
+                    .body(body_str)
+                {
+                    Ok(req) => req,
+                    Err(e) => {
+                        error.set(format!("Failed to build request: {}", e));
+                        return;
+                    }
+                };
 
                 let resp = request.send().await;
 
