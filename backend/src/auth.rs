@@ -24,7 +24,10 @@ pub async fn login(
     session: Session,
     Json(payload): Json<LoginRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let expected_username = std::env::var("WIKI_USERNAME").unwrap_or_else(|_| "admin".to_string());
+    let expected_username = std::env::var("WIKI_USERNAME").map_err(|_| {
+        eprintln!("WIKI_USERNAME environment variable is not set!");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     let expected_password = std::env::var("WIKI_PASSWORD").map_err(|_| {
         eprintln!("WIKI_PASSWORD environment variable is not set!");
         StatusCode::INTERNAL_SERVER_ERROR
