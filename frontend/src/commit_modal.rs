@@ -112,12 +112,26 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 };
 
                 let url = format!("/api/git/{}/commit", volume);
-                let resp = Request::post(&url)
+
+                let body_str = match serde_json::to_string(&req) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        error.set(format!("Failed to serialize request: {}", e));
+                        return;
+                    }
+                };
+
+                let request = match Request::post(&url)
                     .header("Content-Type", "application/json")
-                    .body(serde_json::to_string(&req).unwrap())
-                    .unwrap()
-                    .send()
-                    .await;
+                    .body(body_str) {
+                        Ok(req) => req,
+                        Err(e) => {
+                            error.set(format!("Failed to build request: {}", e));
+                            return;
+                        }
+                    };
+
+                let resp = request.send().await;
 
                 match resp {
                     Ok(r) if r.ok() => {
@@ -153,12 +167,26 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 };
 
                 let url = format!("/api/git/{}/restore", volume);
-                let resp = Request::post(&url)
+
+                let body_str = match serde_json::to_string(&req) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        error.set(format!("Failed to serialize request: {}", e));
+                        return;
+                    }
+                };
+
+                let request = match Request::post(&url)
                     .header("Content-Type", "application/json")
-                    .body(serde_json::to_string(&req).unwrap())
-                    .unwrap()
-                    .send()
-                    .await;
+                    .body(body_str) {
+                        Ok(req) => req,
+                        Err(e) => {
+                            error.set(format!("Failed to build request: {}", e));
+                            return;
+                        }
+                    };
+
+                let resp = request.send().await;
 
                 match resp {
                     Ok(r) if r.ok() => {
