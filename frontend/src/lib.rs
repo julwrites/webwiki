@@ -567,27 +567,40 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     path: path.clone(),
                     content: new_content.clone(),
                 };
-                let req = Request::put(&format!("/api/wiki/{}/{}", volume, path))
-                    .header("Content-Type", "application/json")
-                    .body(serde_json::to_string(&page).unwrap());
+                let body_str = match serde_json::to_string(&page) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        gloo_dialogs::alert(&format!("Failed to serialize page: {}", e));
+                        return;
+                    }
+                };
 
-                if let Ok(req) = req {
-                    let resp = req.send().await;
-                    if let Ok(r) = resp {
-                        if r.status() == 401 {
-                            let current_path = gloo_utils::window()
-                                .location()
-                                .pathname()
-                                .unwrap_or_default();
-                            if current_path != "/login" {
-                                let _ = gloo_utils::window().location().set_href("/login");
-                            }
-                        } else if r.ok() {
-                            view_mode.set(ViewMode::Page(page));
-                            on_edit_toggle.emit(false);
-                        } else {
-                            gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
+                let req = match Request::put(&format!("/api/wiki/{}/{}", volume, path))
+                    .header("Content-Type", "application/json")
+                    .body(body_str)
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        gloo_dialogs::alert(&format!("Failed to build request: {}", e));
+                        return;
+                    }
+                };
+
+                let resp = req.send().await;
+                if let Ok(r) = resp {
+                    if r.status() == 401 {
+                        let current_path = gloo_utils::window()
+                            .location()
+                            .pathname()
+                            .unwrap_or_default();
+                        if current_path != "/login" {
+                            let _ = gloo_utils::window().location().set_href("/login");
                         }
+                    } else if r.ok() {
+                        view_mode.set(ViewMode::Page(page));
+                        on_edit_toggle.emit(false);
+                    } else {
+                        gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
                     }
                 }
             });
