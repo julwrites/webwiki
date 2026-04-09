@@ -6,8 +6,8 @@ This document defines the **Rules of Engagement** for AI agents working on this 
 
 | Level | Name | Description | Examples |
 | :--- | :--- | :--- | :--- |
-| **L0** | **Viewer** | Read-only access to files, logs, and metadata. | `task_list`, `task_show`, `memory_list`, `ls`, `grep` |
-| **L1** | **Contributor** | Can create and edit documentation, tasks, and non-critical assets. | `task_create`, `task_update`, `memory_create`, `agent_send` |
+| **L0** | **Viewer** | Read-only access to files, logs, and metadata. | `memory_list`, `ls`, `grep` |
+| **L1** | **Contributor** | Can create and edit documentation and non-critical assets. | `memory_create`, `agent_send` |
 | **L2** | **Developer** | Can modify source code and execute tests. | `write_file (src/*)`, `run_shell_command (pytest)` |
 | **L3** | **Admin** | Irreversible or dangerous operations. | `git push`, `rm -rf`, `curl`, `deployment_trigger` |
 

@@ -10,7 +10,7 @@ def log_activity(action, args=None, agent_id=None, result="success"):
     # Get configuration
     # Note: repo_root calculation logic copied from other scripts
     script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    repo_root = os.getenv("TASKS_REPO_ROOT", os.path.dirname(script_dir))
+    repo_root = os.getenv("REPO_ROOT", os.path.dirname(script_dir))
 
     conf = config.get_config(repo_root)
     log_path = os.path.join(repo_root, conf["agents"]["audit_log"])
