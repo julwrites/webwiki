@@ -9,7 +9,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Volume Configuration
     let volumes_env = std::env::var("VOLUMES").ok();
     let volumes: HashMap<String, PathBuf> = if let Some(v_str) = volumes_env {
-        serde_json::from_str(&v_str).expect("Invalid JSON in VOLUMES env var")
+        serde_json::from_str(&v_str).map_err(|e| format!("Invalid JSON in VOLUMES env var: {}", e))?
     } else {
         let wiki_path = std::env::var("WIKI_PATH").unwrap_or_else(|_| "wiki_data".to_string());
         let mut map = HashMap::new();
