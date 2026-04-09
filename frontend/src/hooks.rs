@@ -13,7 +13,8 @@ pub fn use_create_file(current_volume: String) -> Callback<()> {
 
     Callback::from(move |_| {
         if let Some(navigator) = &navigator_opt {
-            if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None) {
+            if let Some(path) = gloo_dialogs::prompt("Enter file path (e.g. folder/note.md):", None)
+            {
                 if !path.trim().is_empty() {
                     navigator.push(&Route::Wiki {
                         volume: current_volume.clone(),
@@ -22,7 +23,9 @@ pub fn use_create_file(current_volume: String) -> Callback<()> {
                 }
             }
         } else {
-            web_sys::console::error_1(&wasm_bindgen::JsValue::from_str("use_create_file must be used inside a BrowserRouter"));
+            web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(
+                "use_create_file must be used inside a BrowserRouter",
+            ));
         }
     })
 }
