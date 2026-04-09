@@ -50,7 +50,7 @@ pub fn drawer(props: &DrawerProps) -> Html {
 #[function_component(VolumeSwitcher)]
 fn volume_switcher() -> Html {
     let volumes = use_state(Vec::<FileNode>::new);
-    let navigator = use_navigator().unwrap();
+    let navigator = use_navigator();
     let route = use_route::<Route>();
 
     let current_volume = match route {
@@ -62,14 +62,10 @@ fn volume_switcher() -> Html {
         let volumes = volumes.clone();
         use_effect_with((), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                let fetched_volumes: Vec<FileNode> = Request::get("/api/tree")
-                    .send()
-                    .await
-                    .unwrap()
-                    .json()
-                    .await
-                    .unwrap_or_default();
-                volumes.set(fetched_volumes);
+                if let Ok(response) = Request::get("/api/tree").send().await {
+                    let fetched_volumes: Vec<FileNode> = response.json().await.unwrap_or_default();
+                    volumes.set(fetched_volumes);
+                }
             });
             || ()
         });
@@ -80,10 +76,12 @@ fn volume_switcher() -> Html {
         Callback::from(move |e: Event| {
             let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
             let value = select.value();
-            navigator.push(&Route::Wiki {
-                volume: value,
-                path: "index.md".to_string(),
-            });
+            if let Some(nav) = &navigator {
+                nav.push(&Route::Wiki {
+                    volume: value,
+                    path: "index.md".to_string(),
+                });
+            }
         })
     };
 
@@ -118,14 +116,10 @@ fn file_tree() -> Html {
             let volume = volume.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let url = format!("/api/tree?volume={}", volume);
-                let fetched_tree: Vec<FileNode> = Request::get(&url)
-                    .send()
-                    .await
-                    .unwrap()
-                    .json()
-                    .await
-                    .unwrap_or_default();
-                tree.set(fetched_tree);
+                if let Ok(response) = Request::get(&url).send().await {
+                    let fetched_tree: Vec<FileNode> = response.json().await.unwrap_or_default();
+                    tree.set(fetched_tree);
+                }
             });
             || ()
         });

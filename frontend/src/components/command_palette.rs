@@ -50,7 +50,7 @@ pub fn command_palette(props: &Props) -> Html {
     let selected_index = use_state(|| 0);
     let search_results = use_state(Vec::<SearchResult>::new);
     let file_list = use_state(Vec::<String>::new); // Client-side file list
-    let navigator = use_navigator().unwrap();
+    let navigator = use_navigator();
     let input_ref = use_node_ref();
     let debounce_timer = use_state(|| None::<gloo_timers::callback::Timeout>);
     let last_request_timestamp = use_state(|| 0.0);
@@ -283,11 +283,19 @@ pub fn command_palette(props: &Props) -> Html {
         Callback::from(move |item: CommandItem| {
             on_close.emit(());
             match item.command_type {
-                CommandType::Navigation(route) => navigator.push(&route),
-                CommandType::Search(path, volume, _) => navigator.push(&Route::Wiki {
-                    volume: volume.unwrap_or_else(|| "default".to_string()),
-                    path,
-                }),
+                CommandType::Navigation(route) => {
+                    if let Some(nav) = &navigator {
+                        nav.push(&route);
+                    }
+                }
+                CommandType::Search(path, volume, _) => {
+                    if let Some(nav) = &navigator {
+                        nav.push(&Route::Wiki {
+                            volume: volume.unwrap_or_else(|| "default".to_string()),
+                            path,
+                        });
+                    }
+                }
                 CommandType::Action(cb) => cb.emit(()),
                 CommandType::CreateFile => {
                     create_file.emit(());
