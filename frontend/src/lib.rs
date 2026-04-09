@@ -130,7 +130,7 @@ fn handle_git_action(volume: String, action: &'static str, refresh: Callback<()>
 #[function_component(Layout)]
 fn layout() -> Html {
     let route = use_route::<Route>();
-    let navigator = use_navigator().unwrap();
+    let navigator = use_navigator();
     let current_volume = match route {
         Some(Route::Wiki { volume, .. }) => volume,
         _ => "default".to_string(),
@@ -296,7 +296,11 @@ fn layout() -> Html {
 
     let on_home_click = {
         let navigator = navigator.clone();
-        Callback::from(move |_| navigator.push(&Route::Home))
+        Callback::from(move |_| {
+            if let Some(nav) = &navigator {
+                nav.push(&Route::Home);
+            }
+        })
     };
 
     let on_new_file_click = use_create_file(current_volume.clone());
@@ -658,9 +662,15 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             html::push_html(&mut html_output, wiki_parser);
                             html_output
                         };
-                        let div = gloo_utils::document().create_element("div").unwrap();
-                        div.set_inner_html(&html_output);
-                        Html::VRef(div.into())
+                        match gloo_utils::document().create_element("div") {
+                            Ok(div) => {
+                                div.set_inner_html(&html_output);
+                                Html::VRef(div.into())
+                            }
+                            Err(_) => {
+                                html! { <div>{ "Failed to create markdown container." }</div> }
+                            }
+                        }
                     }
                     "json" | "toml" | "yaml" | "yml" | "opml" => html! {
                         <pre><code class={format!("language-{}", ext)}>{ &page.content }</code></pre>

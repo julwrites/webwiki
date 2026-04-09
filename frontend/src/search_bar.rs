@@ -19,7 +19,7 @@ pub fn search_bar() -> Html {
     let query = use_state(String::new);
     let results = use_state(Vec::<SearchResult>::new);
     let is_searching = use_state(|| false);
-    let navigator = use_navigator().unwrap();
+    let navigator = use_navigator();
 
     let on_input = {
         let query = query.clone();
@@ -70,7 +70,9 @@ pub fn search_bar() -> Html {
             query.set(String::new());
             results.set(Vec::new());
             let vol = volume.unwrap_or_else(|| "default".to_string());
-            navigator.push(&Route::Wiki { volume: vol, path });
+            if let Some(nav) = &navigator {
+                nav.push(&Route::Wiki { volume: vol, path });
+            }
         })
     };
 

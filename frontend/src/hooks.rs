@@ -167,17 +167,14 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                 }
             }) as Box<dyn FnMut(KeyboardEvent)>);
 
-            window
-                .add_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref())
-                .unwrap();
+            let _ = window
+                .add_event_listener_with_callback("keydown", on_keydown.as_ref().unchecked_ref());
 
             move || {
-                window
-                    .remove_event_listener_with_callback(
-                        "keydown",
-                        on_keydown.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
+                let _ = window.remove_event_listener_with_callback(
+                    "keydown",
+                    on_keydown.as_ref().unchecked_ref(),
+                );
             }
         });
     }

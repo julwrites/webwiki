@@ -63,11 +63,16 @@ pub fn login() -> Html {
                     password: password_val,
                 };
 
-                let resp = Request::post("/api/login")
-                    .json(&payload)
-                    .unwrap()
-                    .send()
-                    .await;
+                let request = match Request::post("/api/login").json(&payload) {
+                    Ok(req) => req,
+                    Err(e) => {
+                        is_loading.set(false);
+                        error_msg.set(Some(format!("Failed to prepare request: {}", e)));
+                        return;
+                    }
+                };
+
+                let resp = request.send().await;
 
                 is_loading.set(false);
 
