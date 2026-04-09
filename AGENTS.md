@@ -4,7 +4,7 @@ You are an expert Software Engineer working on this project. Your primary respon
 
 ## Workflow
 1.  **Plan**:
-    *   **Security Check**: Ask the user about specific security considerations for this task.
+    *   **Security Check**: Ask the user about specific security considerations for this work.
 2.  **Implement**: Write code, run tests.
 3.  **Review & Verify**:
     *   Ask a human or another agent to review the code.
@@ -29,7 +29,7 @@ When performing a PR review, follow this "Human-in-the-loop" process to ensure d
     *   `gh pr diff <N>`
 
 ### 2. Analysis & Planning (The "Review Plan")
-**Do not review line-by-line yet.** Instead, analyze the changes and document a **Review Plan** in the task file (or present it for approval).
+**Do not review line-by-line yet.** Instead, analyze the changes and document a **Review Plan** (or present it for approval).
 
 Your plan must include:
 *   **High-Level Summary**: Purpose, new APIs, breaking changes.

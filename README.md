@@ -102,8 +102,8 @@ Use the `wiki-auth` tool to manage users.
 -   `backend/`: Axum server code. Handles file operations, Git interactions, and serving static files.
 -   `frontend/`: Yew application code. Handles the UI, editor logic, and client-side routing.
 -   `common/`: Shared Rust types and logic between backend and frontend.
--   `docs/`: Project documentation (Architecture, Features, Tasks).
--   `scripts/`: Helper scripts for tasks and maintenance.
+-   `docs/`: Project documentation (Architecture, Features).
+-   `scripts/`: Helper scripts for maintenance.
 -   `docker-compose.yml`: Deployment configuration.
 -   `Dockerfile`: Multi-stage build definition.
 
