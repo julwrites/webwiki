@@ -769,11 +769,9 @@ fn editor(props: &EditorProps) -> Html {
         }) as Box<dyn FnMut(String)>);
 
         let quit_closure = Closure::wrap(Box::new(move || {
-            let window = web_sys::window().unwrap();
-            let confirmed = if let Some(editor) = window
-                .document()
-                .unwrap()
-                .get_element_by_id("code-editor")
+            let confirmed = if let Some(editor) = web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.get_element_by_id("code-editor"))
                 .and_then(|el| el.dyn_into::<web_sys::HtmlTextAreaElement>().ok())
             {
                 editor.value() == content_initial
