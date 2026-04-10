@@ -46,10 +46,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
             .is_none_or(|ext| ext == "md" || ext == "markdown");
 
         // Check filename match
-        let file_name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         let filename_match = is_fuzzy_match(file_name, &query_lower);
 
