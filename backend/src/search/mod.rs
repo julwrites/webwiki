@@ -8,11 +8,14 @@ fn is_fuzzy_match(text: &str, query: &str) -> bool {
         return true;
     }
     for c in text.chars() {
-        if let Some(&qc) = query_chars.peek() {
-            if c == qc {
-                query_chars.next();
-                if query_chars.peek().is_none() {
-                    return true;
+        // Iterate through the lowercase characters for the current character
+        for lc in c.to_lowercase() {
+            if let Some(&qc) = query_chars.peek() {
+                if lc == qc {
+                    query_chars.next();
+                    if query_chars.peek().is_none() {
+                        return true;
+                    }
                 }
             }
         }
@@ -33,7 +36,7 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
 
     for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
-        if path.is_dir() {
+        if entry.file_type().is_dir() {
             continue;
         }
 
@@ -46,10 +49,9 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
         let file_name = path
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+            .unwrap_or("");
 
-        let filename_match = is_fuzzy_match(&file_name, &query_lower);
+        let filename_match = is_fuzzy_match(file_name, &query_lower);
 
         if !is_md && !filename_match {
             continue;
