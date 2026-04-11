@@ -110,8 +110,7 @@ async fn get_status(
         }
 
         // Calculate commits ahead and behind
-        let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
-        let commits_behind = calculate_commits_behind(&repo).unwrap_or_default();
+        let (commits_ahead, commits_behind) = calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
 
         Ok(Json(GitStatusResponse {
             files: file_statuses,
@@ -125,7 +124,7 @@ async fn get_status(
     result
 }
 
-fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
+fn calculate_commits_ahead_behind(repo: &Repository) -> Result<(usize, usize), git2::Error> {
     let head = repo.head()?;
     let head_oid = head
         .target()
@@ -137,7 +136,7 @@ fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
 
     let upstream_name_buf = match repo.branch_upstream_name(head_name) {
         Ok(name) => name,
-        Err(_) => return Ok(0),
+        Err(_) => return Ok((0, 0)),
     };
 
     let upstream_name = upstream_name_buf
@@ -150,37 +149,7 @@ fn calculate_commits_ahead(repo: &Repository) -> Result<usize, git2::Error> {
         .target()
         .ok_or_else(|| git2::Error::from_str("Upstream not a ref"))?;
 
-    let (ahead, _) = repo.graph_ahead_behind(head_oid, upstream_oid)?;
-    Ok(ahead)
-}
-
-fn calculate_commits_behind(repo: &Repository) -> Result<usize, git2::Error> {
-    let head = repo.head()?;
-    let head_oid = head
-        .target()
-        .ok_or_else(|| git2::Error::from_str("HEAD not a ref"))?;
-
-    let head_name = head
-        .name()
-        .ok_or_else(|| git2::Error::from_str("HEAD has no name"))?;
-
-    let upstream_name_buf = match repo.branch_upstream_name(head_name) {
-        Ok(name) => name,
-        Err(_) => return Ok(0),
-    };
-
-    let upstream_name = upstream_name_buf
-        .as_str()
-        .ok_or_else(|| git2::Error::from_str("Upstream name not valid UTF-8"))?;
-
-    let upstream = repo.find_reference(upstream_name)?;
-
-    let upstream_oid = upstream
-        .target()
-        .ok_or_else(|| git2::Error::from_str("Upstream not a ref"))?;
-
-    let (_, behind) = repo.graph_ahead_behind(head_oid, upstream_oid)?;
-    Ok(behind)
+    repo.graph_ahead_behind(head_oid, upstream_oid)
 }
 
 async fn fetch_changes(
@@ -229,8 +198,7 @@ async fn fetch_changes(
             .map_err(|e| format!("Git fetch failed: {}", e))?;
 
         // Re-calculate counts
-        let commits_ahead = calculate_commits_ahead(&repo).unwrap_or_default();
-        let commits_behind = calculate_commits_behind(&repo).unwrap_or_default();
+        let (commits_ahead, commits_behind) = calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
 
         let mut opts = StatusOptions::new();
         opts.include_untracked(true);
