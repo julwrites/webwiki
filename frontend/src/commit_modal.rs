@@ -1,34 +1,9 @@
+use common::{CommitRequest, GitStatusResponse, RestoreRequest};
 use gloo_net::http::Request;
 use gloo_storage::{LocalStorage, Storage};
-use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct CommitRequest {
-    pub message: String,
-    pub files: Vec<String>,
-    pub author_name: String,
-    pub author_email: String,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct RestoreRequest {
-    pub files: Vec<String>,
-}
-
-#[derive(Clone, Deserialize)]
-pub struct FileStatus {
-    pub path: String,
-    pub status: String,
-}
-
-#[derive(Clone, Deserialize)]
-pub struct GitStatusResponse {
-    pub files: Vec<FileStatus>,
-    pub commits_ahead: usize,
-}
 
 #[derive(Properties, PartialEq)]
 pub struct CommitModalProps {

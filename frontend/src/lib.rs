@@ -62,13 +62,7 @@ pub fn app() -> Html {
     }
 }
 
-use serde::Deserialize;
-
-#[derive(Clone, Deserialize, Default)]
-struct GitStatus {
-    commits_ahead: usize,
-    commits_behind: usize,
-}
+use common::GitStatusResponse;
 
 async fn perform_git_fetch(
     volume: String,
@@ -88,7 +82,7 @@ async fn perform_git_fetch(
             }
             return;
         }
-        if let Ok(status) = r.json::<GitStatus>().await {
+        if let Ok(status) = r.json::<GitStatusResponse>().await {
             commits_ahead.set(status.commits_ahead);
             commits_behind.set(status.commits_behind);
         }
