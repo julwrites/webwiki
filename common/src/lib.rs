@@ -21,6 +21,32 @@ pub struct FileNode {
     pub children: Option<Vec<FileNode>>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct FileStatus {
+    pub path: String,
+    pub status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct GitStatusResponse {
+    pub files: Vec<FileStatus>,
+    pub commits_ahead: usize,
+    pub commits_behind: usize,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct CommitRequest {
+    pub message: String,
+    pub files: Vec<String>,
+    pub author_name: String,
+    pub author_email: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct RestoreRequest {
+    pub files: Vec<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

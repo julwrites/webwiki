@@ -5,8 +5,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use common::{CommitRequest, FileStatus, GitStatusResponse, RestoreRequest};
 use git2::{Repository, Status, StatusOptions};
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -24,32 +24,6 @@ impl GitState {
             write_lock: Arc::new(Mutex::new(())),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileStatus {
-    pub path: String,
-    pub status: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GitStatusResponse {
-    pub files: Vec<FileStatus>,
-    pub commits_ahead: usize,
-    pub commits_behind: usize,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct CommitRequest {
-    pub message: String,
-    pub files: Vec<String>,
-    pub author_name: String,
-    pub author_email: String,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct RestoreRequest {
-    pub files: Vec<String>,
 }
 
 pub fn git_routes() -> Router<Arc<AppState>> {
