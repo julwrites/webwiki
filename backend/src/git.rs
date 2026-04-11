@@ -110,7 +110,8 @@ async fn get_status(
         }
 
         // Calculate commits ahead and behind
-        let (commits_ahead, commits_behind) = calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
+        let (commits_ahead, commits_behind) =
+            calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
 
         Ok(Json(GitStatusResponse {
             files: file_statuses,
@@ -198,7 +199,8 @@ async fn fetch_changes(
             .map_err(|e| format!("Git fetch failed: {}", e))?;
 
         // Re-calculate counts
-        let (commits_ahead, commits_behind) = calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
+        let (commits_ahead, commits_behind) =
+            calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
 
         let mut opts = StatusOptions::new();
         opts.include_untracked(true);
