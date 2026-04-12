@@ -650,7 +650,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             options.insert(Options::ENABLE_TASKLISTS);
 
                             let parser = Parser::new_ext(&page.content, options);
-                            let wiki_parser = WikiLinkParser::new(parser, volume.clone());
+                            let wiki_parser = WikiLinkParser::new(parser, volume.clone(), path.clone());
 
                             let mut html_output = String::new();
                             html::push_html(&mut html_output, wiki_parser);
