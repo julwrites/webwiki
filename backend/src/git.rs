@@ -84,8 +84,11 @@ async fn get_status(
         }
 
         // Calculate commits ahead and behind
-        let (commits_ahead, commits_behind) =
-            calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
+        let (commits_ahead, commits_behind) = match calculate_commits_ahead_behind(&repo) {
+            Ok(counts) => counts,
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch || e.code() == git2::ErrorCode::NotFound => (0, 0),
+            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        };
 
         Ok(Json(GitStatusResponse {
             files: file_statuses,
@@ -173,8 +176,11 @@ async fn fetch_changes(
             .map_err(|e| format!("Git fetch failed: {}", e))?;
 
         // Re-calculate counts
-        let (commits_ahead, commits_behind) =
-            calculate_commits_ahead_behind(&repo).unwrap_or((0, 0));
+        let (commits_ahead, commits_behind) = match calculate_commits_ahead_behind(&repo) {
+            Ok(counts) => counts,
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch || e.code() == git2::ErrorCode::NotFound => (0, 0),
+            Err(e) => return Err(format!("Failed to calculate commits ahead/behind: {}", e)),
+        };
 
         let mut opts = StatusOptions::new();
         opts.include_untracked(true);
