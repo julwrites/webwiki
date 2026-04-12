@@ -382,32 +382,56 @@ async fn commit_changes(
     let repo_path = git_state.repo_path.clone();
 
     let result = tokio::task::spawn_blocking(move || {
-        let repo = Repository::open(&repo_path)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to open repository: {}", e)))?;
-        let mut index = repo
-            .index()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to get index: {}", e)))?;
+        let repo = Repository::open(&repo_path).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to open repository: {}", e),
+            )
+        })?;
+        let mut index = repo.index().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get index: {}", e),
+            )
+        })?;
 
         for file in payload.files {
             let path = std::path::Path::new(&file);
-            index
-                .add_path(path)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to add path to index: {}", e)))?;
+            index.add_path(path).map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to add path to index: {}", e),
+                )
+            })?;
         }
 
-        index
-            .write()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to write index: {}", e)))?;
+        index.write().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to write index: {}", e),
+            )
+        })?;
 
-        let tree_id = index
-            .write_tree()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to write tree: {}", e)))?;
-        let tree = repo
-            .find_tree(tree_id)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to find tree: {}", e)))?;
+        let tree_id = index.write_tree().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to write tree: {}", e),
+            )
+        })?;
+        let tree = repo.find_tree(tree_id).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to find tree: {}", e),
+            )
+        })?;
 
-        let signature = git2::Signature::now(&payload.author_name, &payload.author_email)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create signature: {}", e)))?;
+        let signature =
+            git2::Signature::now(&payload.author_name, &payload.author_email).map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to create signature: {}", e),
+                )
+            })?;
 
         let parent_commit = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
 
@@ -425,12 +449,22 @@ async fn commit_changes(
             &tree,
             &parents,
         )
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to commit: {}", e)))?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to commit: {}", e),
+            )
+        })?;
 
         Ok(StatusCode::OK)
     })
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Task join error: {}", e),
+        )
+    })?;
 
     result
 }
@@ -448,8 +482,12 @@ async fn restore_changes(
     let repo_path = git_state.repo_path.clone();
 
     let result = tokio::task::spawn_blocking(move || {
-        let repo = Repository::open(&repo_path)
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to open repository: {}", e)))?;
+        let repo = Repository::open(&repo_path).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to open repository: {}", e),
+            )
+        })?;
 
         let mut checkout_builder = git2::build::CheckoutBuilder::new();
         checkout_builder.force(); // Overwrite working directory changes
@@ -460,12 +498,22 @@ async fn restore_changes(
 
         // Checkout HEAD to restore files
         repo.checkout_head(Some(&mut checkout_builder))
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to checkout HEAD: {}", e)))?;
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to checkout HEAD: {}", e),
+                )
+            })?;
 
         Ok(StatusCode::OK)
     })
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Task join error: {}", e)))?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Task join error: {}", e),
+        )
+    })?;
 
     result
 }
