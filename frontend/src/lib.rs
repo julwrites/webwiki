@@ -200,7 +200,8 @@ fn layout() -> Html {
                     .pathname()
                     .unwrap_or_default();
                 if current_path != "/login" {
-                    perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files).await;
+                    perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files)
+                        .await;
                 }
             });
             || ()
@@ -223,7 +224,8 @@ fn layout() -> Html {
                     .pathname()
                     .unwrap_or_default();
                 if current_path != "/login" {
-                    perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files).await;
+                    perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files)
+                        .await;
                 }
             });
         })
