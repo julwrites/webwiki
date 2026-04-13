@@ -75,6 +75,8 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
             textArea.removeEventListener("keydown", textArea._saveHandler);
         }
 
+        textArea._onSaveCallback = onSaveCallback;
+
         textArea._saveHandler = function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
@@ -247,4 +249,40 @@ window.renderDrawio = function(elementId, xmlContent) {
             GraphViewer.processElements();
         }
     }
+};
+
+window.triggerSave = function(elementId) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return;
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+
+    if (cm) {
+        if (cm._saveCallback) {
+            cm._saveCallback(cm.getValue());
+        }
+    } else {
+        if (textArea._onSaveCallback) {
+            textArea._onSaveCallback(textArea.value);
+        }
+    }
+};
+
+window.insertDateTime = function(elementId) {
+    var now = new Date();
+    // format to YYYY-MM-DD Day hh:mm A
+    var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var year = now.getFullYear();
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    var date = String(now.getDate()).padStart(2, '0');
+    var day = days[now.getDay()];
+    var hours = now.getHours();
+    var minutes = String(now.getMinutes()).padStart(2, '0');
+    var ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    hours = String(hours).padStart(2, '0');
+
+    var formattedString = year + '-' + month + '-' + date + ' ' + day + ' ' + hours + ':' + minutes + ' ' + ampm;
+
+    insertTextAtCursor(elementId, formattedString);
 };
