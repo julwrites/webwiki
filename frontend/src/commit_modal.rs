@@ -259,6 +259,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 <div class="field">
                     <label>{"Message"}</label>
                     <textarea
+                        placeholder="Enter commit message..."
                         value={(*message).clone()}
                         oninput={let m = message.clone(); move |e: InputEvent| m.set(e.target_unchecked_into::<HtmlTextAreaElement>().value())}
                     />
@@ -269,7 +270,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 }
 
                 <div class="actions">
-                    <button onclick={on_commit}>{"Commit"}</button>
+                    <button onclick={on_commit} disabled={selected_files.is_empty()} title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}>{"Commit"}</button>
                     <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary">{"Discard Changes"}</button>
                     <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())}>{"Cancel"}</button>
                 </div>

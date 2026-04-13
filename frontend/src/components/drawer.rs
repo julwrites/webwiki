@@ -34,10 +34,10 @@ pub fn drawer(props: &DrawerProps) -> Html {
                 <div class="drawer-header">
                     <VolumeSwitcher />
                     <div style="flex: 1"></div>
-                    <button class="drawer-close-btn" onclick={on_new_file} title="New File" style="margin-right: 8px">
+                    <button class="drawer-close-btn" onclick={on_new_file} title="New File" aria-label="New File" style="margin-right: 8px">
                         <IconPlus />
                     </button>
-                    <button class="drawer-close-btn" onclick={on_close}>{"✕"}</button>
+                    <button class="drawer-close-btn" onclick={on_close} title="Close" aria-label="Close Drawer">{"✕"}</button>
                 </div>
                 <div class="drawer-content">
                     <FileTree />
