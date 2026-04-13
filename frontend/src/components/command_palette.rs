@@ -15,6 +15,7 @@ pub struct Props {
     pub on_close: Callback<()>,
     pub on_theme_toggle: Callback<()>,
     pub on_settings: Callback<()>,
+    pub on_history: Callback<()>,
     pub current_volume: String,
 }
 
@@ -86,9 +87,11 @@ pub fn command_palette(props: &Props) -> Html {
     let static_commands = {
         let on_theme_toggle = props.on_theme_toggle.clone();
         let on_settings = props.on_settings.clone();
+        let on_history = props.on_history.clone();
         use_memo((), move |_| {
             let on_theme_toggle = on_theme_toggle.clone();
             let on_settings = on_settings.clone();
+            let on_history = on_history.clone();
             vec![
                 CommandItem {
                     title: "Go to Home".to_string(),
@@ -107,6 +110,13 @@ pub fn command_palette(props: &Props) -> Html {
                     description: "Open settings to configure keybindings".to_string(),
                     command_type: CommandType::Action(Callback::from(move |_| {
                         on_settings.emit(());
+                    })),
+                },
+                CommandItem {
+                    title: "View Page History".to_string(),
+                    description: "View the git history for the current page".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_history.emit(());
                     })),
                 },
                 CommandItem {

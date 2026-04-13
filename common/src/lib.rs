@@ -47,6 +47,20 @@ pub struct RestoreRequest {
     pub files: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HistoryEntry {
+    pub commit_hash: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub message: String,
+    pub timestamp: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HistoryResponse {
+    pub entries: Vec<HistoryEntry>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
