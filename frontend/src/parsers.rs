@@ -18,7 +18,6 @@ impl<'a> WikiLinkParser<'a> {
             current_path,
         }
     }
-
 }
 
 impl<'a> Iterator for WikiLinkParser<'a> {
@@ -144,7 +143,6 @@ impl<'a> Iterator for WikiLinkParser<'a> {
 
         Some(event)
     }
-
 }
 
 #[cfg(test)]
