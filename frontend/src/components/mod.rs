@@ -1,5 +1,6 @@
 pub mod bottom_bar;
 pub mod command_palette;
 pub mod drawer;
+pub mod history_modal;
 pub mod icons;
 pub mod settings_modal;

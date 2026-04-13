@@ -10,6 +10,7 @@ use common::WikiPage;
 use components::bottom_bar::BottomBar;
 use components::command_palette::CommandPalette;
 use components::drawer::Drawer;
+use components::history_modal::HistoryModal;
 use components::settings_modal::SettingsModal;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
@@ -127,13 +128,14 @@ fn handle_git_action(volume: String, action: &'static str, refresh: Callback<()>
 fn layout() -> Html {
     let route = use_route::<Route>();
     let navigator = use_navigator();
-    let current_volume = match route {
+    let current_volume = match route.clone() {
         Some(Route::Wiki { volume, .. }) => volume,
         _ => "default".to_string(),
     };
 
     let show_commit_modal = use_state(|| false);
     let show_settings_modal = use_state(|| false);
+    let show_history_modal = use_state(|| false);
     let is_drawer_open = use_state(|| false);
     let is_search_open = use_state(|| false);
     let is_editing = use_state(|| false);
@@ -249,6 +251,14 @@ fn layout() -> Html {
         let show_settings_modal = show_settings_modal.clone();
         Callback::from(move |_| show_settings_modal.set(false))
     };
+    let on_toggle_history = {
+        let show_history_modal = show_history_modal.clone();
+        Callback::from(move |_| show_history_modal.set(!*show_history_modal))
+    };
+    let on_close_history = {
+        let show_history_modal = show_history_modal.clone();
+        Callback::from(move |_| show_history_modal.set(false))
+    };
 
     // Actions
     let on_toggle_drawer = {
@@ -354,6 +364,7 @@ fn layout() -> Html {
                 uncommitted_files={*uncommitted_files}
                 is_drawer_open={*is_drawer_open}
                 on_settings={on_toggle_settings.clone()}
+                on_history={on_toggle_history.clone()}
             />
 
             <CommandPalette
@@ -361,7 +372,20 @@ fn layout() -> Html {
                 on_close={let is_search_open = is_search_open.clone(); move |_| is_search_open.set(false)}
                 on_theme_toggle={toggle_theme.clone()}
                 on_settings={on_toggle_settings.clone()}
+                on_history={on_toggle_history.clone()}
                 current_volume={current_volume.clone()}
+            />
+
+            <HistoryModal
+                is_open={*show_history_modal}
+                on_close={on_close_history.clone()}
+                volume={current_volume.clone()}
+                path={
+                    match route {
+                        Some(Route::Wiki { path, .. }) => path,
+                        _ => String::new(),
+                    }
+                }
             />
 
             if *show_commit_modal {

@@ -5,7 +5,9 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use common::{CommitRequest, FileStatus, GitStatusResponse, RestoreRequest};
+use common::{
+    CommitRequest, FileStatus, GitStatusResponse, HistoryEntry, HistoryResponse, RestoreRequest,
+};
 use git2::{Repository, Status, StatusOptions};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -34,6 +36,7 @@ pub fn git_routes() -> Router<Arc<AppState>> {
         .route("/push", post(push_changes))
         .route("/pull", post(pull_changes))
         .route("/restore", post(restore_changes))
+        .route("/history/*path", get(get_history))
 }
 
 async fn get_status(
@@ -593,6 +596,135 @@ async fn push_changes(
     })
     .await
     .map_err(|e| format!("Task join error: {}", e))?;
+
+    result
+}
+
+async fn get_history(
+    State(state): State<Arc<AppState>>,
+    Path((volume, path)): Path<(String, String)>,
+) -> Result<Json<HistoryResponse>, (StatusCode, String)> {
+    let git_state = state
+        .git_states
+        .get(&volume)
+        .ok_or((StatusCode::NOT_FOUND, "Volume not found".to_string()))?;
+
+    let repo_path = git_state.repo_path.clone();
+    let target_path = path.trim_start_matches('/').to_string();
+
+    let result = tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to open repository: {}", e),
+            )
+        })?;
+
+        let mut revwalk = repo.revwalk().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create revwalk: {}", e),
+            )
+        })?;
+
+        revwalk.push_head().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to push HEAD to revwalk: {}", e),
+            )
+        })?;
+
+        let mut entries = Vec::new();
+        let target_path_obj = std::path::Path::new(&target_path);
+
+        for oid in revwalk {
+            let oid = oid.map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to iterate revwalk: {}", e),
+                )
+            })?;
+
+            let commit = repo.find_commit(oid).map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to find commit: {}", e),
+                )
+            })?;
+
+            let mut modifies_file = false;
+
+            if target_path.is_empty() {
+                modifies_file = true;
+            } else {
+                let tree = commit.tree().map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("Failed to get commit tree: {}", e),
+                    )
+                })?;
+
+                let parent_tree = if commit.parent_count() > 0 {
+                    let parent = commit.parent(0).map_err(|e| {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Failed to get commit parent: {}", e),
+                        )
+                    })?;
+                    Some(parent.tree().map_err(|e| {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Failed to get parent tree: {}", e),
+                        )
+                    })?)
+                } else {
+                    None
+                };
+
+                let mut diff_opts = git2::DiffOptions::new();
+                diff_opts.pathspec(target_path_obj);
+
+                let diff = repo
+                    .diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), Some(&mut diff_opts))
+                    .map_err(|e| {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Failed to compute diff: {}", e),
+                        )
+                    })?;
+
+                let deltas = diff.deltas();
+                if deltas.len() > 0 {
+                    modifies_file = true;
+                }
+            }
+
+            if modifies_file {
+                let author = commit.author();
+                let author_name = author.name().unwrap_or("Unknown").to_string();
+                let author_email = author.email().unwrap_or("").to_string();
+                let message = commit.message().unwrap_or("").to_string();
+                let timestamp = commit.time().seconds();
+
+                entries.push(HistoryEntry {
+                    commit_hash: oid.to_string(),
+                    author_name,
+                    author_email,
+                    message,
+                    timestamp,
+                });
+            }
+        }
+
+        Ok(Json(HistoryResponse { entries }))
+    })
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Task join error: {}", e),
+        )
+    })?;
 
     result
 }
