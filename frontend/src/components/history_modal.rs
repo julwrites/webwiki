@@ -68,7 +68,7 @@ pub fn history_modal(props: &HistoryModalProps) -> Html {
             <div class="modal-content history-modal" onclick={|e: MouseEvent| e.stop_propagation()}>
                 <div class="modal-header">
                     <h2>{ format!("History for {}", if props.path.is_empty() { props.volume.clone() } else { props.path.clone() }) }</h2>
-                    <button class="icon-btn" onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())}>{"×"}</button>
+                    <button class="icon-btn" onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} title="Close" aria-label="Close History">{"×"}</button>
                 </div>
 
                 <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
