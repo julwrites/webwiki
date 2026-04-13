@@ -19,6 +19,7 @@ pub struct BottomBarProps {
     pub is_dark: bool,
     pub commits_ahead: usize,
     pub commits_behind: usize,
+    pub uncommitted_files: usize,
     pub is_drawer_open: bool,
 }
 
@@ -85,6 +86,9 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                     </button>
                     <button class="bottom-bar-btn" onclick={move |_| on_commit.emit(())} title="Commit">
                         <IconGitCommit />
+                        if props.uncommitted_files > 0 {
+                            <span class="badge" style="background-color: var(--accent-color);">{ props.uncommitted_files }</span>
+                        }
                     </button>
                     <button class="bottom-bar-btn" onclick={move |_| on_push.emit(())} title="Push">
                         <IconUpload />
@@ -101,7 +105,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                     title="Git Actions"
                 >
                     <IconGitCommit />
-                    if props.commits_ahead > 0 || props.commits_behind > 0 {
+                    if props.commits_ahead > 0 || props.commits_behind > 0 || props.uncommitted_files > 0 {
                         <span class="badge">{"!"}</span>
                     }
                 </button>
@@ -133,6 +137,9 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                             }>
                                 <IconGitCommit />
                                 <span>{"Commit"}</span>
+                                if props.uncommitted_files > 0 {
+                                    <span class="badge" style="margin-left:auto">{ props.uncommitted_files }</span>
+                                }
                             </button>
                             <button onclick={
                                 let on_push = props.on_push.clone();

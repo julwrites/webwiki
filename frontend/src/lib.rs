@@ -68,6 +68,7 @@ async fn perform_git_fetch(
     volume: String,
     commits_ahead: UseStateHandle<usize>,
     commits_behind: UseStateHandle<usize>,
+    uncommitted_files: UseStateHandle<usize>,
 ) {
     let url = format!("/api/git/{}/fetch", volume);
     let resp = Request::post(&url).send().await;
@@ -85,6 +86,7 @@ async fn perform_git_fetch(
         if let Ok(status) = r.json::<GitStatusResponse>().await {
             commits_ahead.set(status.commits_ahead);
             commits_behind.set(status.commits_behind);
+            uncommitted_files.set(status.files.len());
         }
     }
 }
@@ -138,6 +140,7 @@ fn layout() -> Html {
 
     let commits_ahead = use_state(|| 0);
     let commits_behind = use_state(|| 0);
+    let uncommitted_files = use_state(|| 0);
 
     // Reset editing state on navigation
     {
@@ -184,10 +187,12 @@ fn layout() -> Html {
         let volume = current_volume.clone();
         let commits_ahead = commits_ahead.clone();
         let commits_behind = commits_behind.clone();
+        let uncommitted_files = uncommitted_files.clone();
         use_effect_with(volume, move |volume| {
             let volume = volume.clone();
             let commits_ahead = commits_ahead.clone();
             let commits_behind = commits_behind.clone();
+            let uncommitted_files = uncommitted_files.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let current_path = gloo_utils::window()
@@ -195,7 +200,7 @@ fn layout() -> Html {
                     .pathname()
                     .unwrap_or_default();
                 if current_path != "/login" {
-                    perform_git_fetch(volume, commits_ahead, commits_behind).await;
+                    perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files).await;
                 }
             });
             || ()
@@ -206,17 +211,19 @@ fn layout() -> Html {
         let volume = current_volume.clone();
         let commits_ahead = commits_ahead.clone();
         let commits_behind = commits_behind.clone();
+        let uncommitted_files = uncommitted_files.clone();
         Callback::from(move |_| {
             let volume = volume.clone();
             let commits_ahead = commits_ahead.clone();
             let commits_behind = commits_behind.clone();
+            let uncommitted_files = uncommitted_files.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let current_path = gloo_utils::window()
                     .location()
                     .pathname()
                     .unwrap_or_default();
                 if current_path != "/login" {
-                    perform_git_fetch(volume, commits_ahead, commits_behind).await;
+                    perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files).await;
                 }
             });
         })
@@ -342,6 +349,7 @@ fn layout() -> Html {
                 is_dark={is_dark}
                 commits_ahead={*commits_ahead}
                 commits_behind={*commits_behind}
+                uncommitted_files={*uncommitted_files}
                 is_drawer_open={*is_drawer_open}
                 on_settings={on_toggle_settings.clone()}
             />
