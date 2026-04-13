@@ -51,6 +51,7 @@ pub fn command_palette(props: &Props) -> Html {
     let selected_index = use_state(|| 0);
     let search_results = use_state(Vec::<SearchResult>::new);
     let file_list = use_state(Vec::<String>::new); // Client-side file list
+    let volumes_list = use_state(Vec::<String>::new);
     let navigator = use_navigator();
     let input_ref = use_node_ref();
     let debounce_timer = use_state(|| None::<gloo_timers::callback::Timeout>);
@@ -59,12 +60,15 @@ pub fn command_palette(props: &Props) -> Html {
     // Fetch file tree when volume changes or palette opens
     {
         let file_list = file_list.clone();
+        let volumes_list = volumes_list.clone();
         let current_volume = props.current_volume.clone();
         let is_open = props.is_open;
 
         use_effect_with((current_volume.clone(), is_open), move |(volume, open)| {
             if *open {
                 let volume = volume.clone();
+
+                // Fetch files in current volume
                 spawn_local(async move {
                     let url = format!("/api/tree?volume={}", volume);
                     if let Ok(resp) = Request::get(&url).send().await {
@@ -75,6 +79,22 @@ pub fn command_palette(props: &Props) -> Html {
                                     flatten_tree(&node, &mut paths);
                                 }
                                 file_list.set(paths);
+                            }
+                        }
+                    }
+                });
+
+                // Fetch available volumes
+                let volumes_list = volumes_list.clone();
+                spawn_local(async move {
+                    if let Ok(resp) = Request::get("/api/tree").send().await {
+                        if resp.ok() {
+                            if let Ok(nodes) = resp.json::<Vec<FileNode>>().await {
+                                let mut vols = Vec::new();
+                                for node in nodes {
+                                    vols.push(node.name);
+                                }
+                                volumes_list.set(vols);
                             }
                         }
                     }
@@ -134,6 +154,7 @@ pub fn command_palette(props: &Props) -> Html {
         let static_commands = static_commands.clone();
         let search_results = search_results.clone();
         let file_list = file_list.clone();
+        let volumes_list = volumes_list.clone();
         let current_volume = props.current_volume.clone();
 
         use_memo(
@@ -141,9 +162,10 @@ pub fn command_palette(props: &Props) -> Html {
                 (*query).clone(),
                 (*search_results).clone(),
                 (*file_list).clone(),
+                (*volumes_list).clone(),
                 current_volume,
             ),
-            move |(q, results, files, volume)| {
+            move |(q, results, files, vols, volume)| {
                 let mut items = Vec::new();
                 let q_lower = q.to_lowercase();
 
@@ -153,6 +175,23 @@ pub fn command_palette(props: &Props) -> Html {
                         || cmd.description.to_lowercase().contains(&q_lower)
                     {
                         items.push(cmd.clone());
+                    }
+                }
+
+                // 1.5. Dynamic Volume commands
+                for vol in vols {
+                    let title = format!("Switch Volume: {}", vol);
+                    let description = format!("Switch to the '{}' volume", vol);
+
+                    if title.to_lowercase().contains(&q_lower) || description.to_lowercase().contains(&q_lower) {
+                        items.push(CommandItem {
+                            title,
+                            description,
+                            command_type: CommandType::Navigation(Route::Wiki {
+                                volume: vol.clone(),
+                                path: "index.md".to_string(),
+                            }),
+                        });
                     }
                 }
 
