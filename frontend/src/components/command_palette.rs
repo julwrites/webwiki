@@ -183,7 +183,9 @@ pub fn command_palette(props: &Props) -> Html {
                     let title = format!("Switch Volume: {}", vol);
                     let description = format!("Switch to the '{}' volume", vol);
 
-                    if title.to_lowercase().contains(&q_lower) || description.to_lowercase().contains(&q_lower) {
+                    if title.to_lowercase().contains(&q_lower)
+                        || description.to_lowercase().contains(&q_lower)
+                    {
                         items.push(CommandItem {
                             title,
                             description,
