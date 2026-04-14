@@ -6,7 +6,7 @@ mod parsers;
 mod search_bar;
 
 use commit_modal::CommitModal;
-use common::WikiPage;
+use common::{WikiPage, RenameRequest};
 use components::bottom_bar::BottomBar;
 use components::command_palette::CommandPalette;
 use components::drawer::Drawer;
@@ -471,6 +471,7 @@ enum ViewMode {
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let view_mode = use_state(|| ViewMode::Loading);
+    let navigator = use_navigator();
 
     // We use the prop to control editing state
     let is_editing = props.is_editing;
@@ -564,6 +565,50 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let on_edit_click = {
         let on_edit_toggle = on_edit_toggle.clone();
         Callback::from(move |_| on_edit_toggle.emit(true))
+    };
+
+    let on_rename_click = {
+        let path = path.clone();
+        let volume = volume.clone();
+        let navigator = navigator.clone();
+        Callback::from(move |_| {
+            if let Some(new_path) = gloo_dialogs::prompt("Enter new file path:", Some(&path)) {
+                if new_path != path && !new_path.is_empty() {
+                    let path = path.clone();
+                    let volume = volume.clone();
+                    let navigator = navigator.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        let url = format!("/api/rename/{}/{}", volume, path);
+                        let payload = RenameRequest { new_path: new_path.clone() };
+                        let resp = Request::post(&url).json(&payload).unwrap().send().await;
+                        match resp {
+                            Ok(r) if r.status() == 401 => {
+                                let current_path = gloo_utils::window()
+                                    .location()
+                                    .pathname()
+                                    .unwrap_or_default();
+                                if current_path != "/login" {
+                                    let _ = gloo_utils::window().location().set_href("/login");
+                                }
+                            }
+                            Ok(r) if r.ok() => {
+                                if let Some(nav) = navigator {
+                                    nav.push(&Route::Wiki {
+                                        volume,
+                                        path: new_path,
+                                    });
+                                }
+                            }
+                            Ok(r) => {
+                                let text = r.text().await.unwrap_or_default();
+                                gloo_dialogs::alert(&format!("Failed to rename: {}", text));
+                            }
+                            Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+                        }
+                    });
+                }
+            }
+        })
     };
 
     let on_delete_click = {
@@ -744,6 +789,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             <span class="path">{ &path }</span>
                             <div class="toolbar-controls">
                                 <button onclick={on_edit_click}>{ "Edit" }</button>
+                                <button onclick={on_rename_click.clone()}>{ "Rename" }</button>
                                 <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
                             </div>
                         </div>

@@ -47,6 +47,11 @@ pub struct RestoreRequest {
     pub files: Vec<String>,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct RenameRequest {
+    pub new_path: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct HistoryEntry {
     pub commit_hash: String,
