@@ -54,13 +54,13 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             <button
                 class={classes!("bottom-bar-btn", if props.is_drawer_open { "active" } else { "" })}
                 onclick={move |_| on_toggle.emit(())}
-                title="Toggle File Tree"
+                title="Toggle File Tree" aria-label="Toggle File Tree"
             >
                 <IconMenu />
             </button>
 
             // Home
-            <button class="bottom-bar-btn" onclick={move |_| on_home.emit(())} title="Home">
+            <button class="bottom-bar-btn" onclick={move |_| on_home.emit(())} title="Home" aria-label="Home">
                 <IconHome />
             </button>
 
@@ -71,7 +71,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </div>
 
             // New File
-            <button class="bottom-bar-btn" onclick={move |_| on_new_file.emit(())} title="New File">
+            <button class="bottom-bar-btn" onclick={move |_| on_new_file.emit(())} title="New File" aria-label="New File">
                 <IconPlus />
             </button>
 
@@ -79,19 +79,19 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             <div class="git-menu-container">
                 // Desktop: Show individual buttons
                 <div class="desktop-git-controls">
-                    <button class="bottom-bar-btn" onclick={move |_| on_pull.emit(())} title="Pull">
+                    <button class="bottom-bar-btn" onclick={move |_| on_pull.emit(())} title="Pull" aria-label="Pull">
                         <IconDownload />
                         if props.commits_behind > 0 {
                             <span class="badge">{ props.commits_behind }</span>
                         }
                     </button>
-                    <button class="bottom-bar-btn" onclick={move |_| on_commit.emit(())} title="Commit">
+                    <button class="bottom-bar-btn" onclick={move |_| on_commit.emit(())} title="Commit" aria-label="Commit">
                         <IconGitCommit />
                         if props.uncommitted_files > 0 {
                             <span class="badge" style="background-color: var(--accent-color);">{ props.uncommitted_files }</span>
                         }
                     </button>
-                    <button class="bottom-bar-btn" onclick={move |_| on_push.emit(())} title="Push">
+                    <button class="bottom-bar-btn" onclick={move |_| on_push.emit(())} title="Push" aria-label="Push">
                         <IconUpload />
                         if props.commits_ahead > 0 {
                             <span class="badge">{ props.commits_ahead }</span>
@@ -103,7 +103,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                 <button
                     class={classes!("bottom-bar-btn", "mobile-git-toggle", if *is_git_menu_open { "active" } else { "" })}
                     onclick={toggle_git_menu}
-                    title="Git Actions"
+                    title="Git Actions" aria-label="Git Actions"
                 >
                     <IconGitCommit />
                     if props.commits_ahead > 0 || props.commits_behind > 0 || props.uncommitted_files > 0 {
@@ -159,22 +159,22 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </div>
 
             // Edit Action
-             <button class="bottom-bar-btn" onclick={move |_| on_edit.emit(())} title="Edit Page">
+             <button class="bottom-bar-btn" onclick={move |_| on_edit.emit(())} title="Edit Page" aria-label="Edit Page">
                 <IconEdit />
             </button>
 
             // History Action
-            <button class="bottom-bar-btn" onclick={let on_history = props.on_history.clone(); move |_| on_history.emit(())} title="Page History">
+            <button class="bottom-bar-btn" onclick={let on_history = props.on_history.clone(); move |_| on_history.emit(())} title="Page History" aria-label="Page History">
                 <IconHistory />
             </button>
 
             // Settings
-            <button class="bottom-bar-btn" onclick={let on_settings = props.on_settings.clone(); move |_| on_settings.emit(())} title="Settings">
+            <button class="bottom-bar-btn" onclick={let on_settings = props.on_settings.clone(); move |_| on_settings.emit(())} title="Settings" aria-label="Settings">
                 <IconSettings />
             </button>
 
             // Theme Toggle
-             <button class="bottom-bar-btn" onclick={move |_| on_theme_toggle.emit(())} title="Toggle Theme">
+             <button class="bottom-bar-btn" onclick={move |_| on_theme_toggle.emit(())} title="Toggle Theme" aria-label="Toggle Theme">
                 if props.is_dark {
                     <IconSun />
                 } else {
