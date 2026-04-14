@@ -260,25 +260,6 @@ fn layout() -> Html {
         Callback::from(move |_| show_history_modal.set(false))
     };
 
-    let on_copy_link = {
-        let route = route.clone();
-        Callback::from(move |_| {
-            if let Some(Route::Wiki { volume: _, path }) = &route {
-                let link = format!("[[{}]]", path);
-                let clipboard = gloo_utils::window().navigator().clipboard();
-                let promise = clipboard.write_text(&link);
-                wasm_bindgen_futures::spawn_local(async move {
-                    if let Err(e) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                        web_sys::console::error_1(&e);
-                        gloo_dialogs::alert("Failed to copy link to clipboard.");
-                    } else {
-                        gloo_dialogs::alert(&format!("Copied {} to clipboard", link));
-                    }
-                });
-            }
-        })
-    };
-
     // Actions
     let on_toggle_drawer = {
         let is_drawer_open = is_drawer_open.clone();
@@ -384,7 +365,6 @@ fn layout() -> Html {
                 is_drawer_open={*is_drawer_open}
                 on_settings={on_toggle_settings.clone()}
                 on_history={on_toggle_history.clone()}
-                on_copy_link={on_copy_link.clone()}
             />
 
             <CommandPalette

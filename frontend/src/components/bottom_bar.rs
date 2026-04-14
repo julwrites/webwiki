@@ -1,6 +1,6 @@
 use crate::components::icons::{
-    IconDownload, IconEdit, IconGitCommit, IconHistory, IconHome, IconMenu, IconMoon, IconPlus,
-    IconSearch, IconSettings, IconSun, IconUpload,
+    IconCopy, IconDownload, IconEdit, IconGitCommit, IconHistory, IconHome, IconMenu, IconMoon,
+    IconPlus, IconSearch, IconSettings, IconSun, IconUpload,
 };
 use yew::prelude::*;
 
@@ -17,6 +17,7 @@ pub struct BottomBarProps {
     pub on_theme_toggle: Callback<()>,
     pub on_settings: Callback<()>,
     pub on_history: Callback<()>,
+    pub on_copy_link: Callback<()>,
     pub is_dark: bool,
     pub commits_ahead: usize,
     pub commits_behind: usize,
@@ -166,6 +167,11 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             // History Action
             <button class="bottom-bar-btn" onclick={let on_history = props.on_history.clone(); move |_| on_history.emit(())} title="Page History" aria-label="Page History">
                 <IconHistory />
+            </button>
+
+            // Copy Link
+            <button class="bottom-bar-btn" onclick={let on_copy_link = props.on_copy_link.clone(); move |_| on_copy_link.emit(())} title="Copy Link" aria-label="Copy Link">
+                <IconCopy />
             </button>
 
             // Settings
