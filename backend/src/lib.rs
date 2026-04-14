@@ -10,7 +10,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use common::{FileNode, WikiPage};
+use common::{FileNode, WikiPage, RenameRequest};
 use git::{git_routes, GitState};
 use std::collections::HashMap;
 use std::{path::PathBuf, sync::Arc};
@@ -49,6 +49,7 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route("/wiki/{volume}/{*path}", get(read_page))
         .route("/wiki/{volume}/{*path}", put(write_page))
         .route("/wiki/{volume}/{*path}", delete(delete_page))
+        .route("/rename/{volume}/{*path}", post(rename_page))
         .route("/tree", get(get_tree))
         .route("/search", get(search_handler))
         .nest(
@@ -285,6 +286,45 @@ async fn write_page(
 
     match tokio::fs::write(&file_path, payload.content).await {
         Ok(_) => (StatusCode::OK, "Saved").into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn rename_page(
+    State(state): State<Arc<AppState>>,
+    Path((volume, path)): Path<(String, String)>,
+    Json(payload): Json<RenameRequest>,
+) -> impl IntoResponse {
+    let wiki_path = match state.volumes.get(&volume) {
+        Some(p) => p,
+        None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
+    };
+
+    if path.contains("..") || payload.new_path.contains("..") {
+        return (StatusCode::FORBIDDEN, "Invalid path").into_response();
+    }
+
+    let old_file_path = wiki_path.join(&path);
+    let new_file_path = wiki_path.join(&payload.new_path);
+
+    // Safety check
+    if !old_file_path.starts_with(wiki_path) || !new_file_path.starts_with(wiki_path) {
+        return (StatusCode::FORBIDDEN, "Access denied").into_response();
+    }
+
+    // Ensure parent directory exists for new path
+    if let Some(parent) = new_file_path.parent() {
+        if tokio::fs::create_dir_all(parent).await.is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to create directory",
+            )
+                .into_response();
+        }
+    }
+
+    match tokio::fs::rename(&old_file_path, &new_file_path).await {
+        Ok(_) => (StatusCode::OK, "Renamed").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
