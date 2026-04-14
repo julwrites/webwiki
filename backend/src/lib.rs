@@ -10,7 +10,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use common::{FileNode, WikiPage, RenameRequest};
+use common::{FileNode, RenameRequest, WikiPage};
 use git::{git_routes, GitState};
 use std::collections::HashMap;
 use std::{path::PathBuf, sync::Arc};

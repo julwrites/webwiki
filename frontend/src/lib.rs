@@ -6,7 +6,7 @@ mod parsers;
 mod search_bar;
 
 use commit_modal::CommitModal;
-use common::{WikiPage, RenameRequest};
+use common::{RenameRequest, WikiPage};
 use components::bottom_bar::BottomBar;
 use components::command_palette::CommandPalette;
 use components::drawer::Drawer;
@@ -579,7 +579,9 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     let navigator = navigator.clone();
                     wasm_bindgen_futures::spawn_local(async move {
                         let url = format!("/api/rename/{}/{}", volume, path);
-                        let payload = RenameRequest { new_path: new_path.clone() };
+                        let payload = RenameRequest {
+                            new_path: new_path.clone(),
+                        };
                         let resp = Request::post(&url).json(&payload).unwrap().send().await;
                         match resp {
                             Ok(r) if r.status() == 401 => {
