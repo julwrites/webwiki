@@ -17,6 +17,7 @@ pub struct Props {
     pub on_settings: Callback<()>,
     pub on_history: Callback<()>,
     pub current_volume: String,
+    pub current_path: String,
 }
 
 #[derive(Clone, PartialEq)]
@@ -104,15 +105,26 @@ pub fn command_palette(props: &Props) -> Html {
         });
     }
 
+    let on_rename_file =
+        crate::hooks::use_rename_file(props.current_volume.clone(), props.current_path.clone());
+    let on_delete_file =
+        crate::hooks::use_delete_file(props.current_volume.clone(), props.current_path.clone());
+
     let static_commands = {
         let on_theme_toggle = props.on_theme_toggle.clone();
         let on_settings = props.on_settings.clone();
         let on_history = props.on_history.clone();
-        use_memo((), move |_| {
+        let on_rename_file = on_rename_file.clone();
+        let on_delete_file = on_delete_file.clone();
+
+        let deps = (props.current_volume.clone(), props.current_path.clone());
+        use_memo(deps.clone(), move |_| {
             let on_theme_toggle = on_theme_toggle.clone();
             let on_settings = on_settings.clone();
             let on_history = on_history.clone();
-            vec![
+            let on_rename_file = on_rename_file.clone();
+            let on_delete_file = on_delete_file.clone();
+            let mut commands = vec![
                 CommandItem {
                     title: "Go to Home".to_string(),
                     description: "Navigate to the home page".to_string(),
@@ -144,7 +156,23 @@ pub fn command_palette(props: &Props) -> Html {
                     description: "Create a new file in the current volume".to_string(),
                     command_type: CommandType::CreateFile,
                 },
-            ]
+            ];
+
+            let (_current_volume, current_path) = &deps;
+            if !current_path.is_empty() {
+                commands.push(CommandItem {
+                    title: "Rename Current Page".to_string(),
+                    description: "Rename the file you are currently viewing".to_string(),
+                    command_type: CommandType::Action(on_rename_file),
+                });
+                commands.push(CommandItem {
+                    title: "Delete Current Page".to_string(),
+                    description: "Delete the file you are currently viewing".to_string(),
+                    command_type: CommandType::Action(on_delete_file),
+                });
+            }
+
+            commands
         })
     };
 
