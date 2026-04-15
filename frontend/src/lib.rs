@@ -6,7 +6,7 @@ mod parsers;
 mod search_bar;
 
 use commit_modal::CommitModal;
-use common::{RenameRequest, WikiPage};
+use common::WikiPage;
 use components::bottom_bar::BottomBar;
 use components::command_palette::CommandPalette;
 use components::drawer::Drawer;
@@ -394,6 +394,12 @@ fn layout() -> Html {
                 on_settings={on_toggle_settings.clone()}
                 on_history={on_toggle_history.clone()}
                 current_volume={current_volume.clone()}
+                current_path={
+                    match &route {
+                        Some(Route::Wiki { path, .. }) => path.clone(),
+                        _ => String::new(),
+                    }
+                }
             />
 
             <HistoryModal
@@ -471,7 +477,6 @@ enum ViewMode {
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let view_mode = use_state(|| ViewMode::Loading);
-    let navigator = use_navigator();
 
     // We use the prop to control editing state
     let is_editing = props.is_editing;
@@ -568,85 +573,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     };
 
     let on_rename_click = {
-        let path = path.clone();
-        let volume = volume.clone();
-        let navigator = navigator.clone();
-        Callback::from(move |_| {
-            if let Some(new_path) = gloo_dialogs::prompt("Enter new file path:", Some(&path)) {
-                if new_path != path && !new_path.is_empty() {
-                    let path = path.clone();
-                    let volume = volume.clone();
-                    let navigator = navigator.clone();
-                    wasm_bindgen_futures::spawn_local(async move {
-                        let url = format!("/api/rename/{}/{}", volume, path);
-                        let payload = RenameRequest {
-                            new_path: new_path.clone(),
-                        };
-                        let resp = Request::post(&url).json(&payload).unwrap().send().await;
-                        match resp {
-                            Ok(r) if r.status() == 401 => {
-                                let current_path = gloo_utils::window()
-                                    .location()
-                                    .pathname()
-                                    .unwrap_or_default();
-                                if current_path != "/login" {
-                                    let _ = gloo_utils::window().location().set_href("/login");
-                                }
-                            }
-                            Ok(r) if r.ok() => {
-                                if let Some(nav) = navigator {
-                                    nav.push(&Route::Wiki {
-                                        volume,
-                                        path: new_path,
-                                    });
-                                }
-                            }
-                            Ok(r) => {
-                                let text = r.text().await.unwrap_or_default();
-                                gloo_dialogs::alert(&format!("Failed to rename: {}", text));
-                            }
-                            Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
-                        }
-                    });
-                }
-            }
-        })
+        let cb = hooks::use_rename_file(volume.clone(), path.clone());
+        Callback::from(move |_| cb.emit(()))
     };
-
     let on_delete_click = {
-        let path = path.clone();
-        let volume = volume.clone();
-        Callback::from(move |_| {
-            if gloo_dialogs::confirm(&format!("Are you sure you want to delete {}?", path)) {
-                let path = path.clone();
-                let volume = volume.clone();
-                wasm_bindgen_futures::spawn_local(async move {
-                    let url = format!("/api/wiki/{}/{}", volume, path);
-                    let resp = Request::delete(&url).send().await;
-                    match resp {
-                        Ok(r) if r.status() == 401 => {
-                            let current_path = gloo_utils::window()
-                                .location()
-                                .pathname()
-                                .unwrap_or_default();
-                            if current_path != "/login" {
-                                let _ = gloo_utils::window().location().set_href("/login");
-                            }
-                        }
-                        Ok(r) if r.ok() => {
-                            gloo_dialogs::alert("File deleted.");
-                            // Force reload to update file tree
-                            let _ = gloo_utils::window().location().set_href("/");
-                        }
-                        Ok(r) => {
-                            let text = r.text().await.unwrap_or_default();
-                            gloo_dialogs::alert(&format!("Failed to delete: {}", text));
-                        }
-                        Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
-                    }
-                });
-            }
-        })
+        let cb = hooks::use_delete_file(volume.clone(), path.clone());
+        Callback::from(move |_| cb.emit(()))
     };
 
     let on_save = {

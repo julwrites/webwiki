@@ -186,3 +186,90 @@ pub fn use_key_handler(props: KeyHandlerProps) {
         });
     }
 }
+
+use common::RenameRequest;
+use gloo_net::http::Request;
+
+#[hook]
+pub fn use_rename_file(current_volume: String, current_path: String) -> Callback<()> {
+    let navigator = use_navigator();
+
+    Callback::from(move |_| {
+        if let Some(new_path) = gloo_dialogs::prompt("Enter new file path:", Some(&current_path)) {
+            if new_path != current_path && !new_path.is_empty() {
+                let path = current_path.clone();
+                let volume = current_volume.clone();
+                let navigator = navigator.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let url = format!("/api/rename/{}/{}", volume, path);
+                    let payload = RenameRequest {
+                        new_path: new_path.clone(),
+                    };
+                    let resp = Request::post(&url).json(&payload).unwrap().send().await;
+                    match resp {
+                        Ok(r) if r.status() == 401 => {
+                            let current_path = gloo_utils::window()
+                                .location()
+                                .pathname()
+                                .unwrap_or_default();
+                            if current_path != "/login" {
+                                let _ = gloo_utils::window().location().set_href("/login");
+                            }
+                        }
+                        Ok(r) if r.ok() => {
+                            if let Some(nav) = navigator {
+                                nav.push(&Route::Wiki {
+                                    volume,
+                                    path: new_path,
+                                });
+                            }
+                        }
+                        Ok(r) => {
+                            let text = r.text().await.unwrap_or_default();
+                            gloo_dialogs::alert(&format!("Failed to rename: {}", text));
+                        }
+                        Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+                    }
+                });
+            }
+        }
+    })
+}
+
+#[hook]
+pub fn use_delete_file(current_volume: String, current_path: String) -> Callback<()> {
+    Callback::from(move |_| {
+        if gloo_dialogs::confirm(&format!(
+            "Are you sure you want to delete {}?",
+            current_path
+        )) {
+            let path = current_path.clone();
+            let volume = current_volume.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let url = format!("/api/wiki/{}/{}", volume, path);
+                let resp = Request::delete(&url).send().await;
+                match resp {
+                    Ok(r) if r.status() == 401 => {
+                        let current_path = gloo_utils::window()
+                            .location()
+                            .pathname()
+                            .unwrap_or_default();
+                        if current_path != "/login" {
+                            let _ = gloo_utils::window().location().set_href("/login");
+                        }
+                    }
+                    Ok(r) if r.ok() => {
+                        let _ = gloo_utils::window()
+                            .location()
+                            .set_href(&format!("/wiki/{}", volume));
+                    }
+                    Ok(r) => {
+                        let text = r.text().await.unwrap_or_default();
+                        gloo_dialogs::alert(&format!("Failed to delete: {}", text));
+                    }
+                    Err(e) => gloo_dialogs::alert(&format!("Network error: {}", e)),
+                }
+            });
+        }
+    })
+}
