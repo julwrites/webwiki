@@ -860,14 +860,14 @@ fn editor(props: &EditorProps) -> Html {
         <div class="editor-container">
             <div class="editor-toolbar-actions">
                 <div class="btn-group">
-                    <button class="toolbar-btn" onclick={on_bold_click} title="Bold"><strong>{"B"}</strong></button>
-                    <button class="toolbar-btn" onclick={on_italic_click} title="Italic"><em>{"I"}</em></button>
+                    <button class="toolbar-btn" onclick={on_bold_click} title="Bold" aria-label="Bold"><strong>{"B"}</strong></button>
+                    <button class="toolbar-btn" onclick={on_italic_click} title="Italic" aria-label="Italic"><em>{"I"}</em></button>
                     <button class="toolbar-btn" onclick={on_link_click} title="Link">{"Link"}</button>
                 </div>
                 <div class="btn-group">
-                    <button class="toolbar-btn" onclick={on_h1_click} title="Heading 1">{"H1"}</button>
-                    <button class="toolbar-btn" onclick={on_h2_click} title="Heading 2">{"H2"}</button>
-                    <button class="toolbar-btn" onclick={on_h3_click} title="Heading 3">{"H3"}</button>
+                    <button class="toolbar-btn" onclick={on_h1_click} title="Heading 1" aria-label="Heading 1">{"H1"}</button>
+                    <button class="toolbar-btn" onclick={on_h2_click} title="Heading 2" aria-label="Heading 2">{"H2"}</button>
+                    <button class="toolbar-btn" onclick={on_h3_click} title="Heading 3" aria-label="Heading 3">{"H3"}</button>
                 </div>
                 <div class="btn-group">
                     <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time">{"Date"}</button>
