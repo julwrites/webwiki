@@ -50,6 +50,7 @@ pub fn app(state: Arc<AppState>) -> Router {
         .route("/wiki/{volume}/{*path}", put(write_page))
         .route("/wiki/{volume}/{*path}", delete(delete_page))
         .route("/rename/{volume}/{*path}", post(rename_page))
+        .route("/upload/{volume}/{*path}", post(upload_file))
         .route("/tree", get(get_tree))
         .route("/search", get(search_handler))
         .nest(
@@ -459,4 +460,42 @@ fn build_file_tree(root: &PathBuf, current: &PathBuf) -> Vec<FileNode> {
 async fn logout_handler(session: tower_sessions::Session) -> impl IntoResponse {
     let _ = session.delete().await;
     StatusCode::OK
+}
+
+async fn upload_file(
+    State(state): State<Arc<AppState>>,
+    Path((volume, path)): Path<(String, String)>,
+    body: axum::body::Bytes,
+) -> impl IntoResponse {
+    let wiki_path = match state.volumes.get(&volume) {
+        Some(p) => p,
+        None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
+    };
+
+    if path.contains("..") {
+        return (StatusCode::FORBIDDEN, "Invalid path").into_response();
+    }
+
+    let file_path = wiki_path.join(&path);
+
+    // Safety check
+    if !file_path.starts_with(wiki_path) {
+        return (StatusCode::FORBIDDEN, "Access denied").into_response();
+    }
+
+    // Ensure parent directory exists
+    if let Some(parent) = file_path.parent() {
+        if tokio::fs::create_dir_all(parent).await.is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to create directory",
+            )
+                .into_response();
+        }
+    }
+
+    match tokio::fs::write(&file_path, body).await {
+        Ok(_) => (StatusCode::OK, "Saved").into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
 }
