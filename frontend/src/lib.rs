@@ -370,10 +370,10 @@ fn layout() -> Html {
             <BottomBar
                 on_toggle_drawer={on_toggle_drawer}
                 on_search={on_search_trigger}
-                on_pull={on_pull_click}
-                on_push={on_push_click}
-                on_commit={on_commit_click}
-                on_edit={on_edit_trigger}
+                on_pull={on_pull_click.clone()}
+                on_push={on_push_click.clone()}
+                on_commit={on_commit_click.clone()}
+                on_edit={on_edit_trigger.clone()}
                 on_home={on_home_click}
                 on_new_file={on_new_file_click}
                 on_theme_toggle={toggle_theme.clone()}
@@ -393,6 +393,11 @@ fn layout() -> Html {
                 on_theme_toggle={toggle_theme.clone()}
                 on_settings={on_toggle_settings.clone()}
                 on_history={on_toggle_history.clone()}
+                on_pull={on_pull_click.clone()}
+                on_push={on_push_click.clone()}
+                on_commit={on_commit_click.clone()}
+                on_edit={on_edit_trigger.clone()}
+                on_copy_link={on_copy_link.clone()}
                 current_volume={current_volume.clone()}
                 current_path={
                     match &route {

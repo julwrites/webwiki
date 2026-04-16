@@ -16,6 +16,11 @@ pub struct Props {
     pub on_theme_toggle: Callback<()>,
     pub on_settings: Callback<()>,
     pub on_history: Callback<()>,
+    pub on_pull: Callback<()>,
+    pub on_push: Callback<()>,
+    pub on_commit: Callback<()>,
+    pub on_edit: Callback<()>,
+    pub on_copy_link: Callback<()>,
     pub current_volume: String,
     pub current_path: String,
 }
@@ -114,6 +119,11 @@ pub fn command_palette(props: &Props) -> Html {
         let on_theme_toggle = props.on_theme_toggle.clone();
         let on_settings = props.on_settings.clone();
         let on_history = props.on_history.clone();
+        let on_pull = props.on_pull.clone();
+        let on_push = props.on_push.clone();
+        let on_commit = props.on_commit.clone();
+        let on_edit = props.on_edit.clone();
+        let on_copy_link = props.on_copy_link.clone();
         let on_rename_file = on_rename_file.clone();
         let on_delete_file = on_delete_file.clone();
 
@@ -122,6 +132,11 @@ pub fn command_palette(props: &Props) -> Html {
             let on_theme_toggle = on_theme_toggle.clone();
             let on_settings = on_settings.clone();
             let on_history = on_history.clone();
+            let on_pull = on_pull.clone();
+            let on_push = on_push.clone();
+            let on_commit = on_commit.clone();
+            let on_edit = on_edit.clone();
+            let on_copy_link = on_copy_link.clone();
             let on_rename_file = on_rename_file.clone();
             let on_delete_file = on_delete_file.clone();
             let mut commands = vec![
@@ -145,10 +160,24 @@ pub fn command_palette(props: &Props) -> Html {
                     })),
                 },
                 CommandItem {
-                    title: "View Page History".to_string(),
-                    description: "View the git history for the current page".to_string(),
+                    title: "Git Pull".to_string(),
+                    description: "Fetch and merge changes from the remote repository".to_string(),
                     command_type: CommandType::Action(Callback::from(move |_| {
-                        on_history.emit(());
+                        on_pull.emit(());
+                    })),
+                },
+                CommandItem {
+                    title: "Git Push".to_string(),
+                    description: "Push local commits to the remote repository".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_push.emit(());
+                    })),
+                },
+                CommandItem {
+                    title: "Git Commit".to_string(),
+                    description: "Commit local changes".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_commit.emit(());
                     })),
                 },
                 CommandItem {
@@ -160,6 +189,27 @@ pub fn command_palette(props: &Props) -> Html {
 
             let (_current_volume, current_path) = &deps;
             if !current_path.is_empty() {
+                commands.push(CommandItem {
+                    title: "Edit Current Page".to_string(),
+                    description: "Open the editor for the current page".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_edit.emit(());
+                    })),
+                });
+                commands.push(CommandItem {
+                    title: "Copy Link".to_string(),
+                    description: "Copy a wikilink to the current page to the clipboard".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_copy_link.emit(());
+                    })),
+                });
+                commands.push(CommandItem {
+                    title: "View Page History".to_string(),
+                    description: "View the git history for the current page".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_history.emit(());
+                    })),
+                });
                 commands.push(CommandItem {
                     title: "Rename Current Page".to_string(),
                     description: "Rename the file you are currently viewing".to_string(),
