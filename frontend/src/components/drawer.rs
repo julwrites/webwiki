@@ -3,7 +3,7 @@ use crate::hooks::use_create_file;
 use crate::Route;
 use common::FileNode;
 use gloo_net::http::Request;
-use web_sys::{HtmlInputElement, Event};
+use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
