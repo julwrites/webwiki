@@ -140,24 +140,24 @@ pub fn settings_modal(props: &Props) -> Html {
                 }
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                     <div>
-                        <label>{"Leader Key: "}</label>
-                        <input type="text" value={keybindings.leader.clone()} oninput={on_leader_input} />
+                        <label for="leader-key">{"Leader Key: "}</label>
+                        <input id="leader-key" type="text" value={keybindings.leader.clone()} oninput={on_leader_input} />
                     </div>
                     <div>
-                        <label>{"Pull Action: "}</label>
-                        <input type="text" value={keybindings.pull.clone()} oninput={on_pull_input} />
+                        <label for="pull-action">{"Pull Action: "}</label>
+                        <input id="pull-action" type="text" value={keybindings.pull.clone()} oninput={on_pull_input} />
                     </div>
                     <div>
-                        <label>{"Push Action: "}</label>
-                        <input type="text" value={keybindings.push.clone()} oninput={on_push_input} />
+                        <label for="push-action">{"Push Action: "}</label>
+                        <input id="push-action" type="text" value={keybindings.push.clone()} oninput={on_push_input} />
                     </div>
                     <div>
-                        <label>{"Commit Action: "}</label>
-                        <input type="text" value={keybindings.commit.clone()} oninput={on_commit_input} />
+                        <label for="commit-action">{"Commit Action: "}</label>
+                        <input id="commit-action" type="text" value={keybindings.commit.clone()} oninput={on_commit_input} />
                     </div>
                     <div>
-                        <label>{"Edit Action (comma separated): "}</label>
-                        <input type="text" value={edit_keys_str} onchange={on_edit_change} />
+                        <label for="edit-action">{"Edit Action (comma separated): "}</label>
+                        <input id="edit-action" type="text" value={edit_keys_str} onchange={on_edit_change} />
                     </div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
