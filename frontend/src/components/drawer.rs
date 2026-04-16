@@ -1,8 +1,9 @@
-use crate::components::icons::IconPlus;
+use crate::components::icons::{IconPlus, IconUpload};
 use crate::hooks::use_create_file;
 use crate::Route;
 use common::FileNode;
 use gloo_net::http::Request;
+use web_sys::{HtmlInputElement, Event};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -21,8 +22,63 @@ pub fn drawer(props: &DrawerProps) -> Html {
         _ => "default".to_string(),
     };
 
-    let create_file = use_create_file(current_volume);
+    let create_file = use_create_file(current_volume.clone());
     let on_new_file = Callback::from(move |_| create_file.emit(()));
+
+    let file_input_ref = use_node_ref();
+
+    let on_upload_click = {
+        let file_input_ref = file_input_ref.clone();
+        Callback::from(move |_| {
+            if let Some(input) = file_input_ref.cast::<HtmlInputElement>() {
+                input.click();
+            }
+        })
+    };
+
+    let on_file_change = {
+        let current_volume = current_volume.clone();
+        Callback::from(move |e: Event| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            if let Some(files) = input.files() {
+                if let Some(file) = files.item(0) {
+                    let file_name = file.name();
+                    let volume = current_volume.clone();
+
+                    wasm_bindgen_futures::spawn_local(async move {
+                        let path = format!("assets/images/{}", file_name);
+                        let url = format!("/api/upload/{}/{}", volume, path);
+
+                        let body = web_sys::File::from(file);
+                        let request = match Request::post(&url).body(body) {
+                            Ok(req) => req,
+                            Err(e) => {
+                                gloo_dialogs::alert(&format!("Failed to construct request: {}", e));
+                                return;
+                            }
+                        };
+
+                        let resp = request.send().await;
+
+                        match resp {
+                            Ok(r) if r.ok() => {
+                                gloo_dialogs::alert(&format!("Successfully uploaded to {}", path));
+                            }
+                            Ok(r) => {
+                                let err = r.text().await.unwrap_or_default();
+                                gloo_dialogs::alert(&format!("Failed to upload: {}", err));
+                            }
+                            Err(e) => {
+                                gloo_dialogs::alert(&format!("Error uploading file: {}", e));
+                            }
+                        }
+                    });
+                }
+            }
+            // Clear input value so same file can be uploaded again if needed
+            input.set_value("");
+        })
+    };
 
     html! {
         <>
@@ -34,6 +90,16 @@ pub fn drawer(props: &DrawerProps) -> Html {
                 <div class="drawer-header">
                     <VolumeSwitcher />
                     <div style="flex: 1"></div>
+                    <button class="drawer-close-btn" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image" style="margin-right: 8px">
+                        <IconUpload />
+                    </button>
+                    <input
+                        type="file"
+                        ref={file_input_ref}
+                        style="display: none;"
+                        onchange={on_file_change}
+                        accept="image/*"
+                    />
                     <button class="drawer-close-btn" onclick={on_new_file} title="New File" aria-label="New File" style="margin-right: 8px">
                         <IconPlus />
                     </button>

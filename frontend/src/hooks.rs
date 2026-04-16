@@ -107,8 +107,8 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                 let key = e.key();
                 let timestamp = e.time_stamp();
 
-                // SEARCH SHORTCUT: <Ctrl+o>
-                if (e.ctrl_key() || e.meta_key()) && key.to_lowercase() == "o" {
+                // SEARCH SHORTCUT: <Ctrl+p>
+                if (e.ctrl_key() || e.meta_key()) && key.to_lowercase() == "p" {
                     e.prevent_default();
                     props.on_search.emit(());
                     // Reset leader buffer
