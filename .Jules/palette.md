@@ -8,3 +8,6 @@
 ## 2026-04-14 - Selective ARIA labels
 **Learning:** Adding `aria-label` attributes that match visible text (e.g., `aria-label="Commit"` on a button containing the text `"Commit"`) is a known accessibility anti-pattern. They should only be used to clarify ambiguous or abbreviated visible text, like "B" for "Bold". Additionally, avoid adding static `aria-label`s to elements whose text updates dynamically (like a "Login" button changing to "Logging in..."), as the static label overrides the dynamic state for screen readers.
 **Action:** When adding `aria-label`s, only target elements with abbreviated or missing visible context. Avoid using them on elements with clear, static text or dynamically updating text.
+## 2024-05-24 - Form Field Accessibility
+**Learning:** Input fields inside functional components (like the `SettingsModal` in Yew) must be explicitly associated with their respective `<label>` elements using matching `id` and `for` attributes. This provides context to screen readers and expands the clickable area to focus the input.
+**Action:** When adding new form elements or reviewing existing ones, ensure every `<input>`, `<textarea>`, and `<select>` is accompanied by a `<label>` and correctly associated via `for` and `id` attributes, rather than relying on proximity alone.
