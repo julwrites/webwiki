@@ -49,8 +49,7 @@ pub fn drawer(props: &DrawerProps) -> Html {
                         let path = format!("assets/images/{}", file_name);
                         let url = format!("/api/upload/{}/{}", volume, path);
 
-                        let body = web_sys::File::from(file);
-                        let request = match Request::post(&url).body(body) {
+                        let request = match Request::post(&url).body(file) {
                             Ok(req) => req,
                             Err(e) => {
                                 gloo_dialogs::alert(&format!("Failed to construct request: {}", e));
