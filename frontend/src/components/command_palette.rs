@@ -492,6 +492,7 @@ pub fn command_palette(props: &Props) -> Html {
                     type="text"
                     class="command-palette-input"
                     placeholder="Type a command or search..."
+                    aria-label="Command palette input"
                     value={(*query).clone()}
                     oninput={on_input}
                     onkeydown={on_keydown}
