@@ -81,6 +81,7 @@ pub fn search_bar() -> Html {
             <input
                 type="text"
                 placeholder="Search..."
+                aria-label="Search files"
                 value={(*query).clone()}
                 oninput={on_input}
             />

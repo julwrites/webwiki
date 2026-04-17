@@ -208,8 +208,9 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 </div>
 
                 <div class="field">
-                    <label>{"Name"}</label>
+                    <label for="commit-author-name">{"Name"}</label>
                     <input
+                        id="commit-author-name"
                         value={(*author_name).clone()}
                         oninput={
                             let n = author_name.clone();
@@ -222,8 +223,9 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     />
                 </div>
                 <div class="field">
-                    <label>{"Email"}</label>
+                    <label for="commit-author-email">{"Email"}</label>
                     <input
+                        id="commit-author-email"
                         value={(*author_email).clone()}
                         oninput={
                             let e = author_email.clone();
@@ -257,8 +259,9 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 </div>
 
                 <div class="field">
-                    <label>{"Message"}</label>
+                    <label for="commit-message">{"Message"}</label>
                     <textarea
+                        id="commit-message"
                         placeholder="Enter commit message..."
                         value={(*message).clone()}
                         oninput={let m = message.clone(); move |e: InputEvent| m.set(e.target_unchecked_into::<HtmlTextAreaElement>().value())}
@@ -271,7 +274,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
 
                 <div class="actions">
                     <button onclick={on_commit} disabled={selected_files.is_empty()} title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}>{"Commit"}</button>
-                    <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary">{"Discard Changes"}</button>
+                    <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary" title={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}>{"Discard Changes"}</button>
                     <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())}>{"Cancel"}</button>
                 </div>
             </div>
