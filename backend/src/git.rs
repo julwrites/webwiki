@@ -36,7 +36,7 @@ pub fn git_routes() -> Router<Arc<AppState>> {
         .route("/push", post(push_changes))
         .route("/pull", post(pull_changes))
         .route("/restore", post(restore_changes))
-        .route("/history/*path", get(get_history))
+        .route("/history/{*path}", get(get_history))
 }
 
 async fn get_status(
