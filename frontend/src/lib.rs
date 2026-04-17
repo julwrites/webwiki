@@ -39,6 +39,8 @@ extern "C" {
     fn renderDrawio(element_id: &str, xml: &str);
     fn triggerSave(element_id: &str);
     fn insertDateTime(element_id: &str);
+    fn getEditorContent(element_id: &str) -> String;
+    fn onEditorChange(element_id: &str, callback: &Closure<dyn FnMut()>);
 }
 
 #[derive(Clone, Routable, PartialEq)]
@@ -658,7 +660,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                         <button onclick={Callback::from(|_| triggerSave("code-editor"))} style="background-color: var(--color-accent-fg); color: #ffffff; border-color: transparent;">{ "Save" }</button>
                     </div>
                 </div>
-                <Editor key={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
+                <Editor key={path.clone()} volume={volume} path={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
              </div>
         }
     } else {
@@ -776,6 +778,8 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 
 #[derive(Properties, PartialEq, Clone)]
 struct EditorProps {
+    volume: String,
+    path: String,
     content: String,
     on_save: Callback<String>,
     vim_mode: bool,
@@ -784,15 +788,21 @@ struct EditorProps {
 
 #[function_component(Editor)]
 fn editor(props: &EditorProps) -> Html {
+    let volume = props.volume.clone();
+    let path = props.path.clone();
     let content = props.content.clone();
     let on_save = props.on_save.clone();
     let vim_mode = props.vim_mode;
     let on_edit_toggle = props.on_edit_toggle.clone();
+    let is_preview_open = use_state(|| false);
+    let live_content = use_state(|| content.clone());
 
     // Store the closure in a ref to keep it alive
     let closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut(String)>>::None);
     let quit_closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut()>>::None);
+    let change_closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut()>>::None);
 
+    let live_content_for_effect = live_content.clone();
     use_effect_with(vim_mode, move |&vim_mode| {
         let on_save = on_save.clone();
         let on_edit_toggle = on_edit_toggle.clone();
@@ -822,14 +832,24 @@ fn editor(props: &EditorProps) -> Html {
 
         setupEditor("code-editor", &content, &closure, vim_mode, &quit_closure);
 
+        let live_content_inner = live_content_for_effect.clone();
+        let change_closure = Closure::wrap(Box::new(move || {
+            let current_val = getEditorContent("code-editor");
+            live_content_inner.set(current_val);
+        }) as Box<dyn FnMut()>);
+
+        onEditorChange("code-editor", &change_closure);
+
         // Store closure in the ref instead of forgetting it
         *closure_ref.borrow_mut() = Some(closure);
         *quit_closure_ref.borrow_mut() = Some(quit_closure);
+        *change_closure_ref.borrow_mut() = Some(change_closure);
 
         move || {
             // Drop the closure when component unmounts
             *closure_ref.borrow_mut() = None;
             *quit_closure_ref.borrow_mut() = None;
+            *change_closure_ref.borrow_mut() = None;
         }
     });
 
@@ -861,6 +881,37 @@ fn editor(props: &EditorProps) -> Html {
         insertDateTime("code-editor");
     });
 
+    let on_preview_toggle = {
+        let is_preview_open = is_preview_open.clone();
+        Callback::from(move |_| {
+            is_preview_open.set(!*is_preview_open);
+        })
+    };
+
+    let preview_html = if *is_preview_open {
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_TABLES);
+        options.insert(Options::ENABLE_FOOTNOTES);
+        options.insert(Options::ENABLE_STRIKETHROUGH);
+        options.insert(Options::ENABLE_TASKLISTS);
+
+        let parser = Parser::new_ext(&live_content, options);
+        let wiki_parser = WikiLinkParser::new(parser, volume.clone(), path.clone());
+
+        let mut html_output = String::new();
+        html::push_html(&mut html_output, wiki_parser);
+
+        match gloo_utils::document().create_element("div") {
+            Ok(div) => {
+                div.set_inner_html(&html_output);
+                html! { <div class="markdown-body preview-pane" style="height: 100%;">{ Html::VRef(div.into()) }</div> }
+            }
+            Err(_) => html! { <div>{ "Failed to create markdown container." }</div> },
+        }
+    } else {
+        html! {}
+    };
+
     html! {
         <div class="editor-container">
             <div class="editor-toolbar-actions">
@@ -877,11 +928,22 @@ fn editor(props: &EditorProps) -> Html {
                 <div class="btn-group">
                     <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time">{"Date"}</button>
                 </div>
+                <div class="btn-group" style="margin-left: auto;">
+                    <button class={classes!("toolbar-btn", if *is_preview_open { "active" } else { "" })} onclick={on_preview_toggle} title="Toggle Preview" aria-label="Toggle Preview">
+                        {"Preview"}
+                    </button>
+                </div>
             </div>
-            <textarea id="code-editor" />
-            <p class="editor-help">
-                { if vim_mode { "Vim Mode: :w to save, or Ctrl+S" } else { "Ctrl+S to save" } }
-            </p>
+
+            <div class={classes!(if *is_preview_open { "editor-split-container" } else { "" })} style="flex: 1; display: flex; min-height: 0;">
+                <div class="editor-pane" style={if *is_preview_open { "flex: 1; min-width: 0; display: flex; flex-direction: column;" } else { "width: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0;" }}>
+                    <textarea id="code-editor" />
+                    <p class="editor-help">
+                        { if vim_mode { "Vim Mode: :w to save, or Ctrl+S" } else { "Ctrl+S to save" } }
+                    </p>
+                </div>
+                { preview_html }
+            </div>
         </div>
     }
 }

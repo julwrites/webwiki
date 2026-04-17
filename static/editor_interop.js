@@ -286,3 +286,30 @@ window.insertDateTime = function(elementId) {
 
     insertTextAtCursor(elementId, formattedString);
 };
+window.getEditorContent = function(elementId) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return "";
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (cm) {
+        return cm.getValue();
+    } else {
+        return textArea.value;
+    }
+};
+
+window.onEditorChange = function(elementId, callback) {
+    var textArea = document.getElementById(elementId);
+    if (!textArea) return;
+    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (cm) {
+        cm.on("change", function(instance, changeObj) {
+            // Avoid calling if this is a setValue call (which might be from initial load)
+            if (changeObj && changeObj.origin === "setValue") return;
+            callback();
+        });
+    } else {
+        textArea.addEventListener("input", function() {
+            callback();
+        });
+    }
+};
