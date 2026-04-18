@@ -11,3 +11,7 @@
 ## 2024-05-24 - Form Field Accessibility
 **Learning:** Input fields inside functional components (like the `SettingsModal` in Yew) must be explicitly associated with their respective `<label>` elements using matching `id` and `for` attributes. This provides context to screen readers and expands the clickable area to focus the input.
 **Action:** When adding new form elements or reviewing existing ones, ensure every `<input>`, `<textarea>`, and `<select>` is accompanied by a `<label>` and correctly associated via `for` and `id` attributes, rather than relying on proximity alone.
+
+## 2024-04-18 - Dynamically Formatted ARIA Labels in Loops
+**Learning:** When adding `aria-label`s inside loops or maps (like the commit modal's file list in Yew), using a variable that was previously moved or borrowing from an iterated item directly inside a macro format string can cause compilation failures.
+**Action:** Always create a locally scoped clone of the variable (e.g., `let display_path = f.path.clone();`) explicitly intended for use in the `aria-label` format string within the `html!` block.
