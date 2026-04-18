@@ -9,6 +9,26 @@ use crate::hooks::use_create_file;
 use crate::search_bar::SearchResult;
 use crate::Route;
 
+fn is_fuzzy_match(text: &str, query: &str) -> bool {
+    let mut query_chars = query.chars().peekable();
+    if query_chars.peek().is_none() {
+        return true;
+    }
+    for c in text.chars() {
+        for lc in c.to_lowercase() {
+            if let Some(&qc) = query_chars.peek() {
+                if lc == qc {
+                    query_chars.next();
+                    if query_chars.peek().is_none() {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub is_open: bool,
@@ -282,7 +302,7 @@ pub fn command_palette(props: &Props) -> Html {
                         if file_matches >= 10 {
                             break;
                         } // Limit file results
-                        if path.to_lowercase().contains(&q_lower) {
+                        if is_fuzzy_match(path, &q_lower) {
                             items.push(CommandItem {
                                 title: path.clone(),
                                 description: format!("File in {}", volume),

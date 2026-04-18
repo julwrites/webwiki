@@ -912,8 +912,68 @@ fn editor(props: &EditorProps) -> Html {
         html! {}
     };
 
+    let ondragover = Callback::from(|e: web_sys::DragEvent| {
+        e.prevent_default();
+    });
+
+    let ondragenter = Callback::from(|e: web_sys::DragEvent| {
+        e.prevent_default();
+    });
+
+    let ondrop = {
+        let volume = volume.clone();
+        Callback::from(move |e: web_sys::DragEvent| {
+            e.prevent_default();
+            if let Some(dt) = e.data_transfer() {
+                if let Some(files) = dt.files() {
+                    if files.length() > 0 {
+                        if let Some(file) = files.item(0) {
+                            let filename = file.name();
+                            let volume_clone = volume.clone();
+                            wasm_bindgen_futures::spawn_local(async move {
+                                let url = format!(
+                                    "/api/upload/{}/assets/images/{}",
+                                    volume_clone, filename
+                                );
+                                let req_res = Request::post(&url).body(file);
+
+                                let req = match req_res {
+                                    Ok(r) => r,
+                                    Err(e) => {
+                                        gloo_dialogs::alert(&format!(
+                                            "Failed to build request: {}",
+                                            e
+                                        ));
+                                        return;
+                                    }
+                                };
+
+                                match req.send().await {
+                                    Ok(resp) if resp.ok() => {
+                                        let markdown_image =
+                                            format!("![{}](assets/images/{})", filename, filename);
+                                        insertTextAtCursor("code-editor", &markdown_image);
+                                    }
+                                    Ok(resp) => {
+                                        gloo_dialogs::alert(&format!(
+                                            "Upload failed: {}",
+                                            resp.status()
+                                        ));
+                                    }
+                                    Err(err) => {
+                                        gloo_dialogs::alert(&format!("Upload error: {}", err));
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        })
+    };
+
     html! {
-        <div class="editor-container">
+        <div class="editor-container" ondragover={ondragover} ondragenter={ondragenter} ondrop={ondrop}>
             <div class="editor-toolbar-actions">
                 <div class="btn-group">
                     <button class="toolbar-btn" onclick={on_bold_click} title="Bold" aria-label="Bold"><strong>{"B"}</strong></button>
