@@ -248,9 +248,10 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                             let toggle = toggle_file.clone();
                             move |_| toggle.emit(path.clone())
                         };
+                        let display_path = f.path.clone();
                         html! {
                             <div class="file-item">
-                                <input type="checkbox" checked={is_checked} onclick={on_change} />
+                                <input type="checkbox" checked={is_checked} onclick={on_change} aria-label={format!("Select {}", display_path)} />
                                 <span class="status">{&f.status}</span>
                                 <span class="path">{&f.path}</span>
                             </div>

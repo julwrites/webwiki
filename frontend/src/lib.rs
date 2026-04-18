@@ -986,7 +986,7 @@ fn editor(props: &EditorProps) -> Html {
                     <button class="toolbar-btn" onclick={on_h3_click} title="Heading 3" aria-label="Heading 3">{"H3"}</button>
                 </div>
                 <div class="btn-group">
-                    <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time">{"Date"}</button>
+                    <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time" aria-label="Insert Date/Time">{"Date"}</button>
                 </div>
                 <div class="btn-group" style="margin-left: auto;">
                     <button class={classes!("toolbar-btn", if *is_preview_open { "active" } else { "" })} onclick={on_preview_toggle} title="Toggle Preview" aria-label="Toggle Preview">
