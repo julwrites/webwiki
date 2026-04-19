@@ -40,6 +40,7 @@ pub struct Props {
     pub on_push: Callback<()>,
     pub on_commit: Callback<()>,
     pub on_edit: Callback<()>,
+    pub on_save: Callback<()>,
     pub on_copy_link: Callback<()>,
     pub current_volume: String,
     pub current_path: String,
@@ -143,6 +144,7 @@ pub fn command_palette(props: &Props) -> Html {
         let on_push = props.on_push.clone();
         let on_commit = props.on_commit.clone();
         let on_edit = props.on_edit.clone();
+        let on_save = props.on_save.clone();
         let on_copy_link = props.on_copy_link.clone();
         let on_rename_file = on_rename_file.clone();
         let on_delete_file = on_delete_file.clone();
@@ -156,6 +158,7 @@ pub fn command_palette(props: &Props) -> Html {
             let on_push = on_push.clone();
             let on_commit = on_commit.clone();
             let on_edit = on_edit.clone();
+            let on_save = on_save.clone();
             let on_copy_link = on_copy_link.clone();
             let on_rename_file = on_rename_file.clone();
             let on_delete_file = on_delete_file.clone();
@@ -214,6 +217,13 @@ pub fn command_palette(props: &Props) -> Html {
                     description: "Open the editor for the current page".to_string(),
                     command_type: CommandType::Action(Callback::from(move |_| {
                         on_edit.emit(());
+                    })),
+                });
+                commands.push(CommandItem {
+                    title: "Save Current Page".to_string(),
+                    description: "Save changes to the current page".to_string(),
+                    command_type: CommandType::Action(Callback::from(move |_| {
+                        on_save.emit(());
                     })),
                 });
                 commands.push(CommandItem {

@@ -297,6 +297,8 @@ fn layout() -> Html {
         Callback::from(move |_| is_editing.set(true))
     };
 
+    let on_save_trigger = Callback::from(move |_| triggerSave("code-editor"));
+
     let on_edit_toggle = {
         let is_editing = is_editing.clone();
         Callback::from(move |val: bool| is_editing.set(val))
@@ -399,6 +401,7 @@ fn layout() -> Html {
                 on_push={on_push_click.clone()}
                 on_commit={on_commit_click.clone()}
                 on_edit={on_edit_trigger.clone()}
+                on_save={on_save_trigger.clone()}
                 on_copy_link={on_copy_link.clone()}
                 current_volume={current_volume.clone()}
                 current_path={
