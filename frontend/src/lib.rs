@@ -487,6 +487,7 @@ enum ViewMode {
 #[function_component(WikiViewer)]
 fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let view_mode = use_state(|| ViewMode::Loading);
+    let is_uncommitted = use_state(|| false);
 
     // We use the prop to control editing state
     let is_editing = props.is_editing;
@@ -547,6 +548,30 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             });
             || ()
         });
+    }
+
+    // Effect to fetch git status for the current file
+    {
+        let volume = volume.clone();
+        let path = path.clone();
+        let is_uncommitted = is_uncommitted.clone();
+        use_effect_with(
+            (volume.clone(), path.clone(), is_editing),
+            move |(volume, path, _is_editing)| {
+                let volume = volume.clone();
+                let path = path.clone();
+                let is_uncommitted = is_uncommitted.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let url = format!("/api/git/{}/status", volume);
+                    if let Ok(resp) = Request::get(&url).send().await {
+                        if let Ok(status) = resp.json::<GitStatusResponse>().await {
+                            is_uncommitted.set(status.files.iter().any(|f| f.path == path));
+                        }
+                    }
+                });
+                || ()
+            },
+        );
     }
 
     // Effect to trigger diagram rendering when content changes or editing ends
@@ -657,7 +682,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         html! {
              <div class="wiki-editor">
                 <div class="toolbar">
-                    <span class="path">{ &path }</span>
+                    <span class="path">
+                        { &path }
+                        if *is_uncommitted {
+                            <span class="badge" style="background-color: var(--color-accent-fg); margin-left: 8px;">{ "Draft" }</span>
+                        }
+                    </span>
                     <div class="toolbar-controls">
                         <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)}>{ "Cancel" }</button>
                         <button onclick={Callback::from(|_| triggerSave("code-editor"))} style="background-color: var(--color-accent-fg); color: #ffffff; border-color: transparent;">{ "Save" }</button>
@@ -730,7 +760,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 html! {
                     <div class="wiki-viewer">
                         <div class="toolbar">
-                            <span class="path">{ &path }</span>
+                            <span class="path">
+                                { &path }
+                                if *is_uncommitted {
+                                    <span class="badge" style="background-color: var(--color-accent-fg); margin-left: 8px;">{ "Draft" }</span>
+                                }
+                            </span>
                             <div class="toolbar-controls">
                                 <button onclick={on_edit_click}>{ "Edit" }</button>
                                 <button onclick={on_rename_click.clone()}>{ "Rename" }</button>
