@@ -54,6 +54,26 @@ pub fn settings_modal(props: &Props) -> Html {
         })
     };
 
+    let on_search_input = {
+        let keybindings = keybindings.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            let mut new_kb = (*keybindings).clone();
+            new_kb.search = input.value();
+            keybindings.set(new_kb);
+        })
+    };
+
+    let on_new_file_input = {
+        let keybindings = keybindings.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            let mut new_kb = (*keybindings).clone();
+            new_kb.new_file = input.value();
+            keybindings.set(new_kb);
+        })
+    };
+
     let on_edit_change = {
         let keybindings = keybindings.clone();
         Callback::from(move |e: Event| {
@@ -83,6 +103,8 @@ pub fn settings_modal(props: &Props) -> Html {
                 (&kb.pull, "Pull"),
                 (&kb.push, "Push"),
                 (&kb.commit, "Commit"),
+                (&kb.search, "Search"),
+                (&kb.new_file, "New File"),
             ];
 
             // Check for duplicates in main actions
@@ -154,6 +176,14 @@ pub fn settings_modal(props: &Props) -> Html {
                     <div>
                         <label for="commit-action">{"Commit Action: "}</label>
                         <input id="commit-action" type="text" value={keybindings.commit.clone()} oninput={on_commit_input} />
+                    </div>
+                    <div>
+                        <label for="search-action">{"Search Action: "}</label>
+                        <input id="search-action" type="text" value={keybindings.search.clone()} oninput={on_search_input} />
+                    </div>
+                    <div>
+                        <label for="new-file-action">{"New File Action: "}</label>
+                        <input id="new-file-action" type="text" value={keybindings.new_file.clone()} oninput={on_new_file_input} />
                     </div>
                     <div>
                         <label for="edit-action">{"Edit Action (comma separated): "}</label>
