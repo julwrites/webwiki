@@ -36,7 +36,19 @@ pub struct KeyBindings {
     pub pull: String,
     pub push: String,
     pub commit: String,
+    #[serde(default = "default_search_binding")]
+    pub search: String,
+    #[serde(default = "default_new_file_binding")]
+    pub new_file: String,
     pub edit: Vec<String>,
+}
+
+fn default_search_binding() -> String {
+    "f".to_string()
+}
+
+fn default_new_file_binding() -> String {
+    "n".to_string()
 }
 
 impl Default for KeyBindings {
@@ -46,6 +58,8 @@ impl Default for KeyBindings {
             pull: "gl".to_string(),
             push: "gp".to_string(),
             commit: "gc".to_string(),
+            search: default_search_binding(),
+            new_file: default_new_file_binding(),
             edit: vec!["e".to_string(), "i".to_string(), "a".to_string()],
         }
     }
@@ -58,6 +72,7 @@ pub struct KeyHandlerProps {
     pub on_push: Callback<()>,
     pub on_commit: Callback<()>,
     pub on_edit: Callback<()>,
+    pub on_new_file: Callback<()>,
 }
 
 #[hook]
@@ -151,6 +166,8 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                         let expected_pull = format!("{}{}", bindings.leader, bindings.pull);
                         let expected_push = format!("{}{}", bindings.leader, bindings.push);
                         let expected_commit = format!("{}{}", bindings.leader, bindings.commit);
+                        let expected_search = format!("{}{}", bindings.leader, bindings.search);
+                        let expected_new_file = format!("{}{}", bindings.leader, bindings.new_file);
 
                         if *buffer == expected_pull {
                             props.on_pull.emit(());
@@ -161,11 +178,19 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                         } else if *buffer == expected_commit {
                             props.on_commit.emit(());
                             *buffer = String::new();
+                        } else if *buffer == expected_search {
+                            props.on_search.emit(());
+                            *buffer = String::new();
+                        } else if *buffer == expected_new_file {
+                            props.on_new_file.emit(());
+                            *buffer = String::new();
                         } else {
                             // Check if buffer is still a valid prefix of any command
                             let is_prefix = expected_pull.starts_with(&*buffer)
                                 || expected_push.starts_with(&*buffer)
-                                || expected_commit.starts_with(&*buffer);
+                                || expected_commit.starts_with(&*buffer)
+                                || expected_search.starts_with(&*buffer)
+                                || expected_new_file.starts_with(&*buffer);
 
                             if !is_prefix {
                                 // Invalid sequence, reset

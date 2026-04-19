@@ -351,6 +351,7 @@ fn layout() -> Html {
         on_push: on_push_click.clone(),
         on_commit: on_commit_click.clone(),
         on_edit: on_edit_trigger.clone(),
+        on_new_file: on_new_file_click.clone(),
     });
 
     let is_dark = *theme == "dark";
@@ -482,6 +483,7 @@ enum ViewMode {
     Image(String),
     Pdf(String),
     Error(String),
+    NotFound(String),
 }
 
 #[function_component(WikiViewer)]
@@ -540,10 +542,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             )));
                         }
                     }
-                    _ => view_mode.set(ViewMode::Page(WikiPage {
-                        path: path.clone(),
-                        content: "# Page Not Found\n\nClick edit to create it.".to_string(),
-                    })),
+                    _ => view_mode.set(ViewMode::NotFound(path.clone())),
                 }
             });
             || ()
@@ -679,11 +678,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             _ => String::new(),
         };
 
+        let display_path = format!("{}:/{}", volume, path);
         html! {
              <div class="wiki-editor">
                 <div class="toolbar">
                     <span class="path">
-                        { &path }
+                        { &display_path }
                         if *is_uncommitted {
                             <span class="badge" style="background-color: var(--color-accent-fg); margin-left: 8px;">{ "Draft" }</span>
                         }
@@ -697,11 +697,12 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
              </div>
         }
     } else {
+        let display_path = format!("{}:/{}", volume, path);
         match &*view_mode {
             ViewMode::Loading => html! {
                 <div class="wiki-viewer">
                     <div class="toolbar">
-                        <span class="path">{ &path }</span>
+                        <span class="path">{ &display_path }</span>
                     </div>
                     <div class="loading">{ "Loading..." }</div>
                 </div>
@@ -761,7 +762,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <div class="wiki-viewer">
                         <div class="toolbar">
                             <span class="path">
-                                { &path }
+                                { &display_path }
                                 if *is_uncommitted {
                                     <span class="badge" style="background-color: var(--color-accent-fg); margin-left: 8px;">{ "Draft" }</span>
                                 }
@@ -781,7 +782,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             ViewMode::Image(url) => html! {
                 <div class="wiki-viewer">
                     <div class="toolbar">
-                        <span class="path">{ &path }</span>
+                        <span class="path">{ &display_path }</span>
                         <div class="toolbar-controls">
                             <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
                         </div>
@@ -794,7 +795,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
             ViewMode::Pdf(url) => html! {
                 <div class="wiki-viewer">
                      <div class="toolbar">
-                        <span class="path">{ &path }</span>
+                        <span class="path">{ &display_path }</span>
                         <div class="toolbar-controls">
                             <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
                         </div>
@@ -808,6 +809,20 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 <div class="error-viewer">
                     <h3>{ "Error displaying file" }</h3>
                     <p>{ msg }</p>
+                </div>
+            },
+            ViewMode::NotFound(p) => html! {
+                <div class="wiki-viewer">
+                    <div class="toolbar">
+                        <span class="path">{ format!("{}:/{}", volume, p) }</span>
+                    </div>
+                    <div class="markdown-body" style="text-align: center; margin-top: 2rem;">
+                        <h2>{ "Page Not Found" }</h2>
+                        <p>{ format!("The page '{}' does not exist yet.", p) }</p>
+                        <button class="create-page-btn" onclick={on_edit_click} style="margin-top: 1rem; padding: 0.5rem 1rem; background-color: var(--color-accent-fg); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+                            { "Create this page" }
+                        </button>
+                    </div>
                 </div>
             },
         }
