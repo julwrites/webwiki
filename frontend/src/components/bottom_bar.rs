@@ -66,10 +66,10 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </button>
 
             // Search Trigger (Dominant)
-            <div class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())}>
+            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label="Search files" title="Search files">
                 <IconSearch />
                 <span>{"Search files..."}</span>
-            </div>
+            </button>
 
             // New File
             <button class="bottom-bar-btn" onclick={move |_| on_new_file.emit(())} title="New File" aria-label="New File">
@@ -125,7 +125,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_pull = props.on_pull.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_pull.emit(()); close.emit(()); }
-                            }>
+                            } title="Pull" aria-label="Pull">
                                 <IconDownload />
                                 <span>{"Pull"}</span>
                                 if props.commits_behind > 0 {
@@ -136,7 +136,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_commit = props.on_commit.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_commit.emit(()); close.emit(()); }
-                            }>
+                            } title="Commit" aria-label="Commit">
                                 <IconGitCommit />
                                 <span>{"Commit"}</span>
                                 if props.uncommitted_files > 0 {
@@ -147,7 +147,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_push = props.on_push.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_push.emit(()); close.emit(()); }
-                            }>
+                            } title="Push" aria-label="Push">
                                 <IconUpload />
                                 <span>{"Push"}</span>
                                 if props.commits_ahead > 0 {

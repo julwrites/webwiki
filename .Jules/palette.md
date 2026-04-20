@@ -15,3 +15,7 @@
 ## 2024-04-18 - Dynamically Formatted ARIA Labels in Loops
 **Learning:** When adding `aria-label`s inside loops or maps (like the commit modal's file list in Yew), using a variable that was previously moved or borrowing from an iterated item directly inside a macro format string can cause compilation failures.
 **Action:** Always create a locally scoped clone of the variable (e.g., `let display_path = f.path.clone();`) explicitly intended for use in the `aria-label` format string within the `html!` block.
+
+## 2026-04-20 - Ensure Aria-Labels on Elements Hidden on Mobile
+**Learning:** In responsive designs where elements contain both text and icons (like `<span>{"Search files"}</span>` + `<IconSearch />`), the text is often hidden using `display: none` on smaller screens. This makes the element act as an "icon-only" button visually on mobile, which fails accessibility checks if `aria-label` and `title` attributes aren't explicitly provided, since screen readers might lose context when the text node is unrendered.
+**Action:** When adding or reviewing buttons that have text and an icon, check if the CSS uses media queries to hide the text on mobile (e.g., `.bottom-bar-search-trigger span { display: none; }`). If so, ensure the parent button has a robust `aria-label` and `title` attribute so it remains fully accessible across all screen sizes.
