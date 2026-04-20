@@ -14,6 +14,15 @@ pub fn settings_modal(props: &Props) -> Html {
         LocalStorage::get::<KeyBindings>("key_bindings").unwrap_or_else(|_| KeyBindings::default())
     });
 
+    let author_name = use_state(|| {
+        LocalStorage::get::<String>("author_name").unwrap_or_else(|_| "Wiki User".to_string())
+    });
+
+    let author_email = use_state(|| {
+        LocalStorage::get::<String>("author_email")
+            .unwrap_or_else(|_| "user@example.com".to_string())
+    });
+
     let on_leader_input = {
         let keybindings = keybindings.clone();
         Callback::from(move |e: InputEvent| {
@@ -89,10 +98,28 @@ pub fn settings_modal(props: &Props) -> Html {
         })
     };
 
+    let on_author_name_input = {
+        let author_name = author_name.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            author_name.set(input.value());
+        })
+    };
+
+    let on_author_email_input = {
+        let author_email = author_email.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            author_email.set(input.value());
+        })
+    };
+
     let error_msg = use_state(String::new);
 
     let on_save = {
         let keybindings = keybindings.clone();
+        let author_name = author_name.clone();
+        let author_email = author_email.clone();
         let on_close = props.on_close.clone();
         let error_msg = error_msg.clone();
         Callback::from(move |_| {
@@ -132,6 +159,9 @@ pub fn settings_modal(props: &Props) -> Html {
             error_msg.set(String::new());
 
             let _ = LocalStorage::set("key_bindings", kb);
+            let _ = LocalStorage::set("author_name", (*author_name).clone());
+            let _ = LocalStorage::set("author_email", (*author_email).clone());
+
             // It triggers immediately after local storage is set.
             // When user tries to type the new commands, use_key_handler needs to pick it up.
             // Right now use_key_handler only picks up on mount. We will fix that later or force reload.
@@ -154,13 +184,22 @@ pub fn settings_modal(props: &Props) -> Html {
     html! {
         <div class="modal-overlay" onclick={on_cancel.clone()}>
             <div class="modal" onclick={|e: MouseEvent| e.stop_propagation()}>
-                <h2>{"Configure Keybindings"}</h2>
+                <h2>{"Settings"}</h2>
                 if !(*error_msg).is_empty() {
                     <div style="color: var(--color-danger-fg); margin-bottom: 15px;">
                         { (*error_msg).clone() }
                     </div>
                 }
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    <div>
+                        <label for="author-name">{"Git Author Name: "}</label>
+                        <input id="author-name" type="text" value={(*author_name).clone()} oninput={on_author_name_input} />
+                    </div>
+                    <div>
+                        <label for="author-email">{"Git Author Email: "}</label>
+                        <input id="author-email" type="text" value={(*author_email).clone()} oninput={on_author_email_input} />
+                    </div>
+                    <hr style="margin: 10px 0; border: 0; border-top: 1px solid var(--border-color);" />
                     <div>
                         <label for="leader-key">{"Leader Key: "}</label>
                         <input id="leader-key" type="text" value={keybindings.leader.clone()} oninput={on_leader_input} />
