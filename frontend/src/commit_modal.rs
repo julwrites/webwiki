@@ -201,7 +201,11 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
     html! {
         <div class="modal-overlay">
             <div class="modal">
-                <h2>{"Commit Changes"}</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="border-bottom: none; margin-bottom: 0;">{"Commit Changes"}</h2>
+                    <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} title="Close" aria-label="Close Commit Modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-fg-muted); padding: 0 8px;">{"×"}</button>
+                </div>
+                <div style="border-bottom: 1px solid var(--color-border-muted); margin-bottom: 16px; margin-top: 8px;"></div>
 
                 <div class="sync-status">
                     <span>{"Pending Sync: "} {*commits_ahead}</span>
