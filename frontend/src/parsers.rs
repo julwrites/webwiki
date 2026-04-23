@@ -76,17 +76,38 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                     };
 
                     let trimmed_link = link.trim();
-                    let link_url = if trimmed_link.starts_with('/') {
-                        let absolute_link = trimmed_link.trim_start_matches('/');
-                        format!("/wiki/{}/{}", self.volume, absolute_link)
-                    } else {
-                        let mut parts: Vec<&str> = self.current_path.split('/').collect();
-                        if !parts.is_empty() && !self.current_path.is_empty() {
-                            parts.pop(); // Remove the current file name
+
+                    let (target_volume, target_path) =
+                        if let Some(colon_idx) = trimmed_link.find(':') {
+                            // Support standard Vimwiki convention of cross-volume links: `[[volume:path]]`
+                            (&trimmed_link[..colon_idx], &trimmed_link[colon_idx + 1..])
                         } else {
-                            parts.clear();
-                        }
-                        for part in trimmed_link.split('/') {
+                            (self.volume.as_str(), trimmed_link)
+                        };
+
+                    let link_url = if target_path.starts_with('/') {
+                        let absolute_link = target_path.trim_start_matches('/');
+                        format!("/wiki/{}/{}", target_volume, absolute_link)
+                    } else {
+                        // If it's a cross-volume link, we should probably resolve relative to the root of that volume,
+                        // unless we want to try resolving relative to the *same* path in the other volume (which is weird).
+                        // Standard Vimwiki behavior for cross-volume links without an absolute path usually resolves
+                        // relative to the root of the target wiki, OR we just let the normal logic apply.
+                        // Let's stick to the current logic: if it's the same volume, relative to current_path.
+                        // If it's a different volume, it should be treated as absolute from the root of that target volume.
+                        let mut parts: Vec<&str> = if target_volume == self.volume {
+                            let mut p: Vec<&str> = self.current_path.split('/').collect();
+                            if !p.is_empty() && !self.current_path.is_empty() {
+                                p.pop(); // Remove the current file name
+                            } else {
+                                p.clear();
+                            }
+                            p
+                        } else {
+                            Vec::new() // cross-volume relative links start at the target root
+                        };
+
+                        for part in target_path.split('/') {
                             if part == "." || part.is_empty() {
                                 continue;
                             } else if part == ".." {
@@ -98,7 +119,7 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                             }
                         }
                         let resolved_path = parts.join("/");
-                        format!("/wiki/{}/{}", self.volume, resolved_path)
+                        format!("/wiki/{}/{}", target_volume, resolved_path)
                     };
                     let label_text = label.trim().to_string();
 
@@ -311,5 +332,27 @@ mod tests {
         let output = render(input, "default", "Folder/File.md");
         // Should cap at root
         assert!(output.contains(r#"<a href="/wiki/default/BeyondRoot">BeyondRoot</a>"#));
+    }
+
+    #[test]
+    fn test_cross_volume_wikilink() {
+        let input = "[[work:Project/Page|Label]]";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output.contains(r#"<a href="/wiki/work/Project/Page">Label</a>"#));
+    }
+
+    #[test]
+    fn test_cross_volume_absolute_wikilink() {
+        let input = "[[work:/Project/Page|Label]]";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output.contains(r#"<a href="/wiki/work/Project/Page">Label</a>"#));
+    }
+
+    #[test]
+    fn test_cross_volume_with_parent_paths() {
+        let input = "[[work:../Project/Page|Label]]";
+        let output = render(input, "default", "Folder/File.md");
+        // Since cross-volume paths resolve relative to the target root, parent traversal from root should cap at root
+        assert!(output.contains(r#"<a href="/wiki/work/Project/Page">Label</a>"#));
     }
 }
