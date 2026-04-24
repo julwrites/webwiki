@@ -325,7 +325,44 @@ async fn rename_page(
     }
 
     match tokio::fs::rename(&old_file_path, &new_file_path).await {
-        Ok(_) => (StatusCode::OK, "Renamed").into_response(),
+        Ok(_) => {
+            // Auto-update links across all markdown files in the volume using spawn_blocking
+            // to avoid blocking the async executor with synchronous I/O.
+            let new_path = payload.new_path.clone();
+            let wiki_path_clone = wiki_path.clone();
+            let _ = tokio::task::spawn_blocking(move || {
+                if let Ok(re) = regex::Regex::new(&format!(
+                    r"\[\[((?:[^:|\]]+:)?)({})(?:\|([^\]]+))?\]\]",
+                    regex::escape(&path)
+                )) {
+                    for entry in walkdir::WalkDir::new(wiki_path_clone).into_iter().filter_map(|e| e.ok()) {
+                        if entry.file_type().is_file() {
+                            if entry.path().extension().map_or(false, |ext| ext == "md") {
+                                if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                                    let result = re.replace_all(&content, |caps: &regex::Captures| {
+                                        let vol = caps.get(1).map_or("", |m| m.as_str());
+                                        let desc = caps.get(3).map_or("", |m| m.as_str());
+
+                                        if desc.is_empty() {
+                                            format!("[[{}{}]]", vol, new_path)
+                                        } else {
+                                            format!("[[{}{}|{}]]", vol, new_path, desc)
+                                        }
+                                    });
+
+                                    if result != content {
+                                        let _ = std::fs::write(entry.path(), result.as_bytes());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            .await;
+
+            (StatusCode::OK, "Renamed").into_response()
+        }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
