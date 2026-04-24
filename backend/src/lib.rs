@@ -339,24 +339,23 @@ async fn rename_page(
                         .into_iter()
                         .filter_map(|e| e.ok())
                     {
-                        if entry.file_type().is_file() {
-                            if entry.path().extension().map_or(false, |ext| ext == "md") {
-                                if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                                    let result =
-                                        re.replace_all(&content, |caps: &regex::Captures| {
-                                            let vol = caps.get(1).map_or("", |m| m.as_str());
-                                            let desc = caps.get(3).map_or("", |m| m.as_str());
+                        if entry.file_type().is_file()
+                            && entry.path().extension().is_some_and(|ext| ext == "md")
+                        {
+                            if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                                let result = re.replace_all(&content, |caps: &regex::Captures| {
+                                    let vol = caps.get(1).map_or("", |m| m.as_str());
+                                    let desc = caps.get(3).map_or("", |m| m.as_str());
 
-                                            if desc.is_empty() {
-                                                format!("[[{}{}]]", vol, new_path)
-                                            } else {
-                                                format!("[[{}{}|{}]]", vol, new_path, desc)
-                                            }
-                                        });
-
-                                    if result != content {
-                                        let _ = std::fs::write(entry.path(), result.as_bytes());
+                                    if desc.is_empty() {
+                                        format!("[[{}{}]]", vol, new_path)
+                                    } else {
+                                        format!("[[{}{}|{}]]", vol, new_path, desc)
                                     }
+                                });
+
+                                if result != content {
+                                    let _ = std::fs::write(entry.path(), result.as_bytes());
                                 }
                             }
                         }
