@@ -22,3 +22,7 @@
 ## 2024-05-24 - Form Field Accessibility
 **Learning:** Input fields inside functional components (like the `SettingsModal` in Yew) must be explicitly associated with their respective `<label>` elements using matching `id` and `for` attributes. This provides context to screen readers and expands the clickable area to focus the input.
 **Action:** When adding new form elements or reviewing existing ones, ensure every `<input>`, `<textarea>`, and `<select>` is accompanied by a `<label>` and correctly associated via `for` and `id` attributes, rather than relying on proximity alone.
+
+## 2026-05-18 - Keyboard Shortcut Discoverability
+**Learning:** Powerful keyboard shortcuts (like Ctrl+K for search) are often hidden from new users unless explicitly documented. Users might not know they exist, relying on slower mouse interactions.
+**Action:** Expose common keyboard shortcuts directly in the UI, such as in button text or tooltips (e.g., "Search files... (Ctrl+K)"), to gently teach users the faster keyboard-centric workflows without requiring them to read documentation.
