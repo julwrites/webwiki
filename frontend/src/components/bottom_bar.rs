@@ -66,9 +66,9 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </button>
 
             // Search Trigger (Dominant)
-            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label="Search files" title="Search files">
+            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label="Search files" title="Search files (Ctrl+K)">
                 <IconSearch />
-                <span>{"Search files..."}</span>
+                <span>{"Search files... (Ctrl+K)"}</span>
             </button>
 
             // New File
