@@ -838,3 +838,9 @@ body {
         flex-direction: column;
     }
 }
+
+/* Accessibility: Ensure focus is clearly visible across all interactive elements */
+:focus-visible {
+    outline: 2px solid var(--color-accent-fg) !important;
+    outline-offset: 2px !important;
+}

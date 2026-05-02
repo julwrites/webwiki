@@ -26,3 +26,7 @@
 ## 2026-05-18 - Keyboard Shortcut Discoverability
 **Learning:** Powerful keyboard shortcuts (like Ctrl+K for search) are often hidden from new users unless explicitly documented. Users might not know they exist, relying on slower mouse interactions.
 **Action:** Expose common keyboard shortcuts directly in the UI, such as in button text or tooltips (e.g., "Search files... (Ctrl+K)"), to gently teach users the faster keyboard-centric workflows without requiring them to read documentation.
+
+## 2024-05-18 - Keyboard Navigation Enhancements
+**Learning:** Default browser focus rings are often stripped out or poorly visible against custom dark/light themes, making keyboard navigation difficult for screen reader and keyboard-only users.
+**Action:** Always add explicit `:focus-visible` styles to interactive elements (`button`, `a`, `input`, etc.) using the theme's accent color (e.g., `outline: 2px solid var(--color-accent-fg) !important;`) in the global stylesheet (`frontend/static/style.css`).
