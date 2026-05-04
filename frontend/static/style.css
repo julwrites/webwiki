@@ -844,3 +844,36 @@ body {
     outline: 2px solid var(--color-accent-fg) !important;
     outline-offset: 2px !important;
 }
+
+/* File Tree Copy Link Button */
+.file-tree-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tree-copy-btn {
+    background: none;
+    border: none;
+    color: var(--color-fg-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease, color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-tree-item:hover .tree-copy-btn {
+    opacity: 1;
+}
+
+.tree-copy-btn:hover {
+    color: var(--color-fg-default);
+}
+
+.tree-copy-btn svg {
+    width: 14px;
+    height: 14px;
+}
