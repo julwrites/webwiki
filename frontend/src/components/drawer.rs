@@ -1,4 +1,4 @@
-use crate::components::icons::{IconPlus, IconUpload};
+use crate::components::icons::{IconPlus, IconUpload, IconCopy};
 use crate::hooks::use_create_file;
 use crate::Route;
 use common::FileNode;
@@ -239,12 +239,35 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
                 }
             </li>
         }
+
     } else {
+        let on_copy_link = {
+            let volume = volume.clone();
+            let path = node.path.clone();
+            Callback::from(move |e: MouseEvent| {
+                e.prevent_default();
+                e.stop_propagation();
+                let link = if volume == "default" {
+                    format!("[[{}]]", path)
+                } else {
+                    format!("[[{}:{}]]", volume, path)
+                };
+                if let Some(window) = web_sys::window() {
+                    let _ = window.navigator().clipboard().write_text(&link);
+                    // Provide a small visual feedback if needed, but clipboard is enough
+                }
+            })
+        };
+
         // Link to /wiki/path/to/file
         html! {
-            <li>
+            <li class="file-tree-item">
                 <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
+                <button class="tree-copy-btn" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
+                    <IconCopy />
+                </button>
             </li>
         }
     }
+
 }
