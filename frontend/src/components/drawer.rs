@@ -1,4 +1,4 @@
-use crate::components::icons::{IconPlus, IconUpload, IconCopy};
+use crate::components::icons::{IconCopy, IconPlus, IconUpload};
 use crate::hooks::use_create_file;
 use crate::Route;
 use common::FileNode;
@@ -239,7 +239,6 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
                 }
             </li>
         }
-
     } else {
         let on_copy_link = {
             let volume = volume.clone();
@@ -269,5 +268,4 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
             </li>
         }
     }
-
 }
