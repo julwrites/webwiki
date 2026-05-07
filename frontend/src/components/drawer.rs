@@ -224,9 +224,29 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
 
     if node.is_dir {
         let icon = if *is_expanded { "▼" } else { "▶" };
+        let on_keydown = {
+            let is_expanded = is_expanded.clone();
+            Callback::from(move |e: KeyboardEvent| {
+                if e.key() == "Enter" || e.key() == " " {
+                    e.prevent_default();
+                    e.stop_propagation();
+                    is_expanded.set(!*is_expanded);
+                }
+            })
+        };
+        let dir_name = node.name.clone();
+
         html! {
             <li>
-                <div onclick={toggle_expanded}>
+                <div
+                    onclick={toggle_expanded}
+                    onkeydown={on_keydown}
+                    role="button"
+                    tabindex="0"
+                    aria-expanded={if *is_expanded { "true" } else { "false" }}
+                    aria-label={format!("Toggle directory {}", dir_name)}
+                    style="display: inline-flex; align-items: center; border-radius: 6px;"
+                >
                     <span class="tree-toggle">{ icon }</span>
                     <span class="folder-label folder">{ &node.name }</span>
                 </div>

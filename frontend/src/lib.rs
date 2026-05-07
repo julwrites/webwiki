@@ -689,8 +689,8 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                         }
                     </span>
                     <div class="toolbar-controls">
-                        <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)}>{ "Cancel" }</button>
-                        <button onclick={Callback::from(|_| triggerSave("code-editor"))} style="background-color: var(--color-accent-fg); color: #ffffff; border-color: transparent;">{ "Save" }</button>
+                        <button onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)} aria-label="Cancel editing">{ "Cancel" }</button>
+                        <button onclick={Callback::from(|_| triggerSave("code-editor"))} style="background-color: var(--color-accent-fg); color: #ffffff; border-color: transparent;" aria-label="Save changes">{ "Save" }</button>
                     </div>
                 </div>
                 <Editor key={path.clone()} volume={volume} path={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
@@ -768,9 +768,9 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                                 }
                             </span>
                             <div class="toolbar-controls">
-                                <button onclick={on_edit_click}>{ "Edit" }</button>
-                                <button onclick={on_rename_click.clone()}>{ "Rename" }</button>
-                                <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
+                                <button onclick={on_edit_click} aria-label={format!("Edit page {}", &path)}>{ "Edit" }</button>
+                                <button onclick={on_rename_click.clone()} aria-label={format!("Rename page {}", &path)}>{ "Rename" }</button>
+                                <button onclick={on_delete_click.clone()} class="delete-btn" aria-label={format!("Delete page {}", &path)}>{ "Delete" }</button>
                             </div>
                         </div>
                         <div class="markdown-body">
@@ -784,7 +784,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <div class="toolbar">
                         <span class="path">{ &display_path }</span>
                         <div class="toolbar-controls">
-                            <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
+                            <button onclick={on_delete_click.clone()} class="delete-btn" aria-label={format!("Delete page {}", &path)}>{ "Delete" }</button>
                         </div>
                     </div>
                     <div class="image-viewer">
@@ -797,7 +797,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                      <div class="toolbar">
                         <span class="path">{ &display_path }</span>
                         <div class="toolbar-controls">
-                            <button onclick={on_delete_click.clone()} class="delete-btn">{ "Delete" }</button>
+                            <button onclick={on_delete_click.clone()} class="delete-btn" aria-label={format!("Delete page {}", &path)}>{ "Delete" }</button>
                         </div>
                     </div>
                     <div class="pdf-viewer">
@@ -819,7 +819,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <div class="markdown-body" style="text-align: center; margin-top: 2rem;">
                         <h2>{ "Page Not Found" }</h2>
                         <p>{ format!("The page '{}' does not exist yet.", p) }</p>
-                        <button class="create-page-btn" onclick={on_edit_click} style="margin-top: 1rem; padding: 0.5rem 1rem; background-color: var(--color-accent-fg); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;">
+                        <button class="create-page-btn" onclick={on_edit_click} style="margin-top: 1rem; padding: 0.5rem 1rem; background-color: var(--color-accent-fg); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;" aria-label={format!("Create page {}", &path)}>
                             { "Create this page" }
                         </button>
                     </div>
@@ -1031,7 +1031,7 @@ fn editor(props: &EditorProps) -> Html {
                 <div class="btn-group">
                     <button class="toolbar-btn" onclick={on_bold_click} title="Bold" aria-label="Bold"><strong>{"B"}</strong></button>
                     <button class="toolbar-btn" onclick={on_italic_click} title="Italic" aria-label="Italic"><em>{"I"}</em></button>
-                    <button class="toolbar-btn" onclick={on_link_click} title="Link">{"Link"}</button>
+                    <button class="toolbar-btn" onclick={on_link_click} title="Insert Link" aria-label="Insert Link">{"Link"}</button>
                 </div>
                 <div class="btn-group">
                     <button class="toolbar-btn" onclick={on_h1_click} title="Heading 1" aria-label="Heading 1">{"H1"}</button>

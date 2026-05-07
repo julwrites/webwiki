@@ -278,9 +278,9 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 }
 
                 <div class="actions">
-                    <button onclick={on_commit} disabled={selected_files.is_empty()} title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}>{"Commit"}</button>
-                    <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary" title={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}>{"Discard Changes"}</button>
-                    <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())}>{"Cancel"}</button>
+                    <button onclick={on_commit} disabled={selected_files.is_empty()} title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }} aria-label={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}>{"Commit"}</button>
+                    <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary" title={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }} aria-label={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}>{"Discard Changes"}</button>
+                    <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} aria-label="Cancel commit">{"Cancel"}</button>
                 </div>
             </div>
         </div>
