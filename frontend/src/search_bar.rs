@@ -1,18 +1,11 @@
+use common::SearchResult;
 use gloo_net::http::Request;
-use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
 use crate::Route;
-
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
-pub struct SearchResult {
-    pub path: String,
-    pub matches: Vec<String>,
-    pub volume: Option<String>,
-}
 
 #[function_component(SearchBar)]
 pub fn search_bar() -> Html {

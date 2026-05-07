@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use common::SearchResult;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
@@ -21,13 +21,6 @@ fn is_fuzzy_match(text: &str, query: &str) -> bool {
         }
     }
     false
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SearchResult {
-    pub path: String,
-    pub matches: Vec<String>,
-    pub volume: Option<String>,
 }
 
 pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
