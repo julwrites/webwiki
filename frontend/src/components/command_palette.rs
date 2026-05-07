@@ -5,8 +5,8 @@ use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+use common::SearchResult;
 use crate::hooks::use_create_file;
-use crate::search_bar::SearchResult;
 use crate::Route;
 
 fn is_fuzzy_match(text: &str, query: &str) -> bool {

@@ -66,6 +66,13 @@ pub struct HistoryResponse {
     pub entries: Vec<HistoryEntry>,
 }
 
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub struct SearchResult {
+    pub path: String,
+    pub matches: Vec<String>,
+    pub volume: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
