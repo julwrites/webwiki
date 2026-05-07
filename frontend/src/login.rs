@@ -125,7 +125,7 @@ pub fn login() -> Html {
                             style="width: 100%; padding: 0.5rem; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;"
                         />
                     </div>
-                    <button type="submit" disabled={*is_loading} class="login-btn" style="width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    <button type="submit" disabled={*is_loading} class="login-btn" style="width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" aria-label="Login">
                         if *is_loading {
                             { "Logging in..." }
                         } else {
