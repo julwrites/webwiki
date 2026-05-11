@@ -1042,7 +1042,7 @@ fn editor(props: &EditorProps) -> Html {
                     <button class="toolbar-btn" onclick={on_date_click} title="Insert Date/Time" aria-label="Insert Date/Time">{"Date"}</button>
                 </div>
                 <div class="btn-group" style="margin-left: auto;">
-                    <button class={classes!("toolbar-btn", if *is_preview_open { "active" } else { "" })} onclick={on_preview_toggle} title="Toggle Preview" aria-label="Toggle Preview">
+                    <button class={classes!("toolbar-btn", if *is_preview_open { "active" } else { "" })} onclick={on_preview_toggle} title="Toggle Preview" aria-label="Toggle Preview" aria-pressed={(*is_preview_open).to_string()}>
                         {"Preview"}
                     </button>
                 </div>
@@ -1050,7 +1050,7 @@ fn editor(props: &EditorProps) -> Html {
 
             <div class={classes!(if *is_preview_open { "editor-split-container" } else { "" })} style="flex: 1; display: flex; min-height: 0;">
                 <div class="editor-pane" style={if *is_preview_open { "flex: 1; min-width: 0; display: flex; flex-direction: column;" } else { "width: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0;" }}>
-                    <textarea id="code-editor" />
+                    <textarea id="code-editor" aria-label="Markdown editor" />
                     <p class="editor-help">
                         { if vim_mode { "Vim Mode: :w to save, or Ctrl+S" } else { "Ctrl+S to save" } }
                     </p>
