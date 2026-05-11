@@ -56,6 +56,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                 class={classes!("bottom-bar-btn", if props.is_drawer_open { "active" } else { "" })}
                 onclick={move |_| on_toggle.emit(())}
                 title="Toggle File Tree" aria-label="Toggle File Tree"
+                aria-expanded={props.is_drawer_open.to_string()}
             >
                 <IconMenu />
             </button>
@@ -105,6 +106,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                     class={classes!("bottom-bar-btn", "mobile-git-toggle", if *is_git_menu_open { "active" } else { "" })}
                     onclick={toggle_git_menu}
                     title="Git Actions" aria-label="Git Actions"
+                    aria-expanded={(*is_git_menu_open).to_string()}
                 >
                     <IconGitCommit />
                     if props.commits_ahead > 0 || props.commits_behind > 0 || props.uncommitted_files > 0 {
