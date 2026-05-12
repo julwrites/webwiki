@@ -18,6 +18,51 @@ impl<'a> WikiLinkParser<'a> {
             current_path,
         }
     }
+
+    fn resolve_link_url(&self, link: &str) -> String {
+        let trimmed_link = link.trim();
+        let (target_volume, target_path) =
+            if let Some(colon_idx) = trimmed_link.find(':') {
+                if trimmed_link.starts_with("http://") || trimmed_link.starts_with("https://") || trimmed_link.starts_with("mailto:") {
+                    // Do not treat URL schemes as volume
+                    return trimmed_link.to_string();
+                }
+                (&trimmed_link[..colon_idx], &trimmed_link[colon_idx + 1..])
+            } else {
+                (self.volume.as_str(), trimmed_link)
+            };
+
+        if target_path.starts_with('/') {
+            let absolute_link = target_path.trim_start_matches('/');
+            format!("/wiki/{}/{}", target_volume, absolute_link)
+        } else {
+            let mut parts: Vec<&str> = if target_volume == self.volume {
+                let mut p: Vec<&str> = self.current_path.split('/').collect();
+                if !p.is_empty() && !self.current_path.is_empty() {
+                    p.pop();
+                } else {
+                    p.clear();
+                }
+                p
+            } else {
+                Vec::new()
+            };
+
+            for part in target_path.split('/') {
+                if part == "." || part.is_empty() {
+                    continue;
+                } else if part == ".." {
+                    if !parts.is_empty() {
+                        parts.pop();
+                    }
+                } else {
+                    parts.push(part);
+                }
+            }
+            let resolved_path = parts.join("/");
+            format!("/wiki/{}/{}", target_volume, resolved_path)
+        }
+    }
 }
 
 impl<'a> Iterator for WikiLinkParser<'a> {
@@ -29,6 +74,20 @@ impl<'a> Iterator for WikiLinkParser<'a> {
         }
 
         let event = self.parser.next()?;
+
+        // Intercept standard Markdown links to resolve internal paths
+        if let pulldown_cmark::Event::Start(Tag::Link { link_type, dest_url, title, id }) = &event {
+            let dest_str = dest_url.as_ref();
+            if !dest_str.starts_with("http://") && !dest_str.starts_with("https://") && !dest_str.starts_with("mailto:") && !dest_str.starts_with('#') {
+                let link_url = self.resolve_link_url(dest_str);
+                return Some(pulldown_cmark::Event::Start(Tag::Link {
+                    link_type: *link_type,
+                    dest_url: CowStr::from(link_url),
+                    title: title.clone(),
+                    id: id.clone(),
+                }));
+            }
+        }
 
         // If it's text, try to merge with subsequent text events
         if let pulldown_cmark::Event::Text(text) = event {
@@ -75,53 +134,16 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                         (content, content)
                     };
 
-                    let trimmed_link = link.trim();
-
-                    let (target_volume, target_path) =
-                        if let Some(colon_idx) = trimmed_link.find(':') {
-                            // Support standard Vimwiki convention of cross-volume links: `[[volume:path]]`
-                            (&trimmed_link[..colon_idx], &trimmed_link[colon_idx + 1..])
-                        } else {
-                            (self.volume.as_str(), trimmed_link)
-                        };
-
-                    let link_url = if target_path.starts_with('/') {
-                        let absolute_link = target_path.trim_start_matches('/');
-                        format!("/wiki/{}/{}", target_volume, absolute_link)
-                    } else {
-                        // If it's a cross-volume link, we should probably resolve relative to the root of that volume,
-                        // unless we want to try resolving relative to the *same* path in the other volume (which is weird).
-                        // Standard Vimwiki behavior for cross-volume links without an absolute path usually resolves
-                        // relative to the root of the target wiki, OR we just let the normal logic apply.
-                        // Let's stick to the current logic: if it's the same volume, relative to current_path.
-                        // If it's a different volume, it should be treated as absolute from the root of that target volume.
-                        let mut parts: Vec<&str> = if target_volume == self.volume {
-                            let mut p: Vec<&str> = self.current_path.split('/').collect();
-                            if !p.is_empty() && !self.current_path.is_empty() {
-                                p.pop(); // Remove the current file name
-                            } else {
-                                p.clear();
-                            }
-                            p
-                        } else {
-                            Vec::new() // cross-volume relative links start at the target root
-                        };
-
-                        for part in target_path.split('/') {
-                            if part == "." || part.is_empty() {
-                                continue;
-                            } else if part == ".." {
-                                if !parts.is_empty() {
-                                    parts.pop();
-                                }
-                            } else {
-                                parts.push(part);
-                            }
+                    let link_url = self.resolve_link_url(link);
+                    let mut label_text = label.trim().to_string();
+                    if label == content {
+                        // Format the default label if no pipe was used
+                        if let Some(colon_idx) = label_text.find(':') {
+                            label_text = label_text[colon_idx + 1..].to_string();
                         }
-                        let resolved_path = parts.join("/");
-                        format!("/wiki/{}/{}", target_volume, resolved_path)
-                    };
-                    let label_text = label.trim().to_string();
+                        label_text = label_text.trim_start_matches('/').to_string();
+                        label_text = label_text.replace('_', " ");
+                    }
 
                     self.events
                         .push_back(pulldown_cmark::Event::Start(Tag::Link {
@@ -300,9 +322,9 @@ mod tests {
 
     #[test]
     fn test_absolute_wikilink() {
-        let input = "[[/RootPage|RootPage]]";
+        let input = "[[/Root_Page|RootPage]]";
         let output = render(input, "default", "Folder/File.md");
-        assert!(output.contains(r#"<a href="/wiki/default/RootPage">RootPage</a>"#));
+        assert!(output.contains(r#"<a href="/wiki/default/Root_Page">RootPage</a>"#));
     }
 
     #[test]
@@ -354,5 +376,26 @@ mod tests {
         let output = render(input, "default", "Folder/File.md");
         // Since cross-volume paths resolve relative to the target root, parent traversal from root should cap at root
         assert!(output.contains(r#"<a href="/wiki/work/Project/Page">Label</a>"#));
+    }
+
+    #[test]
+    fn test_standard_markdown_link() {
+        let input = "[Alias](Path/To/Page)";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output.contains(r#"<a href="/wiki/default/Folder/Path/To/Page">Alias</a>"#));
+    }
+
+    #[test]
+    fn test_standard_markdown_link_absolute() {
+        let input = "[Alias](/Path/To/Page)";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output.contains(r#"<a href="/wiki/default/Path/To/Page">Alias</a>"#));
+    }
+
+    #[test]
+    fn test_standard_markdown_link_external() {
+        let input = "[Google](https://google.com)";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output.contains(r#"<a href="https://google.com">Google</a>"#));
     }
 }

@@ -63,6 +63,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     background-color: var(--color-canvas-default);
     color: var(--color-fg-default);
     overflow: hidden;
@@ -83,7 +84,7 @@ body {
     display: flex;
     flex-direction: column;
     padding: 1rem;
-    padding-bottom: calc(var(--bottom-bar-height) + 2rem);
+    padding-bottom: calc(var(--bottom-bar-height) + 2rem + env(safe-area-inset-bottom));
     /* Space for bottom bar */
     overflow-y: auto;
     background-color: var(--color-canvas-default);
@@ -96,7 +97,8 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: var(--bottom-bar-height);
+    height: calc(var(--bottom-bar-height) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
     background-color: var(--color-canvas-subtle);
     border-top: 1px solid var(--color-border-default);
     display: flex;
@@ -750,7 +752,7 @@ body {
 @media (max-width: 600px) {
     .content {
         padding: 0.5rem;
-        padding-bottom: calc(var(--bottom-bar-height) + 1.5rem);
+        padding-bottom: calc(var(--bottom-bar-height) + 1.5rem + env(safe-area-inset-bottom));
     }
 
     .markdown-body {
