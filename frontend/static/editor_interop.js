@@ -21,6 +21,17 @@ const customHighlightStyle = HighlightStyle.define([
 // Store view instances keyed by elementId
 const views = {};
 
+window.destroyEditor = function(elementId) {
+    if (views[elementId]) {
+        let parent = views[elementId].dom.parentNode;
+        views[elementId].destroy();
+        delete views[elementId];
+        if (parent && parent.classList.contains('cm-container-wrapper')) {
+            parent.remove();
+        }
+    }
+};
+
 window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode, onQuitCallback) {
     let textArea = document.getElementById(elementId);
     if (!textArea) return;
@@ -38,8 +49,7 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         cmContainer = document.createElement('div');
         cmContainer.className = 'cm-container-wrapper';
         cmContainer.style.flex = "1";
-        cmContainer.style.display = "flex";
-        cmContainer.style.flexDirection = "column";
+        cmContainer.style.position = "relative";
         cmContainer.style.minHeight = "0";
         parent.insertBefore(cmContainer, textArea.nextSibling);
     } else {
@@ -55,7 +65,11 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         EditorView.lineWrapping,
         EditorView.theme({
             "&": { 
-                height: "100%",
+                position: "absolute",
+                top: "0",
+                left: "0",
+                right: "0",
+                bottom: "0",
                 fontFamily: "'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                 fontSize: "15px",
                 lineHeight: "1.6",

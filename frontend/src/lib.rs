@@ -41,6 +41,7 @@ extern "C" {
     fn insertDateTime(element_id: &str);
     fn getEditorContent(element_id: &str) -> String;
     fn onEditorChange(element_id: &str, callback: &Closure<dyn FnMut()>);
+    fn destroyEditor(element_id: &str);
 }
 
 #[derive(Clone, Routable, PartialEq)]
@@ -899,6 +900,7 @@ fn editor(props: &EditorProps) -> Html {
         *change_closure_ref.borrow_mut() = Some(change_closure);
 
         move || {
+            destroyEditor("code-editor");
             // Drop the closure when component unmounts
             *closure_ref.borrow_mut() = None;
             *quit_closure_ref.borrow_mut() = None;
