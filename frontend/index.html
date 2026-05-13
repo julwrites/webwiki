@@ -7,13 +7,10 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <title>Vimwiki Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css?v=2" />
-
-    <!-- CodeMirror 5 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/keymap/vim.min.js"></script>
 
     <!-- Diagram Libraries -->
     <!-- Pinning versions for stability -->
@@ -21,9 +18,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
     <script src="https://viewer.diagrams.net/js/viewer-static.min.js"></script>
-
-    <!-- Custom Interop -->
-    <script src="/editor_interop.js"></script>
 
     <!-- Theme Initialization to prevent flash -->
     <script>
@@ -48,6 +42,8 @@
     <script type="module">
         // Cache busting to prevent LinkErrors
         const v = Date.now();
+        // Import CodeMirror 6 interop first
+        await import(`/editor_interop.js?v=${v}`);
         const { default: init, run_app } = await import(`/wasm.js?v=${v}`);
         await init(`/wasm_bg.wasm?v=${v}`);
         run_app();

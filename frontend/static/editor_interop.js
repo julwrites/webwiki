@@ -1,275 +1,195 @@
+import { EditorState, EditorSelection } from "https://esm.sh/@codemirror/state@6.4.1";
+import { EditorView, keymap, lineNumbers } from "https://esm.sh/@codemirror/view@6.26.3";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands@6.5.0";
+import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6.2.5";
+import { vim, Vim } from "https://esm.sh/@replit/codemirror-vim@6.2.1";
+import { syntaxHighlighting, HighlightStyle } from "https://esm.sh/@codemirror/language@6.10.1";
+import { tags as t } from "https://esm.sh/@lezer/highlight@1.2.0";
+
+const customHighlightStyle = HighlightStyle.define([
+    { tag: t.heading, color: "var(--cm-header)", fontWeight: "bold" },
+    { tag: t.quote, color: "var(--cm-comment)", fontStyle: "italic" },
+    { tag: t.strong, color: "var(--cm-strong)", fontWeight: "bold" },
+    { tag: t.emphasis, color: "var(--cm-em)", fontStyle: "italic" },
+    { tag: t.link, color: "var(--cm-link)", textDecoration: "underline" },
+    { tag: t.url, color: "var(--cm-url)" },
+    { tag: t.list, color: "var(--cm-list)" },
+    { tag: t.comment, color: "var(--cm-comment)" },
+    { tag: t.string, color: "var(--cm-url)" },
+]);
+
+// Store view instances keyed by elementId
+const views = {};
+
 window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode, onQuitCallback) {
-    var textArea = document.getElementById(elementId);
+    let textArea = document.getElementById(elementId);
     if (!textArea) return;
 
-    // Check if CodeMirror is already attached
-    var existingEditor = textArea.nextSibling && textArea.nextSibling.CodeMirror;
+    if (views[elementId]) {
+        views[elementId].destroy();
+        delete views[elementId];
+    }
+
+    textArea.style.display = 'none';
+
+    let parent = textArea.parentNode;
+    let cmContainer = parent.querySelector('.cm-container-wrapper');
+    if (!cmContainer) {
+        cmContainer = document.createElement('div');
+        cmContainer.className = 'cm-container-wrapper';
+        cmContainer.style.flex = "1";
+        cmContainer.style.display = "flex";
+        cmContainer.style.flexDirection = "column";
+        cmContainer.style.minHeight = "0";
+        parent.insertBefore(cmContainer, textArea.nextSibling);
+    } else {
+        cmContainer.innerHTML = ''; 
+    }
+
+    let extensions = [
+        lineNumbers(),
+        history(),
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+        markdown(),
+        syntaxHighlighting(customHighlightStyle),
+        EditorView.lineWrapping,
+        EditorView.theme({
+            "&": { 
+                height: "100%",
+                fontFamily: "'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
+                fontSize: "15px",
+                lineHeight: "1.6",
+                backgroundColor: "var(--editor-bg)",
+                color: "var(--editor-fg)"
+            },
+            ".cm-scroller": { overflow: "auto" },
+            ".cm-gutters": {
+                backgroundColor: "var(--color-canvas-subtle)",
+                color: "var(--color-fg-muted)",
+                borderRight: "1px solid var(--color-border-default)"
+            },
+            ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--color-fg-default)" }
+        }),
+        EditorView.updateListener.of((v) => {
+            if (v.docChanged) {
+                textArea.value = v.state.doc.toString();
+                if (window._cmChangeCallback && typeof window._cmChangeCallback === "function") {
+                    window._cmChangeCallback();
+                }
+            }
+        })
+    ];
 
     if (vimMode) {
-        // --- VIM MODE (CodeMirror) ---
-        if (existingEditor) {
-            // Already have CodeMirror, just ensure Vim mode
-            existingEditor.setOption("keyMap", "vim");
-            existingEditor._saveCallback = onSaveCallback;
-            existingEditor._quitCallback = onQuitCallback;
-            return;
-        }
-
-        // Create CodeMirror
-        // If textarea has value (from user edits in raw mode), use it.
-        // Otherwise use initialContent.
-        if (textArea.value === "") {
-             textArea.value = initialContent;
-        }
-
-        var editor = CodeMirror.fromTextArea(textArea, {
-            mode: "markdown",
-            keyMap: "vim",
-            lineNumbers: true,
-            theme: "default",
-            lineWrapping: true
+        extensions.push(vim());
+        Vim.defineEx("write", "w", function() {
+            if (onSaveCallback) onSaveCallback(views[elementId].state.doc.toString());
         });
-
-        // Save command (:w) - Global for Vim mode
-        CodeMirror.Vim.defineEx("write", "w", function(cm) {
-            if (cm._saveCallback) {
-                cm._saveCallback(cm.getValue());
-            }
+        Vim.defineEx("quit", "q", function() {
+            if (onQuitCallback) onQuitCallback();
         });
-
-        // Quit command (:q)
-        CodeMirror.Vim.defineEx("quit", "q", function(cm) {
-            if (cm._quitCallback) {
-                cm._quitCallback();
-            }
-        });
-
-        // Store the callback on the instance
-        editor._saveCallback = onSaveCallback;
-        editor._quitCallback = onQuitCallback;
-
-        // Save with Ctrl+S
-        editor.setOption("extraKeys", {
-            "Ctrl-S": function(cm) {
-                var content = cm.getValue();
-                onSaveCallback(content);
-            }
-        });
-
-    } else {
-        // --- STANDARD MODE (Raw Textarea) ---
-        if (existingEditor) {
-            // Destroy CodeMirror to revert to textarea
-            existingEditor.save(); // Updates textArea.value with current content
-            existingEditor.toTextArea();
-        } else {
-             // Just ensure content is set if it's the first load
-             if (textArea.value === "") {
-                 textArea.value = initialContent;
-             }
-        }
-
-        // Setup save handler on textarea
-        // Remove old if exists (to avoid duplicates if called multiple times)
-        if (textArea._saveHandler) {
-            textArea.removeEventListener("keydown", textArea._saveHandler);
-        }
-
-        textArea._onSaveCallback = onSaveCallback;
-
-        textArea._saveHandler = function(e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                onSaveCallback(textArea.value);
-            }
-        };
-
-        textArea.addEventListener("keydown", textArea._saveHandler);
     }
+
+    // Ctrl+S
+    extensions.push(keymap.of([{
+        key: "Mod-s",
+        preventDefault: true,
+        run: (view) => {
+            if (onSaveCallback) onSaveCallback(view.state.doc.toString());
+            return true;
+        }
+    }]));
+
+    let state = EditorState.create({
+        doc: initialContent,
+        extensions: extensions
+    });
+
+    let view = new EditorView({
+        state,
+        parent: cmContainer
+    });
+
+    view._onSaveCallback = onSaveCallback;
+    views[elementId] = view;
 };
 
 window.wrapSelection = function(elementId, prefix, suffix) {
-    var textArea = document.getElementById(elementId);
-    if (!textArea) return;
-    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-
-    if (cm) {
-        var selection = cm.getSelection();
-        if (selection) {
-            cm.replaceSelection(prefix + selection + suffix);
-        } else {
-            // No selection, insert prefix + suffix and place cursor in middle
-            var cursor = cm.getCursor();
-            cm.replaceSelection(prefix + suffix);
-            cm.setCursor({line: cursor.line, ch: cursor.ch + prefix.length});
-        }
-        cm.focus();
+    let view = views[elementId];
+    if (!view) return;
+    
+    let state = view.state;
+    let changes;
+    
+    if (state.selection.main.empty) {
+        changes = state.changeByRange(range => {
+            return {
+                changes: {from: range.from, insert: prefix + suffix},
+                range: EditorSelection.cursor(range.from + prefix.length)
+            };
+        });
     } else {
-        // Raw Textarea
-        var start = textArea.selectionStart;
-        var end = textArea.selectionEnd;
-        var text = textArea.value;
-        var selectedText = text.substring(start, end);
-        var replacement = prefix + selectedText + suffix;
-
-        textArea.setRangeText(replacement, start, end, 'select');
-
-        // If it was just a cursor (no selection), move cursor between tags
-        if (start === end) {
-             textArea.selectionStart = start + prefix.length;
-             textArea.selectionEnd = start + prefix.length;
-        }
-        textArea.focus();
+        changes = state.changeByRange(range => {
+            let text = state.sliceDoc(range.from, range.to);
+            return {
+                changes: {from: range.from, to: range.to, insert: prefix + text + suffix},
+                range: EditorSelection.cursor(range.from + prefix.length + text.length)
+            };
+        });
     }
+
+    view.dispatch(changes);
+    view.focus();
 };
 
 window.insertTextAtCursor = function(elementId, text) {
-    var textArea = document.getElementById(elementId);
-    if (!textArea) return;
-    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-
-    if (cm) {
-        cm.replaceSelection(text);
-        cm.focus();
-    } else {
-        // Raw Textarea
-        var start = textArea.selectionStart;
-        var end = textArea.selectionEnd;
-        textArea.setRangeText(text, start, end, 'end');
-        textArea.focus();
-    }
+    let view = views[elementId];
+    if (!view) return;
+    
+    let changes = view.state.changeByRange(range => {
+        return {
+            changes: {from: range.from, to: range.to, insert: text},
+            range: EditorSelection.cursor(range.from + text.length)
+        };
+    });
+    view.dispatch(changes);
+    view.focus();
 };
 
 window.toggleHeader = function(elementId, level) {
-    var textArea = document.getElementById(elementId);
-    if (!textArea) return;
-    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-
-    var hashes = "#".repeat(level) + " ";
-
-    if (cm) {
-        var cursor = cm.getCursor();
-        var lineContent = cm.getLine(cursor.line);
-
-        var match = lineContent.match(/^(#+ )/);
-        if (match) {
-            if (match[1] === hashes) {
-                // Remove header
-                cm.replaceRange("", {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
-            } else {
-                // Change header level
-                cm.replaceRange(hashes, {line: cursor.line, ch: 0}, {line: cursor.line, ch: match[1].length});
-            }
+    let view = views[elementId];
+    if (!view) return;
+    
+    let state = view.state;
+    let line = state.doc.lineAt(state.selection.main.head);
+    let hashes = "#".repeat(level) + " ";
+    
+    let match = line.text.match(/^(#+ )/);
+    let changes;
+    
+    if (match) {
+        if (match[1] === hashes) {
+            changes = {from: line.from, to: line.from + match[1].length, insert: ""};
         } else {
-            // Add header
-            cm.replaceRange(hashes, {line: cursor.line, ch: 0});
+            changes = {from: line.from, to: line.from + match[1].length, insert: hashes};
         }
-        cm.focus();
     } else {
-        // Raw Textarea
-        var start = textArea.selectionStart;
-        var text = textArea.value;
-
-        // Find line start
-        var lineStart = text.lastIndexOf('\n', start - 1) + 1;
-        var lineEnd = text.indexOf('\n', start);
-        if (lineEnd === -1) lineEnd = text.length;
-
-        var lineContent = text.substring(lineStart, lineEnd);
-        var match = lineContent.match(/^(#+ )/);
-
-        if (match) {
-            if (match[1] === hashes) {
-                // Remove header
-                textArea.setRangeText("", lineStart, lineStart + match[1].length, 'preserve');
-            } else {
-                // Change header level
-                textArea.setRangeText(hashes, lineStart, lineStart + match[1].length, 'preserve');
-            }
-        } else {
-            // Add header
-            textArea.setRangeText(hashes, lineStart, lineStart, 'preserve');
-        }
-        textArea.focus();
+        changes = {from: line.from, insert: hashes};
     }
-};
-
-window.renderMermaid = function() {
-    if (window.mermaid) {
-        // mermaid.run() is available in v10+
-        if (mermaid.run) {
-             mermaid.run({
-                nodes: document.querySelectorAll(".mermaid")
-            });
-        } else if (mermaid.init) {
-             // Fallback for older versions if something changes
-             mermaid.init(undefined, document.querySelectorAll(".mermaid"));
-        }
-    }
-};
-
-window.renderGraphviz = function(elementId, dotContent) {
-    if (window.Viz) {
-        var viz = new Viz();
-        viz.renderSVGElement(dotContent)
-        .then(function(element) {
-            var container = document.getElementById(elementId);
-            if (container) {
-                container.innerHTML = "";
-                container.appendChild(element);
-            }
-        })
-        .catch(function(error) {
-            console.error(error);
-            var container = document.getElementById(elementId);
-            if (container) {
-                container.innerText = "Error rendering Graphviz: " + error;
-            }
-        });
-    }
-};
-
-window.renderDrawio = function(elementId, xmlContent) {
-    // Draw.io viewer automatically handles .mxgraph-viewer divs if loaded.
-    // However, if we are dynamically inserting, we might need to tell GraphViewer to process.
-    // The viewer library usually exposes GraphViewer.
-    if (window.GraphViewer) {
-        var container = document.getElementById(elementId);
-        if (container) {
-            container.innerHTML = "";
-            var div = document.createElement("div");
-            div.className = "mxgraph-viewer";
-            div.setAttribute("data-mxgraph", JSON.stringify({
-                xml: xmlContent,
-                resize: true,
-                center: true,
-                nav: true
-            }));
-            container.appendChild(div);
-            GraphViewer.processElements();
-        }
-    }
+    
+    view.dispatch({changes});
+    view.focus();
 };
 
 window.triggerSave = function(elementId) {
-    var textArea = document.getElementById(elementId);
-    if (!textArea) return;
-    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-    
-    if (cm) {
-        if (cm._saveCallback) {
-            cm._saveCallback(cm.getValue());
-        }
-    } else {
-        if (textArea._onSaveCallback) {
-            textArea._onSaveCallback(textArea.value);
-        }
+    let view = views[elementId];
+    if (view && view._onSaveCallback) {
+        view._onSaveCallback(view.state.doc.toString());
     }
 };
 
 window.insertDateTime = function(elementId) {
     var now = new Date();
-    // format to YYYY-MM-DD Day hh:mm A
     var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     var year = now.getFullYear();
     var month = String(now.getMonth() + 1).padStart(2, '0');
@@ -279,37 +199,61 @@ window.insertDateTime = function(elementId) {
     var minutes = String(now.getMinutes()).padStart(2, '0');
     var ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
+    hours = hours ? hours : 12; 
     hours = String(hours).padStart(2, '0');
     
     var formattedString = year + '-' + month + '-' + date + ' ' + day + ' ' + hours + ':' + minutes + ' ' + ampm;
-    
     insertTextAtCursor(elementId, formattedString);
 };
+
 window.getEditorContent = function(elementId) {
-    var textArea = document.getElementById(elementId);
-    if (!textArea) return "";
-    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-    if (cm) {
-        return cm.getValue();
-    } else {
-        return textArea.value;
+    let view = views[elementId];
+    if (view) {
+        return view.state.doc.toString();
     }
+    let textArea = document.getElementById(elementId);
+    return textArea ? textArea.value : "";
 };
 
 window.onEditorChange = function(elementId, callback) {
-    var textArea = document.getElementById(elementId);
-    if (!textArea) return;
-    var cm = textArea.nextSibling && textArea.nextSibling.CodeMirror;
-    if (cm) {
-        cm.on("change", function(instance, changeObj) {
-            // Avoid calling if this is a setValue call (which might be from initial load)
-            if (changeObj && changeObj.origin === "setValue") return;
-            callback();
+    // Store globally so the view update listener can trigger it
+    window._cmChangeCallback = callback;
+};
+
+// Keep existing diagram renderers unchanged
+window.renderMermaid = function() {
+    if (window.mermaid) {
+        if (mermaid.run) {
+             mermaid.run({ nodes: document.querySelectorAll(".mermaid") });
+        } else if (mermaid.init) {
+             mermaid.init(undefined, document.querySelectorAll(".mermaid"));
+        }
+    }
+};
+
+window.renderGraphviz = function(elementId, dotContent) {
+    if (window.Viz) {
+        var viz = new Viz();
+        viz.renderSVGElement(dotContent).then(function(element) {
+            var container = document.getElementById(elementId);
+            if (container) { container.innerHTML = ""; container.appendChild(element); }
+        }).catch(function(error) {
+            var container = document.getElementById(elementId);
+            if (container) { container.innerText = "Error rendering Graphviz: " + error; }
         });
-    } else {
-        textArea.addEventListener("input", function() {
-            callback();
-        });
+    }
+};
+
+window.renderDrawio = function(elementId, xmlContent) {
+    if (window.GraphViewer) {
+        var container = document.getElementById(elementId);
+        if (container) {
+            container.innerHTML = "";
+            var div = document.createElement("div");
+            div.className = "mxgraph-viewer";
+            div.setAttribute("data-mxgraph", JSON.stringify({ xml: xmlContent, resize: true, center: true, nav: true }));
+            container.appendChild(div);
+            GraphViewer.processElements();
+        }
     }
 };

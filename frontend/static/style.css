@@ -25,6 +25,17 @@
     /* Syntax / Code */
     --color-code-bg: rgba(110, 118, 129, 0.4);
 
+    /* Editor Specific */
+    --editor-bg: #090c10;
+    --editor-fg: #e6edf3;
+    --cm-header: #58a6ff;
+    --cm-strong: #ff7b72;
+    --cm-em: #d2a8ff;
+    --cm-link: #58a6ff;
+    --cm-url: #a5d6ff;
+    --cm-list: #7ee787;
+    --cm-comment: #8b949e;
+
     /* Bottom Bar & Drawer */
     --bottom-bar-height: 60px;
     --drawer-width: 300px;
@@ -55,6 +66,17 @@
 
     /* Syntax / Code */
     --color-code-bg: rgba(175, 184, 193, 0.2);
+
+    /* Editor Specific */
+    --editor-bg: #ffffff;
+    --editor-fg: #24292f;
+    --cm-header: #0969da;
+    --cm-strong: #cf222e;
+    --cm-em: #8250df;
+    --cm-link: #0969da;
+    --cm-url: #0a3069;
+    --cm-list: #1a7f37;
+    --cm-comment: #6e7781;
 }
 
 body {
@@ -431,7 +453,7 @@ body {
     padding: .2em .4em;
     background-color: var(--color-neutral-muted);
     border-radius: 6px;
-    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+    font-family: 'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
 }
 
 .markdown-body pre code {
@@ -500,13 +522,7 @@ body {
 }
 
 /* CodeMirror Adjustments */
-.CodeMirror {
-    height: 600px;
-    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-    font-size: 14px;
-    background: var(--color-canvas-default) !important;
-    color: var(--color-fg-default) !important;
-}
+/* Editor styling is now managed directly by CodeMirror 6 in editor_interop.js */
 
 .CodeMirror-cursor {
     border-left: 1px solid var(--color-fg-default) !important;
@@ -523,6 +539,23 @@ body {
     height: 100%;
     min-height: 400px;
     /* Responsive height with fallback to prevent squishing on mobile */
+}
+
+/* Styles for the raw textarea fallback (used on mobile) */
+textarea#code-editor {
+    flex: 1;
+    width: 100%;
+    min-height: 400px;
+    font-family: 'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    background-color: var(--editor-bg);
+    color: var(--editor-fg);
+    border: none;
+    outline: none;
+    padding: 16px;
+    resize: none;
+    box-sizing: border-box;
 }
 
 /* Command Palette (Bottom Sheet) */
