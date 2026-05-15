@@ -37,3 +37,7 @@
 ## 2026-05-20 - Toggle Button State Accessibility
 **Learning:** Screen readers cannot infer the visual state of toggle buttons (like "Preview mode" or "Open/Close drawer") based on CSS classes alone. If a toggle changes the interface without changing its own label, screen reader users miss critical state updates.
 **Action:** Always add `aria-expanded` (for menus/drawers) or `aria-pressed` (for binary toggle states like Preview mode) to interactive elements that act as toggles, and dynamically bind them to the component's state (e.g., `aria-pressed={(*is_active).to_string()}`).
+
+## 2026-05-15 - Sync Component State With Mouse Interaction
+**Learning:** Relying purely on CSS `:hover` for visual selection in lists with both mouse and keyboard navigation causes a disconnected experience where the "active" item reported to assistive technologies (via `aria-activedescendant`) or affected by the next keyboard stroke does not match the visually highlighted item the user is hovering over.
+**Action:** When creating components with a list of selectable items (like comboboxes or command palettes), explicitly bind the mouse hover events (`onmouseenter`) to the component's internal selection state (e.g., `selected_index`) rather than using CSS `:hover` classes. This ensures visual state and programmatic state remain perfectly synchronized regardless of input method.

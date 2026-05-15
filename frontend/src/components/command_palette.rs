@@ -523,12 +523,16 @@ pub fn command_palette(props: &Props) -> Html {
                     class="command-palette-input"
                     placeholder="Type a command or search..."
                     aria-label="Command palette input"
+                    role="combobox"
+                    aria-expanded="true"
+                    aria-controls="command-palette-listbox"
+                    aria-activedescendant={if filtered_items.get(*selected_index).is_some() { format!("command-palette-item-{}", *selected_index) } else { "".to_string() }}
                     value={(*query).clone()}
                     oninput={on_input}
                     onkeydown={on_keydown}
                     autocomplete="off"
                 />
-                <div class="command-palette-results">
+                <div class="command-palette-results" role="listbox" id="command-palette-listbox">
                     {for filtered_items.iter().enumerate().map(|(index, item)| {
                         let is_selected = index == *selected_index;
                         let item_clone = item.clone();
@@ -537,10 +541,19 @@ pub fn command_palette(props: &Props) -> Html {
                             execute_command.emit(item_clone.clone());
                         });
 
+                        let selected_index_clone = selected_index.clone();
+                        let onmouseenter = Callback::from(move |_| {
+                            selected_index_clone.set(index);
+                        });
+
                         html! {
                             <div
+                                id={format!("command-palette-item-{}", index)}
+                                role="option"
+                                aria-selected={is_selected.to_string()}
                                 class={classes!("command-palette-item", if is_selected { "selected" } else { "" })}
                                 onclick={onclick}
+                                onmouseenter={onmouseenter}
                             >
                                 <div class="command-palette-item-title">{ &item.title }</div>
                                 <div class="command-palette-item-desc">{ &item.description }</div>

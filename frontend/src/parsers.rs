@@ -21,16 +21,18 @@ impl<'a> WikiLinkParser<'a> {
 
     fn resolve_link_url(&self, link: &str) -> String {
         let trimmed_link = link.trim();
-        let (target_volume, target_path) =
-            if let Some(colon_idx) = trimmed_link.find(':') {
-                if trimmed_link.starts_with("http://") || trimmed_link.starts_with("https://") || trimmed_link.starts_with("mailto:") {
-                    // Do not treat URL schemes as volume
-                    return trimmed_link.to_string();
-                }
-                (&trimmed_link[..colon_idx], &trimmed_link[colon_idx + 1..])
-            } else {
-                (self.volume.as_str(), trimmed_link)
-            };
+        let (target_volume, target_path) = if let Some(colon_idx) = trimmed_link.find(':') {
+            if trimmed_link.starts_with("http://")
+                || trimmed_link.starts_with("https://")
+                || trimmed_link.starts_with("mailto:")
+            {
+                // Do not treat URL schemes as volume
+                return trimmed_link.to_string();
+            }
+            (&trimmed_link[..colon_idx], &trimmed_link[colon_idx + 1..])
+        } else {
+            (self.volume.as_str(), trimmed_link)
+        };
 
         if target_path.starts_with('/') {
             let absolute_link = target_path.trim_start_matches('/');
@@ -76,9 +78,19 @@ impl<'a> Iterator for WikiLinkParser<'a> {
         let event = self.parser.next()?;
 
         // Intercept standard Markdown links to resolve internal paths
-        if let pulldown_cmark::Event::Start(Tag::Link { link_type, dest_url, title, id }) = &event {
+        if let pulldown_cmark::Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) = &event
+        {
             let dest_str = dest_url.as_ref();
-            if !dest_str.starts_with("http://") && !dest_str.starts_with("https://") && !dest_str.starts_with("mailto:") && !dest_str.starts_with('#') {
+            if !dest_str.starts_with("http://")
+                && !dest_str.starts_with("https://")
+                && !dest_str.starts_with("mailto:")
+                && !dest_str.starts_with('#')
+            {
                 let link_url = self.resolve_link_url(dest_str);
                 return Some(pulldown_cmark::Event::Start(Tag::Link {
                     link_type: *link_type,
