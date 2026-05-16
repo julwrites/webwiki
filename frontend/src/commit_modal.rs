@@ -244,7 +244,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
 
                 <div class="file-list">
                     <h3>{"Changes"}</h3>
-                    {for files.iter().map(|f| {
+                    {for files.iter().enumerate().map(|(idx, f)| {
                         let path = f.path.clone();
                         let is_checked = selected_files.contains(&path);
                         let on_change = {
@@ -253,11 +253,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                             move |_| toggle.emit(path.clone())
                         };
                         let display_path = f.path.clone();
+                        let checkbox_id = format!("checkbox-{}", idx);
                         html! {
                             <div class="file-item">
-                                <input type="checkbox" checked={is_checked} onclick={on_change} aria-label={format!("Select {}", display_path)} />
-                                <span class="status">{&f.status}</span>
-                                <span class="path">{&f.path}</span>
+                                <input id={checkbox_id.clone()} type="checkbox" checked={is_checked} onclick={on_change} aria-label={format!("Select {}", display_path)} />
+                                <label for={checkbox_id} style="display: flex; gap: 8px; cursor: pointer; flex: 1;">
+                                    <span class="status">{&f.status}</span>
+                                    <span class="path">{&f.path}</span>
+                                </label>
                             </div>
                         }
                     })}
