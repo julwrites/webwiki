@@ -41,3 +41,6 @@
 ## 2026-05-15 - Sync Component State With Mouse Interaction
 **Learning:** Relying purely on CSS `:hover` for visual selection in lists with both mouse and keyboard navigation causes a disconnected experience where the "active" item reported to assistive technologies (via `aria-activedescendant`) or affected by the next keyboard stroke does not match the visually highlighted item the user is hovering over.
 **Action:** When creating components with a list of selectable items (like comboboxes or command palettes), explicitly bind the mouse hover events (`onmouseenter`) to the component's internal selection state (e.g., `selected_index`) rather than using CSS `:hover` classes. This ensures visual state and programmatic state remain perfectly synchronized regardless of input method.
+## 2024-05-25 - Commit Modal File List Accessibility
+**Learning:** List item checkboxes inside modals that lack an explicit `<label>` wrapper offer a tiny clickable area (just the checkbox itself), and screen readers may struggle to associate the adjacent path or status text with the input state. By dynamically generating a unique `id` and utilizing a wrapper `<label for="id">`, the clickable hit area covers the entire file item row.
+**Action:** When creating lists with checkboxes, wrap the adjacent text and content inside a flex-styled `<label>` pointing to the checkbox's `id`.
