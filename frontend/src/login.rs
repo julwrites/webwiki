@@ -7,12 +7,14 @@ use yew::prelude::*;
 struct LoginRequest {
     username: String,
     password: String,
+    stay_signed_in: bool,
 }
 
 #[function_component(Login)]
 pub fn login() -> Html {
     let username = use_state(String::new);
     let password = use_state(String::new);
+    let stay_signed_in = use_state(|| false);
     let error_msg = use_state(|| Option::<String>::None);
     let is_loading = use_state(|| false);
 
@@ -40,9 +42,22 @@ pub fn login() -> Html {
         })
     };
 
+    let on_stay_signed_in_change = {
+        let stay_signed_in = stay_signed_in.clone();
+        Callback::from(move |e: Event| {
+            let target: Option<web_sys::EventTarget> = e.target();
+            if let Some(target) = target {
+                use wasm_bindgen::JsCast;
+                let input = target.unchecked_into::<HtmlInputElement>();
+                stay_signed_in.set(input.checked());
+            }
+        })
+    };
+
     let on_submit = {
         let username = username.clone();
         let password = password.clone();
+        let stay_signed_in = stay_signed_in.clone();
         let error_msg = error_msg.clone();
         let is_loading = is_loading.clone();
 
@@ -51,6 +66,7 @@ pub fn login() -> Html {
 
             let username_val = (*username).clone();
             let password_val = (*password).clone();
+            let stay_signed_in_val = *stay_signed_in;
             let is_loading = is_loading.clone();
             let error_msg = error_msg.clone();
 
@@ -61,6 +77,7 @@ pub fn login() -> Html {
                 let payload = LoginRequest {
                     username: username_val,
                     password: password_val,
+                    stay_signed_in: stay_signed_in_val,
                 };
 
                 let request = match Request::post("/api/login").json(&payload) {
@@ -124,6 +141,16 @@ pub fn login() -> Html {
                             required=true
                             style="width: 100%; padding: 0.5rem; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;"
                         />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem; display: flex; align-items: center;">
+                        <input
+                            type="checkbox"
+                            id="stay_signed_in"
+                            checked={*stay_signed_in}
+                            onchange={on_stay_signed_in_change}
+                            style="margin-right: 0.5rem;"
+                        />
+                        <label for="stay_signed_in" style="color: var(--text); cursor: pointer;">{ "Stay signed in for 90 days" }</label>
                     </div>
                     <button type="submit" disabled={*is_loading} class="login-btn" style="width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
                         if *is_loading {
