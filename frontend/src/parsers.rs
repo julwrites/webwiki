@@ -9,6 +9,15 @@ pub struct WikiLinkParser<'a> {
     current_path: String,
 }
 
+fn is_image_link(link: &str) -> bool {
+    let lower = link.to_lowercase();
+    lower.ends_with(".png")
+        || lower.ends_with(".jpg")
+        || lower.ends_with(".jpeg")
+        || lower.ends_with(".gif")
+        || lower.ends_with(".webp")
+}
+
 impl<'a> WikiLinkParser<'a> {
     pub fn new(parser: Parser<'a>, volume: String, current_path: String) -> Self {
         Self {
@@ -101,6 +110,26 @@ impl<'a> Iterator for WikiLinkParser<'a> {
             }
         }
 
+        // Intercept standard Markdown images to resolve internal paths
+        if let pulldown_cmark::Event::Start(Tag::Image {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) = &event
+        {
+            let dest_str = dest_url.as_ref();
+            if !dest_str.starts_with("http://") && !dest_str.starts_with("https://") {
+                let link_url = self.resolve_link_url(dest_str);
+                return Some(pulldown_cmark::Event::Start(Tag::Image {
+                    link_type: *link_type,
+                    dest_url: CowStr::from(link_url),
+                    title: title.clone(),
+                    id: id.clone(),
+                }));
+            }
+        }
+
         // If it's text, try to merge with subsequent text events
         if let pulldown_cmark::Event::Text(text) = event {
             let mut buffer = String::from(text.as_ref());
@@ -157,17 +186,33 @@ impl<'a> Iterator for WikiLinkParser<'a> {
                         label_text = label_text.replace('_', " ");
                     }
 
-                    self.events
-                        .push_back(pulldown_cmark::Event::Start(Tag::Link {
-                            link_type: LinkType::Inline,
-                            dest_url: CowStr::from(link_url),
-                            title: CowStr::from(""),
-                            id: "".into(),
-                        }));
-                    self.events
-                        .push_back(pulldown_cmark::Event::Text(CowStr::from(label_text)));
-                    self.events
-                        .push_back(pulldown_cmark::Event::End(TagEnd::Link));
+                    let is_image = is_image_link(link) || is_image_link(&link_url);
+
+                    if is_image {
+                        self.events
+                            .push_back(pulldown_cmark::Event::Start(Tag::Image {
+                                link_type: LinkType::Inline,
+                                dest_url: CowStr::from(link_url),
+                                title: CowStr::from(""),
+                                id: "".into(),
+                            }));
+                        self.events
+                            .push_back(pulldown_cmark::Event::Text(CowStr::from(label_text)));
+                        self.events
+                            .push_back(pulldown_cmark::Event::End(TagEnd::Image));
+                    } else {
+                        self.events
+                            .push_back(pulldown_cmark::Event::Start(Tag::Link {
+                                link_type: LinkType::Inline,
+                                dest_url: CowStr::from(link_url),
+                                title: CowStr::from(""),
+                                id: "".into(),
+                            }));
+                        self.events
+                            .push_back(pulldown_cmark::Event::Text(CowStr::from(label_text)));
+                        self.events
+                            .push_back(pulldown_cmark::Event::End(TagEnd::Link));
+                    }
 
                     start_idx = absolute_close_idx + 2;
                 } else {
@@ -409,5 +454,21 @@ mod tests {
         let input = "[Google](https://google.com)";
         let output = render(input, "default", "Folder/File.md");
         assert!(output.contains(r#"<a href="https://google.com">Google</a>"#));
+    }
+
+    #[test]
+    fn test_wikilink_image() {
+        let input = "[[assets/image.png|Alt Text]]";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output
+            .contains(r#"<img src="/wiki/default/Folder/assets/image.png" alt="Alt Text" />"#));
+    }
+
+    #[test]
+    fn test_standard_markdown_image() {
+        let input = "![Alt Text](assets/image.png)";
+        let output = render(input, "default", "Folder/File.md");
+        assert!(output
+            .contains(r#"<img src="/wiki/default/Folder/assets/image.png" alt="Alt Text" />"#));
     }
 }
