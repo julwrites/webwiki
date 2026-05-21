@@ -1,4 +1,4 @@
-use crate::components::icons::{IconCopy, IconPlus, IconUpload, IconTrash, IconEdit};
+use crate::components::icons::{IconCopy, IconEdit, IconPlus, IconTrash, IconUpload};
 use crate::hooks::{use_create_file, use_delete_file, use_rename_file};
 use crate::Route;
 use common::FileNode;
