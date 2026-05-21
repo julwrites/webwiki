@@ -1,5 +1,5 @@
-use crate::components::icons::{IconCopy, IconPlus, IconUpload};
-use crate::hooks::use_create_file;
+use crate::components::icons::{IconCopy, IconPlus, IconUpload, IconTrash, IconEdit};
+use crate::hooks::{use_create_file, use_delete_file, use_rename_file};
 use crate::Route;
 use common::FileNode;
 use gloo_net::http::Request;
@@ -211,6 +211,11 @@ struct FileTreeNodeProps {
 fn file_tree_node(props: &FileTreeNodeProps) -> Html {
     let node = &props.node;
     let volume = &props.volume;
+
+    // Hooks must be at the top level of function components
+    let on_rename_hook = use_rename_file(volume.clone(), node.path.clone());
+    let on_delete_hook = use_delete_file(volume.clone(), node.path.clone());
+
     // Default to collapsed for directories
     let is_expanded = use_state(|| false);
 
@@ -260,6 +265,24 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
             </li>
         }
     } else {
+        let on_rename_click = {
+            let on_rename_hook = on_rename_hook.clone();
+            Callback::from(move |e: MouseEvent| {
+                e.prevent_default();
+                e.stop_propagation();
+                on_rename_hook.emit(());
+            })
+        };
+
+        let on_delete_click = {
+            let on_delete_hook = on_delete_hook.clone();
+            Callback::from(move |e: MouseEvent| {
+                e.prevent_default();
+                e.stop_propagation();
+                on_delete_hook.emit(());
+            })
+        };
+
         let on_copy_link = {
             let volume = volume.clone();
             let path = node.path.clone();
@@ -282,9 +305,17 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
         html! {
             <li class="file-tree-item">
                 <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
-                <button class="tree-copy-btn" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
-                    <IconCopy />
-                </button>
+                <div class="file-tree-actions" style="display: flex; gap: 4px;">
+                    <button class="tree-copy-btn" onclick={on_rename_click} title="Rename Page" aria-label="Rename Page">
+                        <IconEdit />
+                    </button>
+                    <button class="tree-copy-btn" onclick={on_delete_click} title="Delete Page" aria-label="Delete Page">
+                        <IconTrash />
+                    </button>
+                    <button class="tree-copy-btn" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
+                        <IconCopy />
+                    </button>
+                </div>
             </li>
         }
     }
