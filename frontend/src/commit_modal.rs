@@ -25,6 +25,8 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
     let selected_files = use_state(std::collections::HashSet::new);
     let is_loading = use_state(|| true);
     let error = use_state(String::new);
+    let is_committing = use_state(|| false);
+    let is_discarding = use_state(|| false);
     // Refresh trigger to reload status
     let refresh_trigger = use_state(|| 0);
 
@@ -68,6 +70,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         let on_close = props.on_close.clone();
         let error = error.clone();
         let volume = volume.clone();
+        let is_committing = is_committing.clone();
 
         Callback::from(move |_| {
             let message = message.clone();
@@ -78,7 +81,9 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
             let error = error.clone();
 
             let volume = volume.clone();
+            let is_committing = is_committing.clone();
             spawn_local(async move {
+                is_committing.set(true);
                 let req = CommitRequest {
                     message: (*message).clone(),
                     files: selected_files.iter().cloned().collect(),
@@ -92,6 +97,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     Ok(b) => b,
                     Err(e) => {
                         error.set(format!("Failed to serialize request: {}", e));
+                        is_committing.set(false);
                         return;
                     }
                 };
@@ -103,12 +109,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     Ok(req) => req,
                     Err(e) => {
                         error.set(format!("Failed to build request: {}", e));
+                        is_committing.set(false);
                         return;
                     }
                 };
 
                 let resp = request.send().await;
 
+                is_committing.set(false);
                 match resp {
                     Ok(r) if r.ok() => {
                         on_close.emit(());
@@ -126,6 +134,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
         let error = error.clone();
         let refresh_trigger = refresh_trigger.clone();
         let volume = volume.clone();
+        let is_discarding = is_discarding.clone();
 
         Callback::from(move |_| {
             let selected_files = selected_files.clone();
@@ -133,11 +142,13 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
             let refresh_trigger = refresh_trigger.clone();
 
             let volume = volume.clone();
+            let is_discarding = is_discarding.clone();
             spawn_local(async move {
                 if selected_files.is_empty() {
                     return;
                 }
 
+                is_discarding.set(true);
                 let req = RestoreRequest {
                     files: selected_files.iter().cloned().collect(),
                 };
@@ -148,6 +159,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     Ok(b) => b,
                     Err(e) => {
                         error.set(format!("Failed to serialize request: {}", e));
+                        is_discarding.set(false);
                         return;
                     }
                 };
@@ -159,12 +171,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     Ok(req) => req,
                     Err(e) => {
                         error.set(format!("Failed to build request: {}", e));
+                        is_discarding.set(false);
                         return;
                     }
                 };
 
                 let resp = request.send().await;
 
+                is_discarding.set(false);
                 match resp {
                     Ok(r) if r.ok() => {
                         // Clear selected files and refresh status
@@ -281,8 +295,25 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 }
 
                 <div class="actions">
-                    <button onclick={on_commit} disabled={selected_files.is_empty()} title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }} aria-label={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}>{"Commit"}</button>
-                    <button onclick={on_discard} disabled={selected_files.is_empty()} class="secondary" title={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }} aria-label={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}>{"Discard Changes"}</button>
+                    <button
+                        onclick={on_commit}
+                        disabled={selected_files.is_empty() || *is_committing || *is_discarding}
+                        title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}
+                        aria-label={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}
+                        aria-busy={(*is_committing).to_string()}
+                    >
+                        { if *is_committing { "Committing..." } else { "Commit" } }
+                    </button>
+                    <button
+                        onclick={on_discard}
+                        disabled={selected_files.is_empty() || *is_committing || *is_discarding}
+                        class="secondary"
+                        title={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}
+                        aria-label={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}
+                        aria-busy={(*is_discarding).to_string()}
+                    >
+                        { if *is_discarding { "Discarding..." } else { "Discard Changes" } }
+                    </button>
                     <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} aria-label="Cancel commit">{"Cancel"}</button>
                 </div>
             </div>
