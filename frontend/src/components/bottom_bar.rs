@@ -67,7 +67,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </button>
 
             // Search Trigger (Dominant)
-            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label="Search files" title="Search files (Ctrl+K)">
+            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label="Search files (Ctrl+K)" title="Search files (Ctrl+K)">
                 <IconSearch />
                 <span>{"Search files... (Ctrl+K)"}</span>
             </button>
@@ -81,19 +81,19 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             <div class="git-menu-container">
                 // Desktop: Show individual buttons
                 <div class="desktop-git-controls">
-                    <button class="bottom-bar-btn" onclick={move |_| on_pull.emit(())} title="Pull" aria-label="Pull">
+                    <button class="bottom-bar-btn" onclick={move |_| on_pull.emit(())} title="Pull" aria-label={if props.commits_behind > 0 { format!("Pull ({} pending)", props.commits_behind) } else { "Pull".to_string() }}>
                         <IconDownload />
                         if props.commits_behind > 0 {
                             <span class="badge">{ props.commits_behind }</span>
                         }
                     </button>
-                    <button class="bottom-bar-btn" onclick={move |_| on_commit.emit(())} title="Commit" aria-label="Commit">
+                    <button class="bottom-bar-btn" onclick={move |_| on_commit.emit(())} title="Commit" aria-label={if props.uncommitted_files > 0 { format!("Commit ({} uncommitted files)", props.uncommitted_files) } else { "Commit".to_string() }}>
                         <IconGitCommit />
                         if props.uncommitted_files > 0 {
                             <span class="badge" style="background-color: var(--accent-color);">{ props.uncommitted_files }</span>
                         }
                     </button>
-                    <button class="bottom-bar-btn" onclick={move |_| on_push.emit(())} title="Push" aria-label="Push">
+                    <button class="bottom-bar-btn" onclick={move |_| on_push.emit(())} title="Push" aria-label={if props.commits_ahead > 0 { format!("Push ({} pending)", props.commits_ahead) } else { "Push".to_string() }}>
                         <IconUpload />
                         if props.commits_ahead > 0 {
                             <span class="badge">{ props.commits_ahead }</span>
@@ -105,7 +105,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                 <button
                     class={classes!("bottom-bar-btn", "mobile-git-toggle", if *is_git_menu_open { "active" } else { "" })}
                     onclick={toggle_git_menu}
-                    title="Git Actions" aria-label="Git Actions"
+                    title="Git Actions" aria-label={if props.commits_ahead > 0 || props.commits_behind > 0 || props.uncommitted_files > 0 { "Git Actions (Attention required)" } else { "Git Actions" }}
                     aria-expanded={(*is_git_menu_open).to_string()}
                 >
                     <IconGitCommit />
@@ -127,7 +127,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_pull = props.on_pull.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_pull.emit(()); close.emit(()); }
-                            } title="Pull" aria-label="Pull">
+                            } title="Pull">
                                 <IconDownload />
                                 <span>{"Pull"}</span>
                                 if props.commits_behind > 0 {
@@ -138,7 +138,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_commit = props.on_commit.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_commit.emit(()); close.emit(()); }
-                            } title="Commit" aria-label="Commit">
+                            } title="Commit">
                                 <IconGitCommit />
                                 <span>{"Commit"}</span>
                                 if props.uncommitted_files > 0 {
@@ -149,7 +149,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_push = props.on_push.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_push.emit(()); close.emit(()); }
-                            } title="Push" aria-label="Push">
+                            } title="Push">
                                 <IconUpload />
                                 <span>{"Push"}</span>
                                 if props.commits_ahead > 0 {
@@ -182,7 +182,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </button>
 
             // Theme Toggle
-             <button class="bottom-bar-btn" onclick={move |_| on_theme_toggle.emit(())} title="Toggle Theme" aria-label="Toggle Theme">
+             <button class="bottom-bar-btn" onclick={move |_| on_theme_toggle.emit(())} title="Toggle Theme" aria-label="Toggle Theme" aria-pressed={props.is_dark.to_string()}>
                 if props.is_dark {
                     <IconSun />
                 } else {
