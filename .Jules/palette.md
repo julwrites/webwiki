@@ -1,3 +1,3 @@
-## 2023-10-27 - [Add Async Feedback to Commit/Discard Buttons]
-**Learning:** Found that `commit_modal.rs` was not providing feedback during git commit or discard operations. Users might double-click buttons if requests take time. Adding an `is_committing` state provides immediate visual feedback ("Committing..."), disables the button temporarily, and uses `aria-busy` for screen readers.
-**Action:** When working on async UI actions in Yew, always check if the submit/action button changes state to prevent double submission and provide feedback.
+## 2024-05-24 - Dynamic elements and aria-labels
+**Learning:** Adding static `aria-label` attributes to elements with dynamically updating contents, such as buttons displaying badge numbers, creates an accessibility anti-pattern. Screen readers may announce the static label instead of the newly updated visible content or context.
+**Action:** When working with dynamically updated UI components (like uncommitted file counters), either dynamically format the `aria-label` to include the updated values, or remove the `aria-label` so the screen reader correctly reads the element’s text content directly.
