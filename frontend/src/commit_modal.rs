@@ -298,8 +298,8 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     <button
                         onclick={on_commit}
                         disabled={selected_files.is_empty() || *is_committing || *is_discarding}
-                        title={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}
-                        aria-label={if selected_files.is_empty() { "Select files to commit" } else { "Commit selected files" }}
+                        title={if *is_committing { "Committing...".to_string() } else if selected_files.is_empty() { "Select files to commit".to_string() } else { "Commit selected files".to_string() }}
+                        aria-label={if *is_committing { "Committing changes...".to_string() } else if selected_files.is_empty() { "Select files to commit".to_string() } else { "Commit selected files".to_string() }}
                         aria-busy={(*is_committing).to_string()}
                     >
                         { if *is_committing { "Committing..." } else { "Commit" } }
@@ -308,8 +308,8 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                         onclick={on_discard}
                         disabled={selected_files.is_empty() || *is_committing || *is_discarding}
                         class="secondary"
-                        title={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}
-                        aria-label={if selected_files.is_empty() { "Select files to discard" } else { "Discard changes in selected files" }}
+                        title={if *is_discarding { "Discarding...".to_string() } else if selected_files.is_empty() { "Select files to discard".to_string() } else { "Discard changes in selected files".to_string() }}
+                        aria-label={if *is_discarding { "Discarding changes...".to_string() } else if selected_files.is_empty() { "Select files to discard".to_string() } else { "Discard changes in selected files".to_string() }}
                         aria-busy={(*is_discarding).to_string()}
                     >
                         { if *is_discarding { "Discarding..." } else { "Discard Changes" } }

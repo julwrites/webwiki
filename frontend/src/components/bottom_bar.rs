@@ -127,7 +127,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_pull = props.on_pull.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_pull.emit(()); close.emit(()); }
-                            } title="Pull">
+                            } title="Pull" aria-label={if props.commits_behind > 0 { format!("Pull ({} pending)", props.commits_behind) } else { "Pull".to_string() }}>
                                 <IconDownload />
                                 <span>{"Pull"}</span>
                                 if props.commits_behind > 0 {
@@ -138,7 +138,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_commit = props.on_commit.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_commit.emit(()); close.emit(()); }
-                            } title="Commit">
+                            } title="Commit" aria-label={if props.uncommitted_files > 0 { format!("Commit ({} uncommitted files)", props.uncommitted_files) } else { "Commit".to_string() }}>
                                 <IconGitCommit />
                                 <span>{"Commit"}</span>
                                 if props.uncommitted_files > 0 {
@@ -149,7 +149,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 let on_push = props.on_push.clone();
                                 let close = close_git_menu.clone();
                                 move |_| { on_push.emit(()); close.emit(()); }
-                            } title="Push">
+                            } title="Push" aria-label={if props.commits_ahead > 0 { format!("Push ({} pending)", props.commits_ahead) } else { "Push".to_string() }}>
                                 <IconUpload />
                                 <span>{"Push"}</span>
                                 if props.commits_ahead > 0 {
