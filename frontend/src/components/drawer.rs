@@ -227,6 +227,24 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
         })
     };
 
+    let on_rename_click = {
+        let on_rename_hook = on_rename_hook.clone();
+        Callback::from(move |e: MouseEvent| {
+            e.prevent_default();
+            e.stop_propagation();
+            on_rename_hook.emit(());
+        })
+    };
+
+    let on_delete_click = {
+        let on_delete_hook = on_delete_hook.clone();
+        Callback::from(move |e: MouseEvent| {
+            e.prevent_default();
+            e.stop_propagation();
+            on_delete_hook.emit(());
+        })
+    };
+
     if node.is_dir {
         let icon = if *is_expanded { "▼" } else { "▶" };
         let on_keydown = {
@@ -250,10 +268,21 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
                     tabindex="0"
                     aria-expanded={if *is_expanded { "true" } else { "false" }}
                     aria-label={format!("Toggle directory {}", dir_name)}
-                    style="display: inline-flex; align-items: center; border-radius: 6px;"
+                    style="display: flex; align-items: center; border-radius: 6px; justify-content: space-between; width: 100%;"
+                    class="file-tree-item"
                 >
-                    <span class="tree-toggle">{ icon }</span>
-                    <span class="folder-label folder">{ &node.name }</span>
+                    <div style="display: inline-flex; align-items: center;">
+                        <span class="tree-toggle">{ icon }</span>
+                        <span class="folder-label folder">{ &node.name }</span>
+                    </div>
+                    <div class="file-tree-actions" style="display: flex; gap: 4px;">
+                        <button class="tree-copy-btn" onclick={on_rename_click.clone()} title="Rename Directory" aria-label="Rename Directory">
+                            <IconEdit />
+                        </button>
+                        <button class="tree-copy-btn" onclick={on_delete_click.clone()} title="Delete Directory" aria-label="Delete Directory">
+                            <IconTrash />
+                        </button>
+                    </div>
                 </div>
                 if *is_expanded {
                     if let Some(children) = &node.children {
@@ -265,24 +294,6 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
             </li>
         }
     } else {
-        let on_rename_click = {
-            let on_rename_hook = on_rename_hook.clone();
-            Callback::from(move |e: MouseEvent| {
-                e.prevent_default();
-                e.stop_propagation();
-                on_rename_hook.emit(());
-            })
-        };
-
-        let on_delete_click = {
-            let on_delete_hook = on_delete_hook.clone();
-            Callback::from(move |e: MouseEvent| {
-                e.prevent_default();
-                e.stop_propagation();
-                on_delete_hook.emit(());
-            })
-        };
-
         let on_copy_link = {
             let volume = volume.clone();
             let path = node.path.clone();
