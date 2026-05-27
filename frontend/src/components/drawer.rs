@@ -194,9 +194,15 @@ fn file_tree() -> Html {
     html! {
         <div class="file-tree">
             <h3>{ "Files" }</h3>
-            <ul>
-                { for tree.iter().map(|node| html! { <FileTreeNode node={node.clone()} volume={current_volume.clone()} /> }) }
-            </ul>
+            if tree.is_empty() {
+                <div style="padding: 1rem; color: var(--color-fg-muted); font-size: 0.9em;">
+                    {"No files found. Use the + button above to create one."}
+                </div>
+            } else {
+                <ul>
+                    { for tree.iter().map(|node| html! { <FileTreeNode node={node.clone()} volume={current_volume.clone()} /> }) }
+                </ul>
+            }
         </div>
     }
 }
