@@ -100,7 +100,7 @@ pub fn login() -> Html {
             <div class="login-card">
                 <h2>{ "Login to WebWiki" }</h2>
                 if let Some(msg) = (*error_msg).as_ref() {
-                    <div class="error-message" style="color: var(--danger, #ff4c4c); margin-bottom: 1rem; text-align: center;">{ msg }</div>
+                    <div class="error-message" role="alert" style="color: var(--danger, #ff4c4c); margin-bottom: 1rem; text-align: center;">{ msg }</div>
                 }
                 <form onsubmit={on_submit}>
                     <div class="form-group" style="margin-bottom: 1rem;">
