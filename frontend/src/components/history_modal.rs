@@ -75,7 +75,7 @@ pub fn history_modal(props: &HistoryModalProps) -> Html {
                     if *loading {
                         <p>{"Loading history..."}</p>
                     } else if let Some(err) = &*error {
-                        <div class="error-msg">{ err }</div>
+                        <div class="error-msg" role="alert">{ err }</div>
                     } else if history_entries.is_empty() {
                         <p>{"No history found."}</p>
                     } else {

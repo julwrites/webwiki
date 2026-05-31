@@ -807,7 +807,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 </div>
             },
             ViewMode::Error(msg) => html! {
-                <div class="error-viewer">
+                <div class="error-viewer" role="alert">
                     <h3>{ "Error displaying file" }</h3>
                     <p>{ msg }</p>
                 </div>

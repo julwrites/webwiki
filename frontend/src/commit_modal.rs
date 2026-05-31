@@ -291,7 +291,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                 </div>
 
                 if !error.is_empty() {
-                    <div class="error">{&*error}</div>
+                    <div class="error" role="alert">{&*error}</div>
                 }
 
                 <div class="actions">
