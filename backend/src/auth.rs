@@ -17,6 +17,7 @@ pub const USER_SESSION_KEY: &str = "user";
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
+    pub stay_signed_in: Option<bool>,
 }
 
 pub async fn login(
@@ -50,6 +51,10 @@ pub async fn login(
             .insert(USER_SESSION_KEY, user)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        if payload.stay_signed_in.unwrap_or(false) {
+            session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(time::Duration::days(90))));
+        }
 
         Ok(StatusCode::OK)
     } else {
