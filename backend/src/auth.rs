@@ -48,7 +48,9 @@ pub async fn login(
         };
 
         if let Some(true) = payload.stay_signed_in {
-            session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(time::Duration::days(90))));
+            session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
+                time::Duration::days(90),
+            )));
         }
 
         session
