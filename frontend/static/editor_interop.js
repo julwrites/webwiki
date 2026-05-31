@@ -63,6 +63,11 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         markdown(),
         syntaxHighlighting(customHighlightStyle),
         EditorView.lineWrapping,
+        EditorView.contentAttributes.of({
+            spellcheck: "false",
+            autocorrect: "off",
+            autocapitalize: "off"
+        }),
         EditorView.theme({
             "&": { 
                 position: "absolute",
