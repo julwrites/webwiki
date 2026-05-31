@@ -186,7 +186,7 @@ pub fn settings_modal(props: &Props) -> Html {
             <div class="modal" onclick={|e: MouseEvent| e.stop_propagation()}>
                 <h2>{"Settings"}</h2>
                 if !(*error_msg).is_empty() {
-                    <div style="color: var(--color-danger-fg); margin-bottom: 15px;">
+                    <div role="alert" style="color: var(--color-danger-fg); margin-bottom: 15px;">
                         { (*error_msg).clone() }
                     </div>
                 }
