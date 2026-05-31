@@ -53,7 +53,9 @@ pub async fn login(
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
         if payload.stay_signed_in.unwrap_or(false) {
-            session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(time::Duration::days(90))));
+            session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
+                time::Duration::days(90),
+            )));
         }
 
         Ok(StatusCode::OK)
