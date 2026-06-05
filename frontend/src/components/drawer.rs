@@ -1,9 +1,9 @@
-use crate::components::icons::{IconCopy, IconEdit, IconPlus, IconTrash, IconUpload};
+use crate::components::icons::{IconCopy, IconEdit, IconPlus, IconSearch, IconTrash, IconUpload};
 use crate::hooks::{use_create_file, use_delete_file, use_rename_file};
 use crate::Route;
 use common::FileNode;
 use gloo_net::http::Request;
-use web_sys::{Event, HtmlInputElement};
+use web_sys::{Event, HtmlInputElement, KeyboardEvent, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -11,11 +11,13 @@ use yew_router::prelude::*;
 pub struct DrawerProps {
     pub is_open: bool,
     pub on_close: Callback<MouseEvent>,
+    pub on_search: Callback<()>,
 }
 
 #[function_component(Drawer)]
 pub fn drawer(props: &DrawerProps) -> Html {
     let on_close = props.on_close.clone();
+    let on_search = props.on_search.clone();
     let route = use_route::<Route>();
     let current_volume = match route {
         Some(Route::Wiki { volume, .. }) => volume,
@@ -89,6 +91,9 @@ pub fn drawer(props: &DrawerProps) -> Html {
                 <div class="drawer-header">
                     <VolumeSwitcher />
                     <div style="flex: 1"></div>
+                    <button class="drawer-close-btn" onclick={move |_| on_search.emit(())} title="Search" aria-label="Search" style="margin-right: 8px">
+                        <IconSearch />
+                    </button>
                     <button class="drawer-close-btn" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image" style="margin-right: 8px">
                         <IconUpload />
                     </button>
