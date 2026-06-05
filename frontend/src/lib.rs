@@ -362,6 +362,7 @@ fn layout() -> Html {
             <Drawer
                 is_open={*is_drawer_open}
                 on_close={let is_drawer_open = is_drawer_open.clone(); move |_| is_drawer_open.set(false)}
+                on_search={let is_search_open = is_search_open.clone(); move |_| is_search_open.set(true)}
             />
 
             <main class="content">
