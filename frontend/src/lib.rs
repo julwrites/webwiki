@@ -496,6 +496,8 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     let is_editing = props.is_editing;
     let on_edit_toggle = props.on_edit_toggle.clone();
 
+    let markdown_ref = use_node_ref();
+
     let path = props.path.clone();
     let volume = props.volume.clone();
     let vim_mode = props.vim_mode;
@@ -616,6 +618,45 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         Callback::from(move |_| cb.emit(()))
     };
 
+    {
+        let volume = volume.clone();
+        let path = path.clone();
+        let view_mode_clone = view_mode.clone();
+        let markdown_ref_clone = markdown_ref.clone();
+
+        use_effect_with(
+            (view_mode_clone, is_editing),
+            move |(vm, is_editing)| {
+                if !*is_editing {
+                    if let ViewMode::Page(page) = &**vm {
+                let ext = std::path::Path::new(&page.path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+
+                if ext == "" || ext == "md" || ext == "markdown" {
+                    if let Some(div) = markdown_ref_clone.cast::<web_sys::HtmlElement>() {
+                        let mut options = Options::empty();
+                        options.insert(Options::ENABLE_TABLES);
+                        options.insert(Options::ENABLE_FOOTNOTES);
+                        options.insert(Options::ENABLE_STRIKETHROUGH);
+                        options.insert(Options::ENABLE_TASKLISTS);
+
+                        let parser = Parser::new_ext(&page.content, options);
+                        let wiki_parser = WikiLinkParser::new(parser, volume.clone(), path.clone());
+
+                        let mut html_output = String::new();
+                        html::push_html(&mut html_output, wiki_parser);
+                        div.set_inner_html(&html_output);
+                    }
+                }
+            }
+            }
+            || ()
+        });
+    }
+
     let on_save = {
         let path = path.clone();
         let volume = volume.clone();
@@ -653,6 +694,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                 };
 
                 let resp = req.send().await;
+                web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("PUT request finished!"));
                 if let Ok(r) = resp {
                     if r.status() == 401 {
                         let current_path = gloo_utils::window()
@@ -663,11 +705,18 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             let _ = gloo_utils::window().location().set_href("/login");
                         }
                     } else if r.ok() {
-                        view_mode.set(ViewMode::Page(page));
+                        web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("PUT request OK!"));
+                        view_mode.set(ViewMode::Page(WikiPage {
+                            path: path.clone(),
+                            content: new_content.clone(),
+                        }));
                         on_edit_toggle.emit(false);
                     } else {
-                        gloo_dialogs::alert(&format!("Failed to save: {}", r.status()));
+                        web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("PUT request failed with status: {}", r.status())));
+                        gloo_dialogs::alert(&format!("Save failed: {:?}", r.status_text()));
                     }
+                } else {
+                    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("PUT request error!"));
                 }
             });
         })
@@ -717,30 +766,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
 
                 let render_content = match ext.as_str() {
                     "" | "md" | "markdown" => {
-                        let html_output = {
-                            let mut options = Options::empty();
-                            options.insert(Options::ENABLE_TABLES);
-                            options.insert(Options::ENABLE_FOOTNOTES);
-                            options.insert(Options::ENABLE_STRIKETHROUGH);
-                            options.insert(Options::ENABLE_TASKLISTS);
-
-                            let parser = Parser::new_ext(&page.content, options);
-                            let wiki_parser =
-                                WikiLinkParser::new(parser, volume.clone(), path.clone());
-
-                            let mut html_output = String::new();
-                            html::push_html(&mut html_output, wiki_parser);
-                            html_output
-                        };
-                        match gloo_utils::document().create_element("div") {
-                            Ok(div) => {
-                                div.set_inner_html(&html_output);
-                                Html::VRef(div.into())
-                            }
-                            Err(_) => {
-                                html! { <div>{ "Failed to create markdown container." }</div> }
-                            }
-                        }
+                        html! { <div ref={markdown_ref.clone()}></div> }
                     }
                     "json" | "toml" | "yaml" | "yml" | "opml" => html! {
                         <pre><code class={format!("language-{}", ext)}>{ &page.content }</code></pre>

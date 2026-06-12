@@ -2,6 +2,9 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
     var textArea = document.getElementById(elementId);
     if (!textArea) return;
 
+    // Attach the callback to the textarea so external buttons can trigger it
+    textArea._onSaveCallback = onSaveCallback;
+
     // Check if CodeMirror is already attached
     var existingEditor = textArea.nextSibling && textArea.nextSibling.CodeMirror;
 
@@ -312,4 +315,8 @@ window.onEditorChange = function(elementId, callback) {
             callback();
         });
     }
+};
+
+window.destroyEditor = function(elementId) {
+    // CodeMirror cleanup is handled by Yew unmounting the container.
 };

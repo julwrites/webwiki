@@ -1,5 +1,5 @@
 import { EditorState, EditorSelection } from "https://esm.sh/@codemirror/state@6.4.1";
-import { EditorView, keymap, lineNumbers } from "https://esm.sh/@codemirror/view@6.26.3";
+import { EditorView, keymap, lineNumbers } from "https://esm.sh/@codemirror/view@6.34.0";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands@6.5.0";
 import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6.2.5";
 import { vim, Vim } from "https://esm.sh/@replit/codemirror-vim@6.2.1";
@@ -51,6 +51,8 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         cmContainer.style.flex = "1";
         cmContainer.style.position = "relative";
         cmContainer.style.minHeight = "0";
+        cmContainer.style.display = "flex";
+        cmContainer.style.flexDirection = "column";
         parent.insertBefore(cmContainer, textArea.nextSibling);
     } else {
         cmContainer.innerHTML = ''; 
@@ -66,15 +68,14 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         EditorView.contentAttributes.of({
             spellcheck: "false",
             autocorrect: "off",
-            autocapitalize: "off"
+            autocapitalize: "off",
+            "data-enable-grammarly": "false",
+            "data-gramm": "false"
         }),
         EditorView.theme({
             "&": { 
-                position: "absolute",
-                top: "0",
-                left: "0",
-                right: "0",
-                bottom: "0",
+                height: "100%",
+                flex: "1",
                 fontFamily: "'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                 fontSize: "15px",
                 lineHeight: "1.6",
@@ -99,7 +100,9 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         })
     ];
 
-    if (vimMode) {
+    const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+
+    if (vimMode && !isTouchDevice) {
         extensions.push(vim());
         Vim.defineEx("write", "w", function() {
             if (onSaveCallback) onSaveCallback(views[elementId].state.doc.toString());

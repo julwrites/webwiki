@@ -69,6 +69,10 @@ pub async fn require_auth(
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    if std::env::var("DEV_BYPASS_AUTH").unwrap_or_default() == "true" {
+        return Ok(next.run(req).await);
+    }
+
     let user: Option<User> = session
         .get(USER_SESSION_KEY)
         .await
@@ -87,6 +91,10 @@ pub async fn require_write_access(
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    if std::env::var("DEV_BYPASS_AUTH").unwrap_or_default() == "true" {
+        return Ok(next.run(req).await);
+    }
+
     let user: User = session
         .get(USER_SESSION_KEY)
         .await

@@ -35,6 +35,24 @@
   </head>
   <body>
     <script>
+      window.triggerSave = function(elementId) {
+          var textArea = document.getElementById(elementId);
+          if (!textArea) return;
+          
+          var value = textArea.value;
+          // CodeMirror appends its container after the textarea
+          var cm = textArea.nextElementSibling && textArea.nextElementSibling.CodeMirror;
+          
+          if (cm) {
+              console.log("cm.getValue():", cm.getValue().substring(0, 50));
+              value = cm.getValue();
+          }
+          
+          console.log("triggerSave running. cm found:", !!cm, "callback found:", !!textArea._onSaveCallback);
+          if (textArea._onSaveCallback) {
+              textArea._onSaveCallback(value);
+          }
+      };
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
           navigator.serviceWorker.register('/sw.js').then(function(registration) {

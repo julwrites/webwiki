@@ -15,3 +15,7 @@ venv/
 .agents/messages/**/*.json
 !.agents/**/.keep
 logs/
+
+wiki_data/
+scripts/node_modules/
+*.png
