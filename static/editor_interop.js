@@ -51,11 +51,18 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         editor._saveCallback = onSaveCallback;
         editor._quitCallback = onQuitCallback;
 
-        // Save with Ctrl+S
+        // Save with Ctrl+S / Cmd+S
+        var saveAction = function(cm) {
+            var content = cm.getValue();
+            onSaveCallback(content);
+        };
         editor.setOption("extraKeys", {
-            "Ctrl-S": function(cm) {
-                var content = cm.getValue();
-                onSaveCallback(content);
+            "Ctrl-S": saveAction,
+            "Cmd-S": saveAction,
+            "Esc": function(cm) {
+                if (cm._quitCallback) {
+                    cm._quitCallback();
+                }
             }
         });
 
@@ -79,11 +86,15 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         }
 
         textArea._onSaveCallback = onSaveCallback;
+        textArea._onQuitCallback = onQuitCallback;
 
         textArea._saveHandler = function(e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 e.preventDefault();
                 onSaveCallback(textArea.value);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                if (onQuitCallback) onQuitCallback();
             }
         };
 

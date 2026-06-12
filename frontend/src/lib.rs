@@ -348,11 +348,26 @@ fn layout() -> Html {
             let is_search_open = is_search_open.clone();
             Callback::from(move |_| is_search_open.set(true))
         },
-        on_pull: on_pull_click.clone(),
-        on_push: on_push_click.clone(),
-        on_commit: on_commit_click.clone(),
         on_edit: on_edit_trigger.clone(),
-        on_new_file: on_new_file_click.clone(),
+        on_save: {
+            let on_save_trigger = on_save_trigger.clone();
+            let is_editing = is_editing.clone();
+            Callback::from(move |_| {
+                if *is_editing {
+                    on_save_trigger.emit(());
+                }
+            })
+        },
+        on_cancel: {
+            let is_editing = is_editing.clone();
+            Callback::from(move |_| {
+                if *is_editing {
+                    is_editing.set(false);
+                }
+            })
+        },
+        on_toggle_drawer: on_toggle_drawer.clone(),
+        on_copy_link: on_copy_link.clone(),
     });
 
     let is_dark = *theme == "dark";

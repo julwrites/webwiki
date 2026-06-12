@@ -1,5 +1,5 @@
 use crate::components::icons::{
-    IconCopy, IconDownload, IconEdit, IconGitCommit, IconHistory, IconHome, IconMenu, IconMoon,
+    IconCopy, IconDownload, IconGitCommit, IconHome, IconMenu, IconMoon,
     IconPlus, IconSearch, IconSettings, IconSun, IconUpload,
 };
 use yew::prelude::*;
@@ -32,7 +32,6 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
     let on_pull = props.on_pull.clone();
     let on_push = props.on_push.clone();
     let on_commit = props.on_commit.clone();
-    let on_edit = props.on_edit.clone();
     let on_home = props.on_home.clone();
     let on_new_file = props.on_new_file.clone();
     let on_theme_toggle = props.on_theme_toggle.clone();

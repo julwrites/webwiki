@@ -16,6 +16,8 @@ Vimwiki Web is a modern, self-hosted web interface for [Vimwiki](https://github.
     -   **Git Menu**: A unified interface to Fetch, Pull, Commit, and Push changes to external remote repositories directly from the UI.
     -   **Commit Control**: Manually review uncommitted files and commit them.
 -   **Multi-Volume Support**: Mount multiple independent wiki directories (volumes) with granular access control.
+-   **Keyboard Shortcuts**: Fully configurable native keyboard shortcuts to streamline your workflow.
+    - Default configuration includes `Ctrl+E` (Edit), `Ctrl+S` (Save), `Escape` (Cancel), `Ctrl+K / Ctrl+P` (Quick Search), `Ctrl+B` (Toggle Drawer), and `Ctrl+Shift+C` (Copy Link).
 -   **Dark/Light Themes**: A built-in toggle allowing you to switch between a default Dark Mode or a Light Mode.
 
 ## Tech Stack

@@ -8,9 +8,9 @@
 *   **Navigation:** Clickable links navigate to other wiki pages. Red links (non-existent pages) lead to a creation page.
 *   **Assets:** Display images referenced via `![alt](path)` or `[[path|alt]]`.
 
-### 2. Editing (Vim Mode)
+### 2. Editing
 *   **Editor:** Raw Markdown editing.
-*   **Keybindings:** Vim keybindings (Normal, Insert, Visual modes).
+*   **Keybindings:** Customizable native keyboard shortcuts (e.g., Ctrl+E for Edit, Ctrl+S for Save, Ctrl+P for Search).
 *   **Live Preview:** Side-by-side or togglable preview of the rendered content.
 *   **Save:** Manual save button (persists to disk, does not commit).
 
