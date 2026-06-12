@@ -1,9 +1,9 @@
-use crate::components::icons::{IconCopy, IconEdit, IconPlus, IconTrash, IconUpload};
+use crate::components::icons::{IconCopy, IconEdit, IconPlus, IconSearch, IconTrash, IconUpload};
 use crate::hooks::{use_create_file, use_delete_file, use_rename_file};
 use crate::Route;
 use common::FileNode;
 use gloo_net::http::Request;
-use web_sys::{Event, HtmlInputElement};
+use web_sys::{Event, HtmlInputElement, KeyboardEvent, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -11,11 +11,13 @@ use yew_router::prelude::*;
 pub struct DrawerProps {
     pub is_open: bool,
     pub on_close: Callback<MouseEvent>,
+    pub on_search: Callback<()>,
 }
 
 #[function_component(Drawer)]
 pub fn drawer(props: &DrawerProps) -> Html {
     let on_close = props.on_close.clone();
+    let on_search = props.on_search.clone();
     let route = use_route::<Route>();
     let current_volume = match route {
         Some(Route::Wiki { volume, .. }) => volume,
@@ -89,6 +91,9 @@ pub fn drawer(props: &DrawerProps) -> Html {
                 <div class="drawer-header">
                     <VolumeSwitcher />
                     <div style="flex: 1"></div>
+                    <button class="btn-icon" onclick={move |_| on_search.emit(())} title="Search" aria-label="Search" style="margin-right: 8px">
+                        <IconSearch />
+                    </button>
                     <button class="btn-icon" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image" style="margin-right: 8px">
                         <IconUpload />
                     </button>
@@ -307,18 +312,20 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
             })
         };
 
+        let file_name = node.name.clone();
+
         // Link to /wiki/path/to/file
         html! {
             <li class="file-tree-item">
                 <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
                 <div class="file-tree-actions" style="display: flex; gap: 4px;">
-                    <button class="btn-icon" onclick={on_rename_click} title="Rename Page" aria-label="Rename Page">
+                    <button class="btn-icon" onclick={on_rename_click} title={format!("Rename {}", file_name)} aria-label={format!("Rename {}", file_name)}>
                         <IconEdit />
                     </button>
-                    <button class="btn-icon" onclick={on_delete_click} title="Delete Page" aria-label="Delete Page">
+                    <button class="btn-icon" onclick={on_delete_click} title={format!("Delete {}", file_name)} aria-label={format!("Delete {}", file_name)}>
                         <IconTrash />
                     </button>
-                    <button class="btn-icon" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
+                    <button class="btn-icon" onclick={on_copy_link} title={format!("Copy Link to {}", file_name)} aria-label={format!("Copy Link to {}", file_name)}>
                         <IconCopy />
                     </button>
                 </div>
