@@ -133,6 +133,14 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                     return;
                 }
 
+                // EDIT SHORTCUT: <Ctrl+e>
+                if (e.ctrl_key() || e.meta_key()) && key.to_lowercase() == "e" {
+                    e.prevent_default();
+                    props.on_edit.emit(());
+                    *key_buffer.borrow_mut() = String::new();
+                    return;
+                }
+
                 // Normal keys (only if no modifiers)
                 if !e.ctrl_key() && !e.meta_key() && !e.alt_key() {
                     // If buffer is empty and key is leader, start sequence

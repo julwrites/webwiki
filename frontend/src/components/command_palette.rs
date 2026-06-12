@@ -564,6 +564,11 @@ pub fn command_palette(props: &Props) -> Html {
                         <div class="command-palette-empty">{"No results found"}</div>
                     }
                 </div>
+                <div class="command-palette-hint" style="padding: 8px 12px; font-size: 12px; color: var(--color-fg-muted); border-top: 1px solid var(--color-border-muted); display: flex; justify-content: space-between;">
+                    <span>{"Pro Tip: "}<code>{"Ctrl+K"}</code>{" Search"}</span>
+                    <span><code>{"Ctrl+E"}</code>{" Edit"}</span>
+                    <span><code>{"Ctrl+S"}</code>{" Save"}</span>
+                </div>
             </div>
         </div>
     }

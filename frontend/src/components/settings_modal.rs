@@ -190,46 +190,46 @@ pub fn settings_modal(props: &Props) -> Html {
                         { (*error_msg).clone() }
                     </div>
                 }
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
-                    <div>
-                        <label for="author-name">{"Git Author Name: "}</label>
-                        <input id="author-name" type="text" value={(*author_name).clone()} oninput={on_author_name_input} />
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="form-group">
+                        <label for="author-name">{"Git Author Name:"}</label>
+                        <input id="author-name" type="text" value={(*author_name).clone()} oninput={on_author_name_input} placeholder="e.g. John Doe" />
                     </div>
-                    <div>
-                        <label for="author-email">{"Git Author Email: "}</label>
-                        <input id="author-email" type="text" value={(*author_email).clone()} oninput={on_author_email_input} />
+                    <div class="form-group">
+                        <label for="author-email">{"Git Author Email:"}</label>
+                        <input id="author-email" type="text" value={(*author_email).clone()} oninput={on_author_email_input} placeholder="e.g. john@example.com" />
                     </div>
                     <hr style="margin: 10px 0; border: 0; border-top: 1px solid var(--border-color);" />
-                    <div>
-                        <label for="leader-key">{"Leader Key: "}</label>
+                    <div class="form-group">
+                        <label for="leader-key">{"Leader Key:"}</label>
                         <input id="leader-key" type="text" value={keybindings.leader.clone()} oninput={on_leader_input} />
                     </div>
-                    <div>
-                        <label for="pull-action">{"Pull Action: "}</label>
+                    <div class="form-group">
+                        <label for="pull-action">{"Pull Action Sequence:"}</label>
                         <input id="pull-action" type="text" value={keybindings.pull.clone()} oninput={on_pull_input} />
                     </div>
-                    <div>
-                        <label for="push-action">{"Push Action: "}</label>
+                    <div class="form-group">
+                        <label for="push-action">{"Push Action Sequence:"}</label>
                         <input id="push-action" type="text" value={keybindings.push.clone()} oninput={on_push_input} />
                     </div>
-                    <div>
-                        <label for="commit-action">{"Commit Action: "}</label>
+                    <div class="form-group">
+                        <label for="commit-action">{"Commit Action Sequence:"}</label>
                         <input id="commit-action" type="text" value={keybindings.commit.clone()} oninput={on_commit_input} />
                     </div>
-                    <div>
-                        <label for="search-action">{"Search Action: "}</label>
+                    <div class="form-group">
+                        <label for="search-action">{"Search Action Sequence:"}</label>
                         <input id="search-action" type="text" value={keybindings.search.clone()} oninput={on_search_input} />
                     </div>
-                    <div>
-                        <label for="new-file-action">{"New File Action: "}</label>
+                    <div class="form-group">
+                        <label for="new-file-action">{"New File Action Sequence:"}</label>
                         <input id="new-file-action" type="text" value={keybindings.new_file.clone()} oninput={on_new_file_input} />
                     </div>
-                    <div>
-                        <label for="edit-action">{"Edit Action (comma separated): "}</label>
+                    <div class="form-group">
+                        <label for="edit-action">{"Edit Action (comma separated):"}</label>
                         <input id="edit-action" type="text" value={edit_keys_str} onchange={on_edit_change} />
                     </div>
                 </div>
-                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <div class="actions">
                     <button class="btn" onclick={on_cancel} aria-label="Cancel settings changes">{"Cancel"}</button>
                     <button class="btn btn-primary" onclick={on_save} aria-label="Save settings">{"Save"}</button>
                 </div>

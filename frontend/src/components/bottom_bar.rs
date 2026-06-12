@@ -162,17 +162,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </div>
 
             // Edit Action
-             <button class="bottom-bar-btn" onclick={move |_| on_edit.emit(())} title="Edit Page" aria-label="Edit Page">
-                <IconEdit />
-            </button>
-
-            // History Action
-            <button class="bottom-bar-btn" onclick={let on_history = props.on_history.clone(); move |_| on_history.emit(())} title="Page History" aria-label="Page History">
-                <IconHistory />
-            </button>
-
-            // Copy Link
-            <button class="bottom-bar-btn" onclick={let on_copy_link = props.on_copy_link.clone(); move |_| on_copy_link.emit(())} title="Copy Link" aria-label="Copy Link">
+             <button class="bottom-bar-btn" onclick={let on_copy_link = props.on_copy_link.clone(); move |_| on_copy_link.emit(())} title="Copy Link" aria-label="Copy Link">
                 <IconCopy />
             </button>
 
