@@ -312,18 +312,20 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
             })
         };
 
+        let file_name = node.name.clone();
+
         // Link to /wiki/path/to/file
         html! {
             <li class="file-tree-item">
                 <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
                 <div class="file-tree-actions" style="display: flex; gap: 4px;">
-                    <button class="tree-copy-btn" onclick={on_rename_click} title="Rename Page" aria-label="Rename Page">
+                    <button class="tree-copy-btn" onclick={on_rename_click} title={format!("Rename {}", file_name)} aria-label={format!("Rename {}", file_name)}>
                         <IconEdit />
                     </button>
-                    <button class="tree-copy-btn" onclick={on_delete_click} title="Delete Page" aria-label="Delete Page">
+                    <button class="tree-copy-btn" onclick={on_delete_click} title={format!("Delete {}", file_name)} aria-label={format!("Delete {}", file_name)}>
                         <IconTrash />
                     </button>
-                    <button class="tree-copy-btn" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
+                    <button class="tree-copy-btn" onclick={on_copy_link} title={format!("Copy Link to {}", file_name)} aria-label={format!("Copy Link to {}", file_name)}>
                         <IconCopy />
                     </button>
                 </div>
