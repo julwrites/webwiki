@@ -187,6 +187,40 @@ fn layout() -> Html {
         });
     }
 
+    // Periodic Git Status Polling
+    {
+        let volume = current_volume.clone();
+        let commits_ahead = commits_ahead.clone();
+        let commits_behind = commits_behind.clone();
+        let uncommitted_files = uncommitted_files.clone();
+        use_effect_with(volume.clone(), move |volume| {
+            let volume = volume.clone();
+            let commits_ahead = commits_ahead.clone();
+            let commits_behind = commits_behind.clone();
+            let uncommitted_files = uncommitted_files.clone();
+
+            let interval = gloo_timers::callback::Interval::new(10_000, move || {
+                let volume = volume.clone();
+                let commits_ahead = commits_ahead.clone();
+                let commits_behind = commits_behind.clone();
+                let uncommitted_files = uncommitted_files.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let current_path = gloo_utils::window()
+                        .location()
+                        .pathname()
+                        .unwrap_or_default();
+                    if current_path != "/login" {
+                        perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files).await;
+                    }
+                });
+            });
+
+            move || {
+                drop(interval);
+            }
+        });
+    }
+
     // Fetch Git Status Effect
     {
         let volume = current_volume.clone();
