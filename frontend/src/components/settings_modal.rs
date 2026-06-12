@@ -230,8 +230,8 @@ pub fn settings_modal(props: &Props) -> Html {
                     </div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button onclick={on_cancel} aria-label="Cancel settings changes">{"Cancel"}</button>
-                    <button onclick={on_save} style="background-color: var(--color-accent-fg); color: #ffffff; border-color: transparent;" aria-label="Save settings">{"Save"}</button>
+                    <button class="btn" onclick={on_cancel} aria-label="Cancel settings changes">{"Cancel"}</button>
+                    <button class="btn btn-primary" onclick={on_save} aria-label="Save settings">{"Save"}</button>
                 </div>
             </div>
         </div>

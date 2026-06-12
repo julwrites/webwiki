@@ -154,7 +154,7 @@ pub fn login() -> Html {
                             { "Stay signed in for 90 days" }
                         </label>
                     </div>
-                    <button type="submit" disabled={*is_loading} aria-busy={(*is_loading).to_string()} class="login-btn" style="width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    <button type="submit" disabled={*is_loading} aria-busy={(*is_loading).to_string()} class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
                         if *is_loading {
                             { "Logging in..." }
                         } else {

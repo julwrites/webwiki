@@ -217,7 +217,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
             <div class="modal">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h2 style="border-bottom: none; margin-bottom: 0;">{"Commit Changes"}</h2>
-                    <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} title="Close" aria-label="Close Commit Modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--color-fg-muted); padding: 0 8px;">{"×"}</button>
+                    <button class="btn-icon" onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} title="Close" aria-label="Close Commit Modal">{"×"}</button>
                 </div>
                 <div style="border-bottom: 1px solid var(--color-border-muted); margin-bottom: 16px; margin-top: 8px;"></div>
 
@@ -296,6 +296,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
 
                 <div class="actions">
                     <button
+                        class="btn btn-primary"
                         onclick={on_commit}
                         disabled={selected_files.is_empty() || *is_committing || *is_discarding}
                         title={if *is_committing { "Committing...".to_string() } else if selected_files.is_empty() { "Select files to commit".to_string() } else { "Commit selected files".to_string() }}
@@ -307,14 +308,14 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                     <button
                         onclick={on_discard}
                         disabled={selected_files.is_empty() || *is_committing || *is_discarding}
-                        class="secondary"
+                        class="btn"
                         title={if *is_discarding { "Discarding...".to_string() } else if selected_files.is_empty() { "Select files to discard".to_string() } else { "Discard changes in selected files".to_string() }}
                         aria-label={if *is_discarding { "Discarding changes...".to_string() } else if selected_files.is_empty() { "Select files to discard".to_string() } else { "Discard changes in selected files".to_string() }}
                         aria-busy={(*is_discarding).to_string()}
                     >
                         { if *is_discarding { "Discarding..." } else { "Discard Changes" } }
                     </button>
-                    <button onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} aria-label="Cancel commit">{"Cancel"}</button>
+                    <button class="btn" onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} aria-label="Cancel commit">{"Cancel"}</button>
                 </div>
             </div>
         </div>

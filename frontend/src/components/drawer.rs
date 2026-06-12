@@ -89,7 +89,7 @@ pub fn drawer(props: &DrawerProps) -> Html {
                 <div class="drawer-header">
                     <VolumeSwitcher />
                     <div style="flex: 1"></div>
-                    <button class="drawer-close-btn" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image" style="margin-right: 8px">
+                    <button class="btn-icon" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image" style="margin-right: 8px">
                         <IconUpload />
                     </button>
                     <input
@@ -99,10 +99,10 @@ pub fn drawer(props: &DrawerProps) -> Html {
                         onchange={on_file_change}
                         accept="image/*"
                     />
-                    <button class="drawer-close-btn" onclick={on_new_file} title="New File" aria-label="New File" style="margin-right: 8px">
+                    <button class="btn-icon" onclick={on_new_file} title="New File" aria-label="New File" style="margin-right: 8px">
                         <IconPlus />
                     </button>
-                    <button class="drawer-close-btn" onclick={on_close} title="Close" aria-label="Close Drawer">{"✕"}</button>
+                    <button class="btn-icon" onclick={on_close} title="Close" aria-label="Close Drawer">{"✕"}</button>
                 </div>
                 <div class="drawer-content">
                     <FileTree />
@@ -312,13 +312,13 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
             <li class="file-tree-item">
                 <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
                 <div class="file-tree-actions" style="display: flex; gap: 4px;">
-                    <button class="tree-copy-btn" onclick={on_rename_click} title="Rename Page" aria-label="Rename Page">
+                    <button class="btn-icon" onclick={on_rename_click} title="Rename Page" aria-label="Rename Page">
                         <IconEdit />
                     </button>
-                    <button class="tree-copy-btn" onclick={on_delete_click} title="Delete Page" aria-label="Delete Page">
+                    <button class="btn-icon" onclick={on_delete_click} title="Delete Page" aria-label="Delete Page">
                         <IconTrash />
                     </button>
-                    <button class="tree-copy-btn" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
+                    <button class="btn-icon" onclick={on_copy_link} title="Copy Link" aria-label="Copy Link">
                         <IconCopy />
                     </button>
                 </div>
