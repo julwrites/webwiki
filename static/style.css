@@ -412,6 +412,37 @@ body {
     color: var(--color-fg-muted);
 }
 
+/* File tree item row: link + action buttons side by side */
+.file-tree-item {
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+    margin: 2px 0;
+}
+
+.file-tree-item a {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* override the block display set by .file-tree a */
+    display: block;
+}
+
+.file-tree-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.file-tree-item:hover .file-tree-actions,
+.file-tree-item:focus-within .file-tree-actions {
+    opacity: 1;
+}
+
 
 /* Toolbar (Top of Content) */
 .toolbar {

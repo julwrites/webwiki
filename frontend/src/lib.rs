@@ -188,6 +188,9 @@ fn layout() -> Html {
     }
 
     // Periodic Git Status Polling
+    // Uses an in-flight guard so that if a previous git fetch hasn't completed
+    // (e.g. slow/unreachable remote), the next tick is skipped instead of
+    // spawning another task — preventing request pile-up and UI freezing.
     {
         let volume = current_volume.clone();
         let commits_ahead = commits_ahead.clone();
@@ -199,21 +202,36 @@ fn layout() -> Html {
             let commits_behind = commits_behind.clone();
             let uncommitted_files = uncommitted_files.clone();
 
-            let interval = gloo_timers::callback::Interval::new(10_000, move || {
-                let volume = volume.clone();
-                let commits_ahead = commits_ahead.clone();
-                let commits_behind = commits_behind.clone();
-                let uncommitted_files = uncommitted_files.clone();
-                wasm_bindgen_futures::spawn_local(async move {
-                    let current_path = gloo_utils::window()
-                        .location()
-                        .pathname()
-                        .unwrap_or_default();
-                    if current_path != "/login" {
-                        perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files)
-                            .await;
+            // Single-threaded wasm: Rc<Cell<bool>> is safe and zero-overhead.
+            let is_fetching = std::rc::Rc::new(std::cell::Cell::new(false));
+
+            let interval = gloo_timers::callback::Interval::new(10_000, {
+                let is_fetching = is_fetching.clone();
+                move || {
+                    // Skip this tick if the previous fetch is still in progress.
+                    if is_fetching.get() {
+                        return;
                     }
-                });
+                    is_fetching.set(true);
+
+                    let is_fetching_done = is_fetching.clone();
+                    let volume = volume.clone();
+                    let commits_ahead = commits_ahead.clone();
+                    let commits_behind = commits_behind.clone();
+                    let uncommitted_files = uncommitted_files.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        let current_path = gloo_utils::window()
+                            .location()
+                            .pathname()
+                            .unwrap_or_default();
+                        if current_path != "/login" {
+                            perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files)
+                                .await;
+                        }
+                        // Always clear the flag so the next tick can proceed.
+                        is_fetching_done.set(false);
+                    });
+                }
             });
 
             move || {

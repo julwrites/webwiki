@@ -113,15 +113,25 @@ pub fn use_key_handler(props: KeyHandlerProps) {
 
             let on_keydown = Closure::wrap(Box::new(move |e: KeyboardEvent| {
                 let props = props_ref.borrow();
-                
-                // Allow ESC/cancel to pass through everywhere so modals/editors can handle it globally if needed
+
+                // If focus is on an input, textarea, or contenteditable element,
+                // let the element handle ALL keystrokes — including Escape (vim Normal mode),
+                // Ctrl+S (CodeMirror save keymap), etc. No global shortcuts fire.
+                if let Some(target) = e.target() {
+                    if target.dyn_ref::<web_sys::HtmlInputElement>().is_some() { return; }
+                    if target.dyn_ref::<web_sys::HtmlTextAreaElement>().is_some() { return; }
+                    if let Some(el) = target.dyn_ref::<web_sys::HtmlElement>() {
+                        if el.is_content_editable() { return; }
+                    }
+                }
+
+                // Global shortcuts — only fire when focus is NOT inside an editor/input.
                 if matches_shortcut(&e, &shortcuts.cancel) {
                     e.prevent_default();
                     props.on_cancel.emit(());
                     return;
                 }
 
-                // Global Shortcuts (Even inside inputs if they don't override)
                 if matches_shortcut(&e, &shortcuts.save) {
                     e.prevent_default();
                     props.on_save.emit(());
@@ -150,15 +160,6 @@ pub fn use_key_handler(props: KeyHandlerProps) {
                     e.prevent_default();
                     props.on_copy_link.emit(());
                     return;
-                }
-
-                // If focus is on an input or textarea, don't hijack normal typing
-                if let Some(target) = e.target() {
-                    if target.dyn_ref::<web_sys::HtmlInputElement>().is_some() { return; }
-                    if target.dyn_ref::<web_sys::HtmlTextAreaElement>().is_some() { return; }
-                    if let Some(el) = target.dyn_ref::<web_sys::HtmlElement>() {
-                        if el.is_content_editable() { return; }
-                    }
                 }
             }) as Box<dyn FnMut(KeyboardEvent)>);
 
