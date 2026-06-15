@@ -52,3 +52,51 @@ Once the human approves the plan and comments:
 
 ## Agent Interoperability
 - **Tool Definitions**: `docs/interop/tool_definitions.json`
+
+## Local Testing
+
+**Always test using the Docker container, not the native dev server.** The Docker build is the production environment; bugs that only appear in Docker (e.g. CodeMirror 6 vs 5, missing CSS) will be missed if you test against a native backend.
+
+### Static Assets — Single Source of Truth
+
+`frontend/static/` is the **only** static asset directory. It contains:
+- All CSS, JS, icons, manifest (hand-authored)
+- WASM build artifacts (`wasm.js`, `wasm_bg.wasm`, etc.) — output of `wasm-pack`
+
+`backend/static` is a symlink → `../frontend/static`.  
+The root `static/` directory is **deprecated** — do not edit files there.
+
+### Starting the Docker Dev Server
+
+```bash
+# Full rebuild (required after any Rust or WASM source change):
+./scripts/docker-dev.sh
+
+# Skip rebuild (only if image already exists and you want to re-run it):
+./scripts/docker-dev.sh --no-rebuild
+```
+
+- Runs on `http://localhost:3000`
+- `DEV_BYPASS_AUTH=true` — no login required
+- Mounts `./wiki_data/` as the wiki volume
+
+### Verifying Fixes with Chrome DevTools MCP
+
+After the container is up, use the Chrome DevTools MCP to verify:
+
+1. Navigate to `http://localhost:3000`
+2. `take_screenshot` — verify layout, styling, side panel
+3. Open the editor → verify CodeMirror loads without console errors
+4. Press `Escape` in the editor → must go to vim Normal mode, NOT dismiss the editor
+5. Save with `:w` or `Ctrl+S` → editor should close and show the rendered page
+6. Open Settings modal → verify layout is correct
+7. Open Side Panel → verify `.file-tree-item` hover actions appear
+8. Check console via `evaluate_script` for any JS errors
+
+### Starting the Native Dev Server (for rapid Rust iteration only)
+
+```bash
+./scripts/dev.sh
+```
+
+Note: `dev.sh` also serves from `frontend/static/` and uses `./wiki_data/` — it mirrors Docker. Use it only when you need fast Rust recompile cycles.
