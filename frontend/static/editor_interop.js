@@ -2,13 +2,13 @@
 // via esm.sh's ?deps= deduplication. Without this, @replit/codemirror-vim
 // bundles its own @codemirror/state, causing the "multiple instances"
 // instanceof error that breaks EditorState.create().
-import { EditorState, EditorSelection } from "https://esm.sh/@codemirror/state@6.4.1";
-import { EditorView, keymap, lineNumbers } from "https://esm.sh/@codemirror/view@6.34.0?deps=@codemirror/state@6.4.1";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands@6.5.0?deps=@codemirror/state@6.4.1,@codemirror/view@6.34.0";
-import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6.2.5?deps=@codemirror/state@6.4.1,@codemirror/view@6.34.0";
-import { vim, Vim } from "https://esm.sh/@replit/codemirror-vim@6.2.1?deps=@codemirror/state@6.4.1,@codemirror/view@6.34.0";
-import { syntaxHighlighting, HighlightStyle } from "https://esm.sh/@codemirror/language@6.10.1?deps=@codemirror/state@6.4.1,@codemirror/view@6.34.0";
-import { tags as t } from "https://esm.sh/@lezer/highlight@1.2.0?deps=@codemirror/state@6.4.1";
+import { EditorState, EditorSelection } from "https://esm.sh/@codemirror/state@6.6.0";
+import { EditorView, keymap, lineNumbers } from "https://esm.sh/@codemirror/view@6.43.1?deps=@codemirror/state@6.6.0";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands@6.5.0?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
+import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6.2.5?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
+import { vim, Vim } from "https://esm.sh/@replit/codemirror-vim@6.2.1?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
+import { syntaxHighlighting, HighlightStyle } from "https://esm.sh/@codemirror/language@6.10.1?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
+import { tags as t } from "https://esm.sh/@lezer/highlight@1.2.0?deps=@codemirror/state@6.6.0";
 
 
 const customHighlightStyle = HighlightStyle.define([
