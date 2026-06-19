@@ -85,11 +85,11 @@ pub fn settings_modal(props: &Props) -> Html {
             <div class="modal" onclick={|e: MouseEvent| e.stop_propagation()}>
                 <h2>{"Settings"}</h2>
                 if !(*error_msg).is_empty() {
-                    <div role="alert" style="color: var(--color-danger-fg); margin-bottom: 15px;">
+                    <div role="alert" class="text-danger mb-4">
                         { (*error_msg).clone() }
                     </div>
                 }
-                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div class="modal-body">
                     <div class="form-group">
                         <label for="author-name">{"Git Author Name:"}</label>
                         <input id="author-name" type="text" value={(*author_name).clone()} oninput={on_author_name_input} placeholder="e.g. John Doe" />
@@ -98,9 +98,9 @@ pub fn settings_modal(props: &Props) -> Html {
                         <label for="author-email">{"Git Author Email:"}</label>
                         <input id="author-email" type="text" value={(*author_email).clone()} oninput={on_author_email_input} placeholder="e.g. john@example.com" />
                     </div>
-                    <hr style="margin: 10px 0; border: 0; border-top: 1px solid var(--border-color);" />
+                    <hr class="border-0 border-t mt-3 mb-3" />
                     <h3>{"Keyboard Shortcuts"}</h3>
-                    <p style="font-size: 0.9em; color: var(--color-muted-fg); margin-bottom: 15px;">
+                    <p class="text-sm text-muted mb-4">
                         {"Use modifiers like Ctrl, Cmd, Shift, Alt. Combine with '+'. Example: 'Ctrl+Shift+C'. Separate alternatives with commas."}
                     </p>
                     <div class="form-group">

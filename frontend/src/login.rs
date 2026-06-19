@@ -117,44 +117,44 @@ pub fn login() -> Html {
             <div class="login-card">
                 <h2>{ "Login to WebWiki" }</h2>
                 if let Some(msg) = (*error_msg).as_ref() {
-                    <div class="error-message" role="alert" style="color: var(--danger, #ff4c4c); margin-bottom: 1rem; text-align: center;">{ msg }</div>
+                    <div class="error-message text-danger text-center mb-4" role="alert">{ msg }</div>
                 }
                 <form onsubmit={on_submit}>
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label for="username" style="display: block; margin-bottom: 0.5rem; color: var(--text)">{ "Username" }</label>
+                    <div class="form-group mb-4">
+                        <label for="username" class="d-block mb-2">{ "Username" }</label>
                         <input
                             type="text"
                             id="username"
                             value={(*username).clone()}
                             onchange={on_username_change}
                             required=true
-                            style="width: 100%; padding: 0.5rem; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;"
+                            class="w-full"
                         />
                     </div>
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
-                        <label for="password" style="display: block; margin-bottom: 0.5rem; color: var(--text)">{ "Password" }</label>
+                    <div class="form-group mb-4">
+                        <label for="password" class="d-block mb-2">{ "Password" }</label>
                         <input
                             type="password"
                             id="password"
                             value={(*password).clone()}
                             onchange={on_password_change}
                             required=true
-                            style="width: 100%; padding: 0.5rem; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;"
+                            class="w-full"
                         />
                     </div>
-                    <div class="form-group" style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <div class="form-group mb-4 flex items-center gap-2">
                         <input
                             type="checkbox"
                             id="stay-signed-in"
                             checked={*stay_signed_in}
                             onchange={on_stay_signed_in_change}
-                            style="margin: 0; cursor: pointer;"
+                            class="m-0 cursor-pointer"
                         />
-                        <label for="stay-signed-in" style="color: var(--text); cursor: pointer; user-select: none;">
+                        <label for="stay-signed-in" class="cursor-pointer">
                             { "Stay signed in for 90 days" }
                         </label>
                     </div>
-                    <button type="submit" disabled={*is_loading} aria-busy={(*is_loading).to_string()} class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+                    <button type="submit" disabled={*is_loading} aria-busy={(*is_loading).to_string()} class="btn btn-primary w-full p-3">
                         if *is_loading {
                             { "Logging in..." }
                         } else {

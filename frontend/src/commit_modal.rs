@@ -215,11 +215,10 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
     html! {
         <div class="modal-overlay">
             <div class="modal">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="border-bottom: none; margin-bottom: 0;">{"Commit Changes"}</h2>
+                <div class="modal-header">
+                    <h2>{"Commit Changes"}</h2>
                     <button class="btn-icon" onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} title="Close" aria-label="Close Commit Modal">{"×"}</button>
                 </div>
-                <div style="border-bottom: 1px solid var(--color-border-muted); margin-bottom: 16px; margin-top: 8px;"></div>
 
                 <div class="sync-status">
                     <span>{"Pending Sync: "} {*commits_ahead}</span>
@@ -271,7 +270,7 @@ pub fn commit_modal(props: &CommitModalProps) -> Html {
                         html! {
                             <div class="file-item">
                                 <input id={checkbox_id.clone()} type="checkbox" checked={is_checked} onclick={on_change} aria-label={format!("Select {}", display_path)} />
-                                <label for={checkbox_id} style="display: flex; gap: 8px; cursor: pointer; flex: 1;">
+                                <label for={checkbox_id} class="flex gap-2 cursor-pointer flex-1">
                                     <span class="status">{&f.status}</span>
                                     <span class="path">{&f.path}</span>
                                 </label>

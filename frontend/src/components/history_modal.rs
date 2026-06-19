@@ -71,7 +71,7 @@ pub fn history_modal(props: &HistoryModalProps) -> Html {
                     <button class="btn-icon" onclick={let on_close = props.on_close.clone(); move |_| on_close.emit(())} title="Close" aria-label="Close History">{"×"}</button>
                 </div>
 
-                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <div class="modal-body">
                     if *loading {
                         <p>{"Loading history..."}</p>
                     } else if let Some(err) = &*error {
@@ -79,19 +79,19 @@ pub fn history_modal(props: &HistoryModalProps) -> Html {
                     } else if history_entries.is_empty() {
                         <p>{"No history found."}</p>
                     } else {
-                        <div class="history-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="history-list flex flex-col gap-4">
                             {for history_entries.iter().map(|entry| {
                                 let date = js_sys::Date::new_0();
                                 date.set_time((entry.timestamp as f64) * 1000.0);
                                 let date_str = String::from(date.to_locale_string("en-US", &js_sys::Object::new()));
 
                                 html! {
-                                    <div class="history-item" style="border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 4px;">
-                                        <div style="font-weight: bold; margin-bottom: 0.25rem;">{ &entry.message }</div>
-                                        <div style="font-size: 0.85em; color: var(--text-color); opacity: 0.8;">
+                                    <div class="history-item border rounded p-2">
+                                        <div class="font-bold mb-1">{ &entry.message }</div>
+                                        <div class="text-sm text-muted">
                                             { format!("{} <{}>", entry.author_name, entry.author_email) }
                                         </div>
-                                        <div style="font-size: 0.8em; color: var(--text-color); opacity: 0.6; margin-top: 0.25rem;">
+                                        <div class="text-sm text-muted mt-1">
                                             { format!("{} • {}", date_str, &entry.commit_hash[0..7]) }
                                         </div>
                                     </div>

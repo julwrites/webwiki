@@ -804,7 +804,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <span class="path">
                         { &display_path }
                         if *is_uncommitted {
-                            <span class="badge" style="background-color: var(--color-accent-fg); margin-left: 8px;">{ "Draft" }</span>
+                            <span class="badge bg-accent ml-2">{ "Draft" }</span>
                         }
                     </span>
                     <div class="toolbar-controls">
@@ -860,7 +860,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             <span class="path">
                                 { &display_path }
                                 if *is_uncommitted {
-                                    <span class="badge" style="background-color: var(--color-accent-fg); margin-left: 8px;">{ "Draft" }</span>
+                                    <span class="badge bg-accent ml-2">{ "Draft" }</span>
                                 }
                             </span>
                             <div class="toolbar-controls">
@@ -912,7 +912,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                     <div class="toolbar">
                         <span class="path">{ format!("{}:/{}", volume, p) }</span>
                     </div>
-                    <div class="markdown-body" style="text-align: center; margin-top: 2rem;">
+                    <div class="markdown-body text-center mt-8">
                         <h2>{ "Page Not Found" }</h2>
                         <p>{ format!("The page '{}' does not exist yet.", p) }</p>
                         <button class="btn btn-primary" onclick={on_edit_click} aria-label={format!("Create page {}", &path)}>
@@ -1054,7 +1054,7 @@ fn editor(props: &EditorProps) -> Html {
         match gloo_utils::document().create_element("div") {
             Ok(div) => {
                 div.set_inner_html(&html_output);
-                html! { <div class="markdown-body preview-pane" style="height: 100%;">{ Html::VRef(div.into()) }</div> }
+                html! { <div class="markdown-body preview-pane h-full">{ Html::VRef(div.into()) }</div> }
             }
             Err(_) => html! { <div>{ "Failed to create markdown container." }</div> },
         }
@@ -1138,15 +1138,15 @@ fn editor(props: &EditorProps) -> Html {
                 <div class="btn-group">
                     <button class="btn" onclick={on_date_click} title="Insert Date/Time" aria-label="Insert Date/Time">{"Date"}</button>
                 </div>
-                <div class="btn-group" style="margin-left: auto;">
+                <div class="btn-group ml-auto">
                     <button class={classes!("btn", if *is_preview_open { "btn-primary" } else { "" })} onclick={on_preview_toggle} title="Toggle Preview" aria-label="Toggle Preview" aria-pressed={(*is_preview_open).to_string()}>
                         {"Preview"}
                     </button>
                 </div>
             </div>
 
-            <div class={classes!(if *is_preview_open { "editor-split-container" } else { "" })} style="flex: 1; display: flex; min-height: 0;">
-                <div class="editor-pane" style={if *is_preview_open { "flex: 1; min-width: 0; display: flex; flex-direction: column;" } else { "width: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0;" }}>
+            <div class={classes!("editor-wrapper", if *is_preview_open { "editor-split-container" } else { "" })}>
+                <div class="editor-pane">
                     <textarea id="code-editor" aria-label="Markdown editor" />
                     <p class="editor-help">
                         { if vim_mode { "Vim Mode: :w to save, or Ctrl+S" } else { "Ctrl+S to save" } }

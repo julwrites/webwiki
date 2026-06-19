@@ -89,7 +89,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                     <button class="bottom-bar-btn" onclick={move |_| on_commit.emit(())} title="Commit" aria-label={if props.uncommitted_files > 0 { format!("Commit ({} uncommitted files)", props.uncommitted_files) } else { "Commit".to_string() }}>
                         <IconGitCommit />
                         if props.uncommitted_files > 0 {
-                            <span class="badge" style="background-color: var(--accent-color);">{ props.uncommitted_files }</span>
+                            <span class="badge bg-accent">{ props.uncommitted_files }</span>
                         }
                     </button>
                     <button class="bottom-bar-btn" onclick={move |_| on_push.emit(())} title="Push" aria-label={if props.commits_ahead > 0 { format!("Push ({} pending)", props.commits_ahead) } else { "Push".to_string() }}>
@@ -117,9 +117,8 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                 if *is_git_menu_open {
                     <>
                         <div
-                            class="menu-backdrop"
+                            class="menu-backdrop fixed inset-0 z-dropdown cursor-default"
                             onclick={let close = close_git_menu.clone(); move |_| close.emit(())}
-                            style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;cursor:default;"
                         />
                         <div class="git-menu-popup">
                             <button onclick={
@@ -130,7 +129,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 <IconDownload />
                                 <span>{"Pull"}</span>
                                 if props.commits_behind > 0 {
-                                    <span class="badge" style="margin-left:auto">{ props.commits_behind }</span>
+                                    <span class="badge ml-auto">{ props.commits_behind }</span>
                                 }
                             </button>
                             <button onclick={
@@ -141,7 +140,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 <IconGitCommit />
                                 <span>{"Commit"}</span>
                                 if props.uncommitted_files > 0 {
-                                    <span class="badge" style="margin-left:auto">{ props.uncommitted_files }</span>
+                                    <span class="badge ml-auto">{ props.uncommitted_files }</span>
                                 }
                             </button>
                             <button onclick={
@@ -152,7 +151,7 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
                                 <IconUpload />
                                 <span>{"Push"}</span>
                                 if props.commits_ahead > 0 {
-                                    <span class="badge" style="margin-left:auto">{ props.commits_ahead }</span>
+                                    <span class="badge ml-auto">{ props.commits_ahead }</span>
                                 }
                             </button>
                         </div>

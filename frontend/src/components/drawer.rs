@@ -90,21 +90,21 @@ pub fn drawer(props: &DrawerProps) -> Html {
             <div class={classes!("drawer", if props.is_open { "open" } else { "" })}>
                 <div class="drawer-header">
                     <VolumeSwitcher />
-                    <div style="flex: 1"></div>
-                    <button class="btn-icon" onclick={move |_| on_search.emit(())} title="Search" aria-label="Search" style="margin-right: 8px">
+                    <div class="flex-1"></div>
+                    <button class="btn-icon mr-2" onclick={move |_| on_search.emit(())} title="Search" aria-label="Search">
                         <IconSearch />
                     </button>
-                    <button class="btn-icon" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image" style="margin-right: 8px">
+                    <button class="btn-icon mr-2" onclick={on_upload_click} title="Upload Image" aria-label="Upload Image">
                         <IconUpload />
                     </button>
                     <input
                         type="file"
                         ref={file_input_ref}
-                        style="display: none;"
+                        class="d-none"
                         onchange={on_file_change}
                         accept="image/*"
                     />
-                    <button class="btn-icon" onclick={on_new_file} title="New File" aria-label="New File" style="margin-right: 8px">
+                    <button class="btn-icon mr-2" onclick={on_new_file} title="New File" aria-label="New File">
                         <IconPlus />
                     </button>
                     <button class="btn-icon" onclick={on_close} title="Close" aria-label="Close Drawer">{"✕"}</button>
@@ -157,8 +157,8 @@ fn volume_switcher() -> Html {
 
     if volumes.len() > 1 {
         html! {
-            <div class="volume-switcher" style="display: flex; align-items: center; gap: 8px;">
-                <label for="volume-select" style="color: var(--text-color); font-size: 0.9em;">{"Volume:"}</label>
+            <div class="volume-switcher flex items-center gap-2">
+                <label for="volume-select" class="text-sm text-muted">{"Volume:"}</label>
                 <select id="volume-select" onchange={on_change} value={current_volume}>
                     { for volumes.iter().map(|v| html! { <option value={v.name.clone()}>{ &v.name }</option> }) }
                 </select>
@@ -200,7 +200,7 @@ fn file_tree() -> Html {
         <div class="file-tree">
             <h3>{ "Files" }</h3>
             if tree.is_empty() {
-                <div style="padding: 1rem; color: var(--color-fg-muted); font-size: 0.9em;">
+                <div class="p-4 text-muted text-sm">
                     {"No files found. Use the + button above to create one."}
                 </div>
             } else {
@@ -261,7 +261,7 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
                     tabindex="0"
                     aria-expanded={if *is_expanded { "true" } else { "false" }}
                     aria-label={format!("Toggle directory {}", dir_name)}
-                    style="display: inline-flex; align-items: center; border-radius: 6px;"
+                    class="flex items-center rounded-md cursor-pointer"
                 >
                     <span class="tree-toggle">{ icon }</span>
                     <span class="folder-label folder">{ &node.name }</span>
@@ -318,7 +318,7 @@ fn file_tree_node(props: &FileTreeNodeProps) -> Html {
         html! {
             <li class="file-tree-item">
                 <Link<Route> to={Route::Wiki { volume: volume.clone(), path: node.path.clone() }}>{ &node.name }</Link<Route>>
-                <div class="file-tree-actions" style="display: flex; gap: 4px;">
+                <div class="file-tree-actions flex gap-1">
                     <button class="btn-icon" onclick={on_rename_click} title={format!("Rename {}", file_name)} aria-label={format!("Rename {}", file_name)}>
                         <IconEdit />
                     </button>
