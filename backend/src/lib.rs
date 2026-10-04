@@ -74,6 +74,34 @@ pub fn app(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
+async fn resolve_wiki_path(wiki_path: &std::path::Path, path: &str) -> PathBuf {
+    let sanitized_path = path.trim_start_matches('/');
+    let file_path = wiki_path.join(sanitized_path);
+
+    if !file_path.starts_with(wiki_path) {
+        return file_path;
+    }
+
+    let meta = tokio::fs::metadata(&file_path).await.ok();
+
+    // If it's a directory, always target its index.md
+    if meta.as_ref().map(|m| m.is_dir()).unwrap_or(false) {
+        return file_path.join("index.md");
+    }
+
+    // If it's a file that exactly exists at this path, use it directly
+    if meta.is_some() {
+        return file_path;
+    }
+
+    // Otherwise, if it has no extension, we default to markdown (.md)
+    if file_path.extension().is_none() {
+        return file_path.with_extension("md");
+    }
+
+    file_path
+}
+
 async fn serve_wiki_asset(
     State(state): State<Arc<AppState>>,
     Path((volume, path)): Path<(String, String)>,
@@ -182,16 +210,7 @@ async fn read_page(
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
-    let mut file_path = wiki_path.join(&path);
-
-    // If it's a directory or likely a wikilink without extension, try adding .md
-    let meta = tokio::fs::metadata(&file_path).await.ok();
-    if meta.is_none() || meta.map(|m| m.is_dir()).unwrap_or(false) {
-        let md_path = file_path.with_extension("md");
-        if tokio::fs::metadata(&md_path).await.is_ok() {
-            file_path = md_path;
-        }
-    }
+    let file_path = resolve_wiki_path(wiki_path, &path).await;
 
     // Safety check: prevent directory traversal
     if !file_path.starts_with(wiki_path) {
@@ -267,7 +286,7 @@ async fn write_page(
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
-    let file_path = wiki_path.join(&path);
+    let file_path = resolve_wiki_path(wiki_path, &path).await;
 
     // Safety check
     if !file_path.starts_with(wiki_path) {
@@ -305,8 +324,8 @@ async fn rename_page(
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
-    let old_file_path = wiki_path.join(&path);
-    let new_file_path = wiki_path.join(&payload.new_path);
+    let old_file_path = resolve_wiki_path(wiki_path, &path).await;
+    let new_file_path = resolve_wiki_path(wiki_path, &payload.new_path).await;
 
     // Safety check
     if !old_file_path.starts_with(wiki_path) || !new_file_path.starts_with(wiki_path) {
@@ -379,11 +398,20 @@ async fn delete_page(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    if path.contains("..") {
+    if path.is_empty() || path == "/" || path == "." || path.contains("..") {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
-    let file_path = wiki_path.join(&path);
+    let raw_path = wiki_path.join(path.trim_start_matches('/'));
+    let file_path = if tokio::fs::metadata(&raw_path)
+        .await
+        .map(|m| m.is_dir())
+        .unwrap_or(false)
+    {
+        raw_path
+    } else {
+        resolve_wiki_path(wiki_path, &path).await
+    };
 
     // Safety check
     if !file_path.starts_with(wiki_path) {
@@ -537,5 +565,77 @@ async fn upload_file(
     match tokio::fs::write(&file_path, body).await {
         Ok(_) => (StatusCode::OK, "Saved").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_existing_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("doc.md");
+        tokio::fs::write(&file_path, "hello").await.unwrap();
+
+        let resolved = resolve_wiki_path(dir.path(), "doc.md").await;
+        assert_eq!(resolved, file_path);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_directory_target() {
+        let dir = tempdir().unwrap();
+        let sub_dir = dir.path().join("folder");
+        tokio::fs::create_dir(&sub_dir).await.unwrap();
+
+        let resolved = resolve_wiki_path(dir.path(), "folder").await;
+        assert_eq!(resolved, sub_dir.join("index.md"));
+    }
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_extensionless_with_md_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("notes.md");
+        tokio::fs::write(&file_path, "notes").await.unwrap();
+
+        let resolved = resolve_wiki_path(dir.path(), "notes").await;
+        assert_eq!(resolved, file_path);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_extensionless_with_dir_index() {
+        let dir = tempdir().unwrap();
+        let sub_dir = dir.path().join("topic");
+        tokio::fs::create_dir(&sub_dir).await.unwrap();
+        let index_path = sub_dir.join("index.md");
+        tokio::fs::write(&index_path, "index").await.unwrap();
+
+        let resolved = resolve_wiki_path(dir.path(), "topic").await;
+        assert_eq!(resolved, index_path);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_extensionless_new_file() {
+        let dir = tempdir().unwrap();
+        let resolved = resolve_wiki_path(dir.path(), "new_page").await;
+        assert_eq!(resolved, dir.path().join("new_page.md"));
+    }
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_new_file_with_extension() {
+        let dir = tempdir().unwrap();
+        let resolved = resolve_wiki_path(dir.path(), "diagram.svg").await;
+        assert_eq!(resolved, dir.path().join("diagram.svg"));
+    }
+
+    #[tokio::test]
+    async fn test_resolve_wiki_path_leading_slash() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("doc.md");
+        tokio::fs::write(&file_path, "hello").await.unwrap();
+
+        let resolved = resolve_wiki_path(dir.path(), "/doc.md").await;
+        assert_eq!(resolved, file_path);
     }
 }
