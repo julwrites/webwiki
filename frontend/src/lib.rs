@@ -576,6 +576,7 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         let path = path.clone();
         let volume = volume.clone();
         use_effect_with((volume.clone(), path.clone()), move |_| {
+            view_mode.set(ViewMode::Loading);
             let view_mode = view_mode.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let url = format!("/api/wiki/{}/{}", volume, path);
@@ -792,28 +793,54 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
     };
 
     if is_editing {
-        let current_content = match &*view_mode {
-            ViewMode::Page(p) => p.content.clone(),
-            _ => String::new(),
-        };
-
         let display_path = format!("{}:/{}", volume, path);
-        html! {
-             <div class="wiki-editor">
-                <div class="toolbar">
-                    <span class="path">
-                        { &display_path }
-                        if *is_uncommitted {
-                            <span class="badge bg-accent ml-2">{ "Draft" }</span>
-                        }
-                    </span>
-                    <div class="toolbar-controls">
-                        <button class="btn" onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)} aria-label="Cancel editing">{ "Cancel" }</button>
-                        <button class="btn btn-primary" onclick={Callback::from(|_| triggerSave("code-editor"))} aria-label="Save changes">{ "Save" }</button>
+        match &*view_mode {
+            ViewMode::Loading => html! {
+                <div class="wiki-editor">
+                    <div class="toolbar">
+                        <span class="path">{ &display_path }</span>
+                    </div>
+                    <div class="loading">{ "Loading..." }</div>
+                </div>
+            },
+            ViewMode::Error(msg) => html! {
+                <div class="wiki-editor">
+                    <div class="toolbar">
+                        <span class="path">{ &display_path }</span>
+                        <div class="toolbar-controls">
+                            <button class="btn" onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)} aria-label="Close error">{ "Close" }</button>
+                        </div>
+                    </div>
+                    <div class="error-viewer" role="alert">
+                        <h3>{ "Error loading file for editing" }</h3>
+                        <p>{ msg }</p>
                     </div>
                 </div>
-                <Editor key={path.clone()} volume={volume} path={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
-             </div>
+            },
+            _ => {
+                let current_content = match &*view_mode {
+                    ViewMode::Page(p) => p.content.clone(),
+                    _ => String::new(),
+                };
+
+                html! {
+                     <div class="wiki-editor">
+                        <div class="toolbar">
+                            <span class="path">
+                                { &display_path }
+                                if *is_uncommitted {
+                                    <span class="badge bg-accent ml-2">{ "Draft" }</span>
+                                }
+                            </span>
+                            <div class="toolbar-controls">
+                                <button class="btn" onclick={let on_edit_toggle = on_edit_toggle.clone(); move |_| on_edit_toggle.emit(false)} aria-label="Cancel editing">{ "Cancel" }</button>
+                                <button class="btn btn-primary" onclick={Callback::from(|_| triggerSave("code-editor"))} aria-label="Save changes">{ "Save" }</button>
+                            </div>
+                        </div>
+                        <Editor key={path.clone()} volume={volume} path={path.clone()} content={current_content} on_save={on_save} vim_mode={vim_mode} on_edit_toggle={on_edit_toggle} />
+                     </div>
+                }
+            }
         }
     } else {
         let display_path = format!("{}:/{}", volume, path);

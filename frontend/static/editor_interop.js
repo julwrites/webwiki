@@ -37,6 +37,13 @@ window.destroyEditor = function(elementId) {
     }
 };
 
+window.focusEditor = function(elementId) {
+    let view = views[elementId];
+    if (view && view.contentDOM) {
+        view.focus();
+    }
+};
+
 window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode, onQuitCallback) {
     let textArea = document.getElementById(elementId);
     if (!textArea) return;
@@ -105,9 +112,12 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         })
     ];
 
-    const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+    const isMobile = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0)) &&
+        (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+         (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches)));
 
-    if (vimMode && !isTouchDevice) {
+    if (vimMode && !isMobile) {
         extensions.push(vim());
         Vim.defineEx("write", "w", function() {
             if (onSaveCallback) onSaveCallback(views[elementId].state.doc.toString());
@@ -139,6 +149,21 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
 
     view._onSaveCallback = onSaveCallback;
     views[elementId] = view;
+
+    // Autofocus editor on desktop / non-touch devices to ensure immediate keyboard input
+    if (!isMobile) {
+        view.focus();
+        const safeFocus = () => {
+            if (views[elementId] && views[elementId].contentDOM) {
+                const active = document.activeElement;
+                if (!active || active === document.body || views[elementId].dom.contains(active)) {
+                    views[elementId].focus();
+                }
+            }
+        };
+        requestAnimationFrame(safeFocus);
+        setTimeout(safeFocus, 50);
+    }
 };
 
 window.wrapSelection = function(elementId, prefix, suffix) {
