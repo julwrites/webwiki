@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod git;
+pub mod session_store;
 
 use axum::extract::Query;
 use axum::{
@@ -15,7 +16,17 @@ use git::{git_routes, GitState};
 use std::collections::HashMap;
 use std::{path::PathBuf, sync::Arc};
 use tower_http::services::{ServeDir, ServeFile};
-use tower_sessions::{MemoryStore, SessionManagerLayer};
+use tower_sessions::SessionManagerLayer;
+
+pub fn is_forbidden_path(path: &str) -> bool {
+    let sanitized = path.trim_start_matches('/');
+    sanitized.is_empty()
+        || sanitized == "."
+        || sanitized.contains("..")
+        || sanitized.contains('\\')
+        || sanitized.starts_with('.')
+        || sanitized.split('/').any(|segment| segment.starts_with('.'))
+}
 
 pub mod search;
 use search::search_wiki;
@@ -37,11 +48,42 @@ pub struct AppState {
 }
 
 pub fn app(state: Arc<AppState>) -> Router {
-    let session_store = MemoryStore::default();
+    let session_dir = std::env::var("SESSION_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let base_path = state
+                .volumes
+                .get("default")
+                .cloned()
+                .or_else(|| state.volumes.values().next().cloned())
+                .unwrap_or_else(|| PathBuf::from("wiki_data"));
+            base_path.join(".webwiki").join("sessions")
+        });
 
+    let session_store = session_store::FileSessionStore::new(&session_dir)
+        .expect("Failed to initialize session store");
+
+    session_store::spawn_cleanup_task(
+        session_store.clone(),
+        std::time::Duration::from_secs(3600),
+    );
+
+    let session_secure = std::env::var("SESSION_SECURE_COOKIE")
+        .map(|v| v == "true")
+        .unwrap_or(false);
+
+    app_with_session_store(state, session_store, session_secure)
+}
+
+pub fn app_with_session_store<S: tower_sessions::SessionStore + Clone>(
+    state: Arc<AppState>,
+    session_store: S,
+    secure: bool,
+) -> Router {
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // Set to true in production with HTTPS (Cloudflare handles this)
-        .with_expiry(tower_sessions::Expiry::OnSessionEnd);
+        .with_secure(secure)
+        .with_expiry(tower_sessions::Expiry::OnSessionEnd)
+        .with_always_save(true);
 
     // API Router
     let protected_router = Router::new()
@@ -63,14 +105,14 @@ pub fn app(state: Arc<AppState>) -> Router {
 
     let api_router = Router::new()
         .route("/login", post(auth::login))
-        .merge(protected_router);
+        .merge(protected_router)
+        .layer(session_layer);
 
     Router::new()
         .route("/wiki/{volume}/{*path}", get(serve_wiki_asset))
         .nest("/api", api_router)
         // Serve all other static files from "static" dir, falling back to index.html for SPA routing
         .fallback_service(ServeDir::new("static").fallback(ServeFile::new("static/index.html")))
-        .layer(session_layer)
         .with_state(state)
 }
 
@@ -111,8 +153,8 @@ async fn serve_wiki_asset(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    // Prevent deleting root or navigating up
-    if path.is_empty() || path == "/" || path == "." || path.contains("..") {
+    // Prevent deleting root, navigating up, or accessing hidden/internal files
+    if is_forbidden_path(&path) {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -206,7 +248,7 @@ async fn read_page(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    if path.contains("..") {
+    if is_forbidden_path(&path) {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -282,7 +324,7 @@ async fn write_page(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    if path.contains("..") {
+    if is_forbidden_path(&path) {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -320,7 +362,7 @@ async fn rename_page(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    if path.contains("..") || payload.new_path.contains("..") {
+    if is_forbidden_path(&path) || is_forbidden_path(&payload.new_path) {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -356,6 +398,12 @@ async fn rename_page(
                 )) {
                     for entry in walkdir::WalkDir::new(wiki_path_clone)
                         .into_iter()
+                        .filter_entry(|e| {
+                            if e.depth() == 0 {
+                                return true;
+                            }
+                            !e.file_name().to_string_lossy().starts_with('.')
+                        })
                         .filter_map(|e| e.ok())
                     {
                         if entry.file_type().is_file()
@@ -398,7 +446,7 @@ async fn delete_page(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    if path.is_empty() || path == "/" || path == "." || path.contains("..") {
+    if is_forbidden_path(&path) {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -526,7 +574,7 @@ fn build_file_tree(root: &PathBuf, current: &PathBuf) -> Vec<FileNode> {
 }
 
 async fn logout_handler(session: tower_sessions::Session) -> impl IntoResponse {
-    let _ = session.delete().await;
+    let _ = session.flush().await;
     StatusCode::OK
 }
 
@@ -540,7 +588,7 @@ async fn upload_file(
         None => return (StatusCode::NOT_FOUND, "Volume not found").into_response(),
     };
 
-    if path.contains("..") {
+    if is_forbidden_path(&path) {
         return (StatusCode::FORBIDDEN, "Invalid path").into_response();
     }
 
@@ -637,5 +685,248 @@ mod tests {
 
         let resolved = resolve_wiki_path(dir.path(), "/doc.md").await;
         assert_eq!(resolved, file_path);
+    }
+
+    #[test]
+    fn test_is_forbidden_path() {
+        assert!(is_forbidden_path(""));
+        assert!(is_forbidden_path("/"));
+        assert!(is_forbidden_path("."));
+        assert!(is_forbidden_path(".."));
+        assert!(is_forbidden_path("../foo"));
+        assert!(is_forbidden_path("foo/../bar"));
+        assert!(is_forbidden_path(".webwiki"));
+        assert!(is_forbidden_path(".webwiki/sessions/123.json"));
+        assert!(is_forbidden_path("/.webwiki/sessions"));
+        assert!(is_forbidden_path("foo/.secret"));
+        assert!(is_forbidden_path(".git/config"));
+
+        // Allowed paths
+        assert!(!is_forbidden_path("doc"));
+        assert!(!is_forbidden_path("doc.md"));
+        assert!(!is_forbidden_path("/doc.md"));
+        assert!(!is_forbidden_path("folder/subfolder/page.md"));
+        assert!(!is_forbidden_path("image.png"));
+    }
+
+    static TEST_ENV_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[tokio::test]
+    async fn test_session_persists_across_app_restart() {
+        use tower::ServiceExt;
+        use axum::body::Body;
+        use axum::http::Request;
+
+        let _guard = TEST_ENV_MUTEX.lock().unwrap();
+
+        std::env::set_var("WIKI_USERNAME", "alice");
+        std::env::set_var("WIKI_PASSWORD", "secret123");
+        std::env::set_var("DEV_BYPASS_AUTH", "false");
+
+        let wiki_dir = tempdir().unwrap();
+        let sessions_dir = wiki_dir.path().join(".webwiki").join("sessions");
+        let store1 = session_store::FileSessionStore::new(&sessions_dir).unwrap();
+
+        let mut volumes = HashMap::new();
+        volumes.insert("default".to_string(), wiki_dir.path().to_path_buf());
+        let state1 = Arc::new(AppState {
+            volumes: volumes.clone(),
+            git_states: HashMap::new(),
+        });
+
+        let app1 = app_with_session_store(state1, store1, false);
+
+        // 1. Attempt protected endpoint without session -> 401
+        let req = Request::builder()
+            .uri("/api/tree")
+            .body(Body::empty())
+            .unwrap();
+        let res = app1.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+        // 2. Login
+        let login_payload = serde_json::json!({
+            "username": "alice",
+            "password": "secret123",
+            "stay_signed_in": false
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/login")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&login_payload).unwrap()))
+            .unwrap();
+        let res = app1.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // Extract cookie header
+        let cookie_header = res
+            .headers()
+            .get("set-cookie")
+            .expect("set-cookie header should be present")
+            .to_str()
+            .unwrap()
+            .to_string();
+        let cookie_val = cookie_header.split(';').next().unwrap().to_string();
+
+        // Verify session file was written to disk
+        let session_files = std::fs::read_dir(&sessions_dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
+            .collect::<Vec<_>>();
+        assert_eq!(session_files.len(), 1);
+
+        // 3. Make protected request using cookie on app1 -> 200 OK
+        let req = Request::builder()
+            .uri("/api/tree")
+            .header("cookie", &cookie_val)
+            .body(Body::empty())
+            .unwrap();
+        let res = app1.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // 4. Simulate RE-DEPLOY: app1 is dropped, new app2 and new store2 instance are initialized
+        let store2 = session_store::FileSessionStore::new(&sessions_dir).unwrap();
+        let state2 = Arc::new(AppState {
+            volumes: volumes.clone(),
+            git_states: HashMap::new(),
+        });
+        let app2 = app_with_session_store(state2, store2, false);
+
+        // 5. Make protected request to app2 using the same cookie -> 200 OK (NOT logged out!)
+        let req = Request::builder()
+            .uri("/api/tree")
+            .header("cookie", &cookie_val)
+            .body(Body::empty())
+            .unwrap();
+        let res = app2.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // 6. Test logout
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/logout")
+            .header("cookie", &cookie_val)
+            .body(Body::empty())
+            .unwrap();
+        let res = app2.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // 7. Verify session file on disk is deleted after logout
+        let session_files_after = std::fs::read_dir(&sessions_dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
+            .collect::<Vec<_>>();
+        assert_eq!(session_files_after.len(), 0);
+
+        // 8. Subsequent protected request -> 401 UNAUTHORIZED
+        let req = Request::builder()
+            .uri("/api/tree")
+            .header("cookie", &cookie_val)
+            .body(Body::empty())
+            .unwrap();
+        let res = app2.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_stay_signed_in_session_persists_90_days() {
+        use tower::ServiceExt;
+        use axum::body::Body;
+        use axum::http::Request;
+
+        let _guard = TEST_ENV_MUTEX.lock().unwrap();
+
+        std::env::set_var("WIKI_USERNAME", "bob");
+        std::env::set_var("WIKI_PASSWORD", "secret456");
+        std::env::set_var("DEV_BYPASS_AUTH", "false");
+
+        let wiki_dir = tempdir().unwrap();
+        let sessions_dir = wiki_dir.path().join(".webwiki").join("sessions");
+        let store1 = session_store::FileSessionStore::new(&sessions_dir).unwrap();
+
+        let mut volumes = HashMap::new();
+        volumes.insert("default".to_string(), wiki_dir.path().to_path_buf());
+        let state1 = Arc::new(AppState {
+            volumes: volumes.clone(),
+            git_states: HashMap::new(),
+        });
+
+        let app1 = app_with_session_store(state1, store1, false);
+
+        // 1. Login with stay_signed_in = true
+        let login_payload = serde_json::json!({
+            "username": "bob",
+            "password": "secret456",
+            "stay_signed_in": true
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/login")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&login_payload).unwrap()))
+            .unwrap();
+        let res = app1.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let cookie_header = res
+            .headers()
+            .get("set-cookie")
+            .expect("set-cookie header should be present")
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(cookie_header.to_lowercase().contains("max-age"));
+        let cookie_val = cookie_header.split(';').next().unwrap().to_string();
+
+        // 2. Perform protected request
+        let req = Request::builder()
+            .uri("/api/tree")
+            .header("cookie", &cookie_val)
+            .body(Body::empty())
+            .unwrap();
+        let res = app1.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // Response cookie should STILL have Max-Age and not be downgraded
+        if let Some(subsequent_cookie) = res.headers().get("set-cookie") {
+            let cookie_str = subsequent_cookie.to_str().unwrap().to_lowercase();
+            assert!(
+                cookie_str.contains("max-age"),
+                "Cookie must retain Max-Age on subsequent requests when stay_signed_in is true"
+            );
+        }
+
+        // Verify session file on disk has ~90 days expiry
+        let session_file = std::fs::read_dir(&sessions_dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .find(|e| e.path().extension().is_some_and(|ext| ext == "json"))
+            .expect("Session file should exist");
+        let content = std::fs::read(session_file.path()).unwrap();
+        let record: tower_sessions::session::Record = serde_json::from_slice(&content).unwrap();
+        let min_expected = time::OffsetDateTime::now_utc() + time::Duration::days(88);
+        assert!(
+            record.expiry_date >= min_expected,
+            "Stored expiry date should remain ~90 days in future"
+        );
+
+        // 3. Simulate RE-DEPLOY: app1 dropped, brand new app2 instance
+        let store2 = session_store::FileSessionStore::new(&sessions_dir).unwrap();
+        let state2 = Arc::new(AppState {
+            volumes,
+            git_states: HashMap::new(),
+        });
+        let app2 = app_with_session_store(state2, store2, false);
+
+        let req = Request::builder()
+            .uri("/api/tree")
+            .header("cookie", &cookie_val)
+            .body(Body::empty())
+            .unwrap();
+        let res = app2.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
     }
 }

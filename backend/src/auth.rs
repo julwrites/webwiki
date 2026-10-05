@@ -47,15 +47,24 @@ pub async fn login(
             permissions,
         };
 
+        let stay_signed_in = payload.stay_signed_in.unwrap_or(false);
+
         session
             .insert(USER_SESSION_KEY, user)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        if payload.stay_signed_in.unwrap_or(false) {
+        session
+            .insert("stay_signed_in", stay_signed_in)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        if stay_signed_in {
             session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
                 time::Duration::days(90),
             )));
+        } else {
+            session.set_expiry(Some(tower_sessions::Expiry::OnSessionEnd));
         }
 
         Ok(StatusCode::OK)
@@ -79,6 +88,11 @@ pub async fn require_auth(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if user.is_some() {
+        if let Ok(Some(true)) = session.get::<bool>("stay_signed_in").await {
+            session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
+                time::Duration::days(90),
+            )));
+        }
         Ok(next.run(req).await)
     } else {
         Err(StatusCode::UNAUTHORIZED)

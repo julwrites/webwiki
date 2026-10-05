@@ -21,9 +21,41 @@ pub struct GitState {
 
 impl GitState {
     pub fn new(repo_path: PathBuf) -> Self {
+        ensure_git_exclude_webwiki(&repo_path);
         Self {
             repo_path,
             write_lock: Arc::new(Mutex::new(())),
+        }
+    }
+}
+
+pub fn is_internal_git_path(path: &str) -> bool {
+    let p = std::path::Path::new(path);
+    p.starts_with(".webwiki") || p.starts_with(".git")
+}
+
+pub fn ensure_git_exclude_webwiki(repo_path: &std::path::Path) {
+    let git_dir = repo_path.join(".git");
+    if git_dir.is_dir() {
+        let info_dir = git_dir.join("info");
+        let _ = std::fs::create_dir_all(&info_dir);
+        let exclude_path = info_dir.join("exclude");
+        let content = std::fs::read_to_string(&exclude_path).unwrap_or_default();
+        if !content
+            .lines()
+            .any(|l| l.trim() == ".webwiki" || l.trim() == ".webwiki/")
+        {
+            use std::io::Write;
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&exclude_path)
+            {
+                if !content.is_empty() && !content.ends_with('\n') {
+                    let _ = writeln!(file);
+                }
+                let _ = writeln!(file, ".webwiki/");
+            }
         }
     }
 }
@@ -60,6 +92,9 @@ async fn get_status(
         let mut file_statuses = Vec::new();
         for entry in statuses.iter() {
             let path = entry.path().unwrap_or("").to_string();
+            if is_internal_git_path(&path) {
+                continue;
+            }
             let status = entry.status();
 
             let status_str = if status.contains(Status::INDEX_NEW)
@@ -203,6 +238,9 @@ async fn fetch_changes(
         let mut file_statuses = Vec::new();
         for entry in statuses.iter() {
             let path = entry.path().unwrap_or("").to_string();
+            if is_internal_git_path(&path) {
+                continue;
+            }
             let status = entry.status();
             let status_str = if status.contains(Status::INDEX_NEW)
                 || status.contains(Status::WT_NEW)
@@ -415,6 +453,9 @@ async fn commit_changes(
         })?;
 
         for file in payload.files {
+            if is_internal_git_path(&file) {
+                continue;
+            }
             let path = std::path::Path::new(&file);
             index.add_path(path).map_err(|e| {
                 (
@@ -512,6 +553,9 @@ async fn restore_changes(
         checkout_builder.force(); // Overwrite working directory changes
 
         for file in &payload.files {
+            if is_internal_git_path(file) {
+                continue;
+            }
             checkout_builder.path(file);
         }
 
@@ -604,6 +648,10 @@ async fn get_history(
     State(state): State<Arc<AppState>>,
     Path((volume, path)): Path<(String, String)>,
 ) -> Result<Json<HistoryResponse>, (StatusCode, String)> {
+    if !path.is_empty() && crate::is_forbidden_path(&path) {
+        return Err((StatusCode::FORBIDDEN, "Invalid path".to_string()));
+    }
+
     let git_state = state
         .git_states
         .get(&volume)
@@ -727,4 +775,50 @@ async fn get_history(
     })?;
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_is_internal_git_path() {
+        assert!(is_internal_git_path(".webwiki"));
+        assert!(is_internal_git_path(".webwiki/sessions"));
+        assert!(is_internal_git_path(".webwiki/sessions/abc.json"));
+        assert!(is_internal_git_path(".git"));
+        assert!(is_internal_git_path(".git/config"));
+
+        // Legitimate user dotfiles must NOT be treated as internal git paths
+        assert!(!is_internal_git_path(".gitignore"));
+        assert!(!is_internal_git_path(".gitattributes"));
+        assert!(!is_internal_git_path(".gitmodules"));
+        assert!(!is_internal_git_path(".github/workflows/deploy.yml"));
+        assert!(!is_internal_git_path("normal.md"));
+        assert!(!is_internal_git_path("subfolder/note.md"));
+    }
+
+    #[test]
+    fn test_ensure_git_exclude_webwiki() {
+        let dir = tempdir().unwrap();
+        let git_dir = dir.path().join(".git");
+        let info_dir = git_dir.join("info");
+        std::fs::create_dir_all(&info_dir).unwrap();
+        let exclude_file = info_dir.join("exclude");
+
+        // Write existing content without trailing newline
+        std::fs::write(&exclude_file, "some-pattern").unwrap();
+
+        ensure_git_exclude_webwiki(dir.path());
+
+        let content = std::fs::read_to_string(&exclude_file).unwrap();
+        assert!(content.contains("some-pattern\n"));
+        assert!(content.contains(".webwiki/\n"));
+
+        // Calling again should be idempotent
+        ensure_git_exclude_webwiki(dir.path());
+        let content_second = std::fs::read_to_string(&exclude_file).unwrap();
+        assert_eq!(content, content_second);
+    }
 }

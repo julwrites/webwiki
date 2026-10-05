@@ -27,7 +27,16 @@ pub fn search_wiki(root: &PathBuf, query: &str) -> Vec<SearchResult> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
-    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.depth() == 0 {
+                return true;
+            }
+            !e.file_name().to_string_lossy().starts_with('.')
+        })
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
         if entry.file_type().is_dir() {
             continue;
@@ -218,5 +227,18 @@ mod tests {
         // search_wiki uses strip_prefix which should keep the relative path
         assert!(results[0].path.contains("nested"));
         assert!(results[0].path.contains("deep.md"));
+    }
+
+    #[test]
+    fn test_search_skips_hidden_dirs() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let hidden_dir = root.join(".webwiki").join("sessions");
+        fs::create_dir_all(&hidden_dir).unwrap();
+        fs::write(hidden_dir.join("secret.md"), "secret search keyword").unwrap();
+        fs::write(hidden_dir.join("session.json"), "secret session").unwrap();
+
+        let results = search_wiki(&root, "secret");
+        assert!(results.is_empty());
     }
 }
