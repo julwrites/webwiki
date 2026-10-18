@@ -1,6 +1,6 @@
 // Bump this version string whenever static assets change.
 // All clients will evict the old cache and re-fetch everything on next load.
-const CACHE_NAME = 'vimwiki-v2';
+const CACHE_NAME = 'vimwiki-v3';
 
 // Assets pre-cached on install (app shell only — no wasm, handled at runtime).
 const ASSETS = [
