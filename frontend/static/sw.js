@@ -1,6 +1,6 @@
 // Bump this version string whenever static assets change.
 // All clients will evict the old cache and re-fetch everything on next load.
-const CACHE_NAME = 'vimwiki-v3';
+const CACHE_NAME = 'vimwiki-v5';
 
 // Assets pre-cached on install (app shell only — no wasm, handled at runtime).
 const ASSETS = [
@@ -35,8 +35,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass SW entirely for API calls and non-GET requests.
-  if (url.pathname.startsWith('/api/') || event.request.method !== 'GET') {
+  // Bypass SW entirely for cross-origin requests, API calls, and non-GET requests.
+  if (
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api/') ||
+    event.request.method !== 'GET'
+  ) {
     return;
   }
 
@@ -52,9 +56,15 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => {
+      .catch(async () => {
         // Offline fallback: serve from cache if available.
-        return caches.match(event.request);
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          const shell = (await caches.match('/index.html')) || (await caches.match('/'));
+          if (shell) return shell;
+        }
+        return Response.error();
       })
   );
 });

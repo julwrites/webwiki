@@ -14,7 +14,7 @@ use components::history_modal::HistoryModal;
 use components::settings_modal::SettingsModal;
 use gloo_net::http::Request;
 use gloo_storage::Storage;
-use hooks::{use_create_file, use_key_handler, KeyHandlerProps};
+use hooks::{use_create_file, use_key_handler, KeyHandlerProps, Shortcuts};
 use login::Login;
 use parsers::WikiLinkParser;
 use pulldown_cmark::{html, Options, Parser};
@@ -38,6 +38,11 @@ extern "C" {
     fn renderGraphviz(element_id: &str, content: &str);
     fn renderDrawio(element_id: &str, xml: &str);
     fn triggerSave(element_id: &str);
+    fn triggerUndo(element_id: &str);
+    fn triggerRedo(element_id: &str);
+    fn focusEditor(element_id: &str);
+    fn applyEditorShortcuts();
+    fn registerOpenSearchCallback(callback: &Closure<dyn FnMut()>);
     fn insertDateTime(element_id: &str);
     fn getEditorContent(element_id: &str) -> String;
     fn onEditorChange(element_id: &str, callback: &Closure<dyn FnMut()>);
@@ -142,10 +147,28 @@ fn layout() -> Html {
     let is_drawer_open = use_state(|| false);
     let is_search_open = use_state(|| false);
     let is_editing = use_state(|| false);
+    let shortcuts = use_state(Shortcuts::load);
+    let open_search_closure_ref = use_mut_ref(|| Option::<Closure<dyn FnMut()>>::None);
 
     let commits_ahead = use_state(|| 0);
     let commits_behind = use_state(|| 0);
     let uncommitted_files = use_state(|| 0);
+
+    // Register global JS callback so Vim Normal mode <Ctrl+p><Ctrl+f> can open the Command Palette
+    {
+        let is_search_open = is_search_open.clone();
+        let open_search_closure_ref = open_search_closure_ref.clone();
+        use_effect_with((), move |_| {
+            let cb = Closure::wrap(Box::new(move || {
+                is_search_open.set(true);
+            }) as Box<dyn FnMut()>);
+            registerOpenSearchCallback(&cb);
+            *open_search_closure_ref.borrow_mut() = Some(cb);
+            move || {
+                *open_search_closure_ref.borrow_mut() = None;
+            }
+        });
+    }
 
     // Reset editing state on navigation
     {
@@ -225,8 +248,13 @@ fn layout() -> Html {
                             .pathname()
                             .unwrap_or_default();
                         if current_path != "/login" {
-                            perform_git_fetch(volume, commits_ahead, commits_behind, uncommitted_files)
-                                .await;
+                            perform_git_fetch(
+                                volume,
+                                commits_ahead,
+                                commits_behind,
+                                uncommitted_files,
+                            )
+                            .await;
                         }
                         // Always clear the flag so the next tick can proceed.
                         is_fetching_done.set(false);
@@ -305,15 +333,42 @@ fn layout() -> Html {
 
     let on_close_settings = {
         let show_settings_modal = show_settings_modal.clone();
-        Callback::from(move |_| show_settings_modal.set(false))
+        let is_editing = is_editing.clone();
+        Callback::from(move |_| {
+            show_settings_modal.set(false);
+            if *is_editing {
+                let timeout = gloo_timers::callback::Timeout::new(20, move || {
+                    focusEditor("code-editor");
+                });
+                timeout.forget();
+            }
+        })
     };
+
+    let on_save_shortcuts = {
+        let shortcuts = shortcuts.clone();
+        Callback::from(move |new_shortcuts: Shortcuts| {
+            shortcuts.set(new_shortcuts);
+            applyEditorShortcuts();
+        })
+    };
+
     let on_toggle_history = {
         let show_history_modal = show_history_modal.clone();
         Callback::from(move |_| show_history_modal.set(!*show_history_modal))
     };
     let on_close_history = {
         let show_history_modal = show_history_modal.clone();
-        Callback::from(move |_| show_history_modal.set(false))
+        let is_editing = is_editing.clone();
+        Callback::from(move |_| {
+            show_history_modal.set(false);
+            if *is_editing {
+                let timeout = gloo_timers::callback::Timeout::new(20, move || {
+                    focusEditor("code-editor");
+                });
+                timeout.forget();
+            }
+        })
     };
 
     let on_copy_link = {
@@ -378,9 +433,16 @@ fn layout() -> Html {
     let on_close_commit_modal = {
         let show_commit_modal = show_commit_modal.clone();
         let refresh = refresh_git_status.clone();
+        let is_editing = is_editing.clone();
         Callback::from(move |_| {
             show_commit_modal.set(false);
             refresh.emit(());
+            if *is_editing {
+                let timeout = gloo_timers::callback::Timeout::new(20, move || {
+                    focusEditor("code-editor");
+                });
+                timeout.forget();
+            }
         })
     };
 
@@ -397,6 +459,7 @@ fn layout() -> Html {
 
     // Key Handler
     use_key_handler(KeyHandlerProps {
+        shortcuts: (*shortcuts).clone(),
         on_search: {
             let is_search_open = is_search_open.clone();
             Callback::from(move |_| is_search_open.set(true))
@@ -460,11 +523,24 @@ fn layout() -> Html {
                 on_settings={on_toggle_settings.clone()}
                 on_history={on_toggle_history.clone()}
                 on_copy_link={on_copy_link.clone()}
+                search_shortcut={shortcuts.search.clone()}
             />
 
             <CommandPalette
                 is_open={*is_search_open}
-                on_close={let is_search_open = is_search_open.clone(); move |_| is_search_open.set(false)}
+                on_close={{
+                    let is_search_open = is_search_open.clone();
+                    let is_editing = is_editing.clone();
+                    Callback::from(move |_| {
+                        is_search_open.set(false);
+                        if *is_editing {
+                            let timeout = gloo_timers::callback::Timeout::new(20, move || {
+                                focusEditor("code-editor");
+                            });
+                            timeout.forget();
+                        }
+                    })
+                }}
                 on_theme_toggle={toggle_theme.clone()}
                 on_settings={on_toggle_settings.clone()}
                 on_history={on_toggle_history.clone()}
@@ -481,6 +557,7 @@ fn layout() -> Html {
                         _ => String::new(),
                     }
                 }
+                shortcuts={(*shortcuts).clone()}
             />
 
             <HistoryModal
@@ -500,7 +577,7 @@ fn layout() -> Html {
             }
 
             if *show_settings_modal {
-                <SettingsModal on_close={on_close_settings} />
+                <SettingsModal on_close={on_close_settings} on_save_shortcuts={on_save_shortcuts} />
             }
         </div>
     }
@@ -694,34 +771,33 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
         let view_mode_clone = view_mode.clone();
         let markdown_ref_clone = markdown_ref.clone();
 
-        use_effect_with(
-            (view_mode_clone, is_editing),
-            move |(vm, is_editing)| {
-                if !*is_editing {
-                    if let ViewMode::Page(page) = &**vm {
-                let ext = std::path::Path::new(&page.path)
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
+        use_effect_with((view_mode_clone, is_editing), move |(vm, is_editing)| {
+            if !*is_editing {
+                if let ViewMode::Page(page) = &**vm {
+                    let ext = std::path::Path::new(&page.path)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
 
-                if ext == "" || ext == "md" || ext == "markdown" {
-                    if let Some(div) = markdown_ref_clone.cast::<web_sys::HtmlElement>() {
-                        let mut options = Options::empty();
-                        options.insert(Options::ENABLE_TABLES);
-                        options.insert(Options::ENABLE_FOOTNOTES);
-                        options.insert(Options::ENABLE_STRIKETHROUGH);
-                        options.insert(Options::ENABLE_TASKLISTS);
+                    if ext.is_empty() || ext == "md" || ext == "markdown" {
+                        if let Some(div) = markdown_ref_clone.cast::<web_sys::HtmlElement>() {
+                            let mut options = Options::empty();
+                            options.insert(Options::ENABLE_TABLES);
+                            options.insert(Options::ENABLE_FOOTNOTES);
+                            options.insert(Options::ENABLE_STRIKETHROUGH);
+                            options.insert(Options::ENABLE_TASKLISTS);
 
-                        let parser = Parser::new_ext(&page.content, options);
-                        let wiki_parser = WikiLinkParser::new(parser, volume.clone(), path.clone());
+                            let parser = Parser::new_ext(&page.content, options);
+                            let wiki_parser =
+                                WikiLinkParser::new(parser, volume.clone(), path.clone());
 
-                        let mut html_output = String::new();
-                        html::push_html(&mut html_output, wiki_parser);
-                        div.set_inner_html(&html_output);
+                            let mut html_output = String::new();
+                            html::push_html(&mut html_output, wiki_parser);
+                            div.set_inner_html(&html_output);
+                        }
                     }
                 }
-            }
             }
             || ()
         });
@@ -775,14 +851,19 @@ fn wiki_viewer(props: &WikiViewerProps) -> Html {
                             let _ = gloo_utils::window().location().set_href("/login");
                         }
                     } else if r.ok() {
-                        web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("PUT request OK!"));
+                        web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(
+                            "PUT request OK!",
+                        ));
                         view_mode.set(ViewMode::Page(WikiPage {
                             path: path.clone(),
                             content: new_content.clone(),
                         }));
                         on_edit_toggle.emit(false);
                     } else {
-                        web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("PUT request failed with status: {}", r.status())));
+                        web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!(
+                            "PUT request failed with status: {}",
+                            r.status()
+                        )));
                         gloo_dialogs::alert(&format!("Save failed: {:?}", r.status_text()));
                     }
                 } else {
@@ -1058,6 +1139,14 @@ fn editor(props: &EditorProps) -> Html {
         insertDateTime("code-editor");
     });
 
+    let on_undo_click = Callback::from(|_| {
+        triggerUndo("code-editor");
+    });
+
+    let on_redo_click = Callback::from(|_| {
+        triggerRedo("code-editor");
+    });
+
     let on_preview_toggle = {
         let is_preview_open = is_preview_open.clone();
         Callback::from(move |_| {
@@ -1153,6 +1242,10 @@ fn editor(props: &EditorProps) -> Html {
         <div class="editor-container" ondragover={ondragover} ondragenter={ondragenter} ondrop={ondrop}>
             <div class="editor-toolbar-actions">
                 <div class="btn-group">
+                    <button class="btn" onclick={on_undo_click} title="Undo (u)" aria-label="Undo">{"Undo"}</button>
+                    <button class="btn" onclick={on_redo_click} title="Redo (r / Ctrl+R)" aria-label="Redo">{"Redo"}</button>
+                </div>
+                <div class="btn-group">
                     <button class="btn" onclick={on_bold_click} title="Bold" aria-label="Bold"><strong>{"B"}</strong></button>
                     <button class="btn" onclick={on_italic_click} title="Italic" aria-label="Italic"><em>{"I"}</em></button>
                     <button class="btn" onclick={on_link_click} title="Insert Link" aria-label="Insert Link">{"Link"}</button>
@@ -1176,7 +1269,7 @@ fn editor(props: &EditorProps) -> Html {
                 <div class="editor-pane">
                     <textarea id="code-editor" aria-label="Markdown editor" />
                     <p class="editor-help">
-                        { if vim_mode { "Vim Mode: :w to save, or Ctrl+S" } else { "Ctrl+S to save" } }
+                        { if vim_mode { "Vim Mode: u to undo, r / Ctrl+R to redo, :w or Ctrl+S to save" } else { "Ctrl+S to save" } }
                     </p>
                 </div>
                 { preview_html }

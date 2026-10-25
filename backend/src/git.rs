@@ -188,35 +188,39 @@ async fn fetch_changes(
         let repo = Repository::open(&repo_path)
             .map_err(|e| format!("Failed to open repository: {}", e))?;
 
-        let mut remote = repo
-            .find_remote("origin")
-            .map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
+        if let Ok(mut remote) = repo.find_remote("origin") {
+            let mut callbacks = git2::RemoteCallbacks::new();
+            let env_token = std::env::var("GIT_TOKEN").ok();
+            let env_username = std::env::var("GIT_USERNAME").ok();
+            let mut auth_attempts = 0usize;
 
-        let mut callbacks = git2::RemoteCallbacks::new();
-        let env_token = std::env::var("GIT_TOKEN").ok();
-        let env_username = std::env::var("GIT_USERNAME").ok();
+            callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+                auth_attempts += 1;
+                if auth_attempts > 1 {
+                    return Err(git2::Error::from_str(
+                        "Authentication failed (invalid GIT_TOKEN or credentials)",
+                    ));
+                }
 
-        callbacks.credentials(move |_url, username_from_url, _allowed_types| {
-            let username = env_username
-                .as_deref()
-                .or(username_from_url)
-                .unwrap_or("git");
+                let username = env_username
+                    .as_deref()
+                    .or(username_from_url)
+                    .unwrap_or("git");
 
-            if let Some(token) = &env_token {
-                git2::Cred::userpass_plaintext(username, token.trim())
-            } else {
-                Err(git2::Error::from_str(
-                    "No GIT_TOKEN provided in environment",
-                ))
-            }
-        });
+                if let Some(token) = &env_token {
+                    git2::Cred::userpass_plaintext(username, token.trim())
+                } else {
+                    Err(git2::Error::from_str(
+                        "No GIT_TOKEN provided in environment",
+                    ))
+                }
+            });
 
-        let mut fetch_options = git2::FetchOptions::new();
-        fetch_options.remote_callbacks(callbacks);
+            let mut fetch_options = git2::FetchOptions::new();
+            fetch_options.remote_callbacks(callbacks);
 
-        remote
-            .fetch(&[] as &[&str], Some(&mut fetch_options), None)
-            .map_err(|e| format!("Git fetch failed: {}", e))?;
+            let _ = remote.fetch(&[] as &[&str], Some(&mut fetch_options), None);
+        }
 
         // Re-calculate counts
         let (commits_ahead, commits_behind) = match calculate_commits_ahead_behind(&repo) {
@@ -301,8 +305,16 @@ async fn pull_changes(
         let mut callbacks = git2::RemoteCallbacks::new();
         let env_token = std::env::var("GIT_TOKEN").ok();
         let env_username = std::env::var("GIT_USERNAME").ok();
+        let mut auth_attempts = 0usize;
 
         callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+            auth_attempts += 1;
+            if auth_attempts > 1 {
+                return Err(git2::Error::from_str(
+                    "Authentication failed (invalid GIT_TOKEN or credentials)",
+                ));
+            }
+
             let username = env_username
                 .as_deref()
                 .or(username_from_url)
@@ -604,9 +616,17 @@ async fn push_changes(
 
         let env_token = std::env::var("GIT_TOKEN").ok();
         let env_username = std::env::var("GIT_USERNAME").ok();
+        let mut auth_attempts = 0usize;
 
         // Set up authentication callback
         callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+            auth_attempts += 1;
+            if auth_attempts > 1 {
+                return Err(git2::Error::from_str(
+                    "Authentication failed (invalid GIT_TOKEN or credentials)",
+                ));
+            }
+
             let username = env_username
                 .as_deref()
                 .or(username_from_url)

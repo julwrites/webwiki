@@ -5,7 +5,7 @@ use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::hooks::use_create_file;
+use crate::hooks::{use_create_file, Shortcuts};
 use crate::Route;
 use common::SearchResult;
 
@@ -44,6 +44,7 @@ pub struct Props {
     pub on_copy_link: Callback<()>,
     pub current_volume: String,
     pub current_path: String,
+    pub shortcuts: Shortcuts,
 }
 
 #[derive(Clone, PartialEq)]
@@ -491,6 +492,7 @@ pub fn command_palette(props: &Props) -> Html {
                 }
                 "Enter" => {
                     e.prevent_default();
+                    e.stop_propagation();
                     if !filtered_items.is_empty() {
                         if let Some(item) = filtered_items.get(*selected_index) {
                             execute_command.emit(item.clone());
@@ -499,6 +501,7 @@ pub fn command_palette(props: &Props) -> Html {
                 }
                 "Escape" => {
                     e.prevent_default();
+                    e.stop_propagation();
                     on_close.emit(());
                 }
                 _ => {}
@@ -565,9 +568,9 @@ pub fn command_palette(props: &Props) -> Html {
                     }
                 </div>
                 <div class="command-palette-hint flex justify-between p-2 text-sm text-muted border-t">
-                    <span>{"Pro Tip: "}<code>{"Ctrl+K"}</code>{" Search"}</span>
-                    <span><code>{"Ctrl+E"}</code>{" Edit"}</span>
-                    <span><code>{"Ctrl+S"}</code>{" Save"}</span>
+                    <span>{"Pro Tip: "}<code>{ &props.shortcuts.search }</code>{" Search"}</span>
+                    <span><code>{ &props.shortcuts.edit }</code>{" Edit"}</span>
+                    <span><code>{ &props.shortcuts.save }</code>{" Save"}</span>
                 </div>
             </div>
         </div>

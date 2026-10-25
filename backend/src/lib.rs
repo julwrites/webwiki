@@ -63,10 +63,7 @@ pub fn app(state: Arc<AppState>) -> Router {
     let session_store = session_store::FileSessionStore::new(&session_dir)
         .expect("Failed to initialize session store");
 
-    session_store::spawn_cleanup_task(
-        session_store.clone(),
-        std::time::Duration::from_secs(3600),
-    );
+    session_store::spawn_cleanup_task(session_store.clone(), std::time::Duration::from_secs(3600));
 
     let session_secure = std::env::var("SESSION_SECURE_COOKIE")
         .map(|v| v == "true")
@@ -131,14 +128,20 @@ async fn resolve_wiki_path(wiki_path: &std::path::Path, path: &str) -> PathBuf {
         return file_path.join("index.md");
     }
 
-    // If it's a file that exactly exists at this path, use it directly
-    if meta.is_some() {
-        return file_path;
-    }
-
-    // Otherwise, if it has no extension, we default to markdown (.md)
+    // If the requested path has no extension, prefer an existing .md file first
     if file_path.extension().is_none() {
-        return file_path.with_extension("md");
+        let md_path = file_path.with_extension("md");
+        if tokio::fs::metadata(&md_path)
+            .await
+            .map(|m| m.is_file())
+            .unwrap_or(false)
+        {
+            return md_path;
+        }
+        if meta.is_some() {
+            return file_path;
+        }
+        return md_path;
     }
 
     file_path
@@ -451,11 +454,7 @@ async fn delete_page(
     }
 
     let raw_path = wiki_path.join(path.trim_start_matches('/'));
-    let file_path = if tokio::fs::metadata(&raw_path)
-        .await
-        .map(|m| m.is_dir())
-        .unwrap_or(false)
-    {
+    let file_path = if tokio::fs::metadata(&raw_path).await.is_ok() {
         raw_path
     } else {
         resolve_wiki_path(wiki_path, &path).await
@@ -652,6 +651,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_resolve_wiki_path_prefers_md_over_extensionless_duplicate() {
+        let dir = tempdir().unwrap();
+        let extless_path = dir.path().join("prayer_chat_2026");
+        let md_path = dir.path().join("prayer_chat_2026.md");
+        tokio::fs::write(&extless_path, "old").await.unwrap();
+        tokio::fs::write(&md_path, "new").await.unwrap();
+
+        let resolved = resolve_wiki_path(dir.path(), "prayer_chat_2026").await;
+        assert_eq!(resolved, md_path);
+    }
+
+    #[tokio::test]
     async fn test_resolve_wiki_path_extensionless_with_dir_index() {
         let dir = tempdir().unwrap();
         let sub_dir = dir.path().join("topic");
@@ -709,15 +720,15 @@ mod tests {
         assert!(!is_forbidden_path("image.png"));
     }
 
-    static TEST_ENV_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    static TEST_ENV_MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     #[tokio::test]
     async fn test_session_persists_across_app_restart() {
-        use tower::ServiceExt;
         use axum::body::Body;
         use axum::http::Request;
+        use tower::ServiceExt;
 
-        let _guard = TEST_ENV_MUTEX.lock().unwrap();
+        let _guard = TEST_ENV_MUTEX.lock().await;
 
         std::env::set_var("WIKI_USERNAME", "alice");
         std::env::set_var("WIKI_PASSWORD", "secret123");
@@ -833,11 +844,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_stay_signed_in_session_persists_90_days() {
-        use tower::ServiceExt;
         use axum::body::Body;
         use axum::http::Request;
+        use tower::ServiceExt;
 
-        let _guard = TEST_ENV_MUTEX.lock().unwrap();
+        let _guard = TEST_ENV_MUTEX.lock().await;
 
         std::env::set_var("WIKI_USERNAME", "bob");
         std::env::set_var("WIKI_PASSWORD", "secret456");

@@ -2,9 +2,9 @@
 // via esm.sh's ?deps= deduplication. Without this, @replit/codemirror-vim
 // bundles its own @codemirror/state, causing the "multiple instances"
 // instanceof error that breaks EditorState.create().
-import { EditorState, EditorSelection } from "https://esm.sh/@codemirror/state@6.6.0";
-import { EditorView, keymap, lineNumbers } from "https://esm.sh/@codemirror/view@6.43.1?deps=@codemirror/state@6.6.0";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands@6.5.0?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
+import { EditorState, EditorSelection, Compartment } from "https://esm.sh/@codemirror/state@6.6.0";
+import { EditorView, keymap, lineNumbers, drawSelection, dropCursor } from "https://esm.sh/@codemirror/view@6.43.1?deps=@codemirror/state@6.6.0";
+import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo } from "https://esm.sh/@codemirror/commands@6.5.0?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
 import { markdown } from "https://esm.sh/@codemirror/lang-markdown@6.2.5?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
 import { vim, Vim, getCM } from "https://esm.sh/@replit/codemirror-vim@6.2.1?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
 import { syntaxHighlighting, HighlightStyle } from "https://esm.sh/@codemirror/language@6.10.1?deps=@codemirror/state@6.6.0,@codemirror/view@6.43.1";
@@ -26,6 +26,206 @@ const customHighlightStyle = HighlightStyle.define([
 // Store view instances keyed by elementId
 const views = {};
 window.views = views;
+
+// Compartment for dynamically reconfigurable editor keymap
+const keymapCompartment = new Compartment();
+
+// Default shortcuts fallback matching Rust Shortcuts::default()
+const DEFAULT_SHORTCUTS = {
+    edit: "Ctrl+E",
+    save: "Ctrl+S",
+    cancel: "Escape",
+    search: "<Ctrl+p><Ctrl+f>",
+    toggle_drawer: "Ctrl+B",
+    copy_link: "Ctrl+Shift+C",
+    undo: "u",
+    redo: "r, <Ctrl+r>",
+    scroll_down: "<Ctrl+d>",
+    scroll_up: "<Ctrl+u>",
+    insert_datetime: "<Ctrl+t><Ctrl+s>"
+};
+
+function loadConfiguredShortcuts() {
+    try {
+        const raw = localStorage.getItem("shortcuts");
+        if (!raw) return { ...DEFAULT_SHORTCUTS };
+        const parsed = JSON.parse(raw);
+        const merged = { ...DEFAULT_SHORTCUTS, ...parsed };
+        if (merged.search && merged.search.trim() === "Ctrl+K, Ctrl+P") {
+            merged.search = "<Ctrl+p><Ctrl+f>";
+            localStorage.setItem("shortcuts", JSON.stringify(merged));
+        }
+        return merged;
+    } catch (_) {
+        return { ...DEFAULT_SHORTCUTS };
+    }
+}
+
+// --- Keybinding Normalization Utilities (Vim & CodeMirror 6) ---
+
+function splitChordStrokes(alt) {
+    const strokes = [];
+    let current = "";
+    let inAngle = false;
+    for (let i = 0; i < alt.length; i++) {
+        const ch = alt[i];
+        if (ch === "<") {
+            if (!inAngle && current.trim()) {
+                strokes.push(current.trim());
+                current = "";
+            }
+            inAngle = true;
+            current += ch;
+        } else if (ch === ">") {
+            current += ch;
+            inAngle = false;
+            if (current.trim()) {
+                strokes.push(current.trim());
+            }
+            current = "";
+        } else if ((ch === " " || ch === "\t") && !inAngle) {
+            if (current.trim()) {
+                strokes.push(current.trim());
+                current = "";
+            }
+        } else {
+            current += ch;
+        }
+    }
+    if (current.trim()) {
+        strokes.push(current.trim());
+    }
+    return strokes;
+}
+
+function parseSingleStroke(stroke) {
+    let trimmed = (stroke || "").trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+        trimmed = trimmed.slice(1, -1).trim();
+    }
+    if (!trimmed) return null;
+
+    if (trimmed.length === 1) {
+        const isUpper = trimmed >= "A" && trimmed <= "Z";
+        return {
+            key: trimmed.toLowerCase(),
+            rawChar: trimmed,
+            ctrl: false,
+            shift: isUpper,
+            alt: false
+        };
+    }
+
+    const parts = trimmed.split(/[+-]/).filter(Boolean);
+    if (parts.length === 0) return null;
+
+    let ctrl = false;
+    let shift = false;
+    let alt = false;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+        const m = parts[i].trim().toLowerCase();
+        if (m === "ctrl" || m === "c" || m === "cmd" || m === "meta" || m === "m" || m === "control") {
+            ctrl = true;
+        } else if (m === "shift" || m === "s") {
+            shift = true;
+        } else if (m === "alt" || m === "a" || m === "opt" || m === "option") {
+            alt = true;
+        }
+    }
+
+    const lastRaw = parts[parts.length - 1].trim();
+    if (!lastRaw) return null;
+
+    if (parts.length === 1 && lastRaw.length === 1 && lastRaw >= "A" && lastRaw <= "Z") {
+        shift = true;
+    }
+
+    const lower = lastRaw.toLowerCase();
+    let key = lower;
+    if (lower === "esc" || lower === "escape") key = "escape";
+    else if (lower === "return" || lower === "enter") key = "enter";
+    else if (lower === "space") key = " ";
+    else if (lower === "bs" || lower === "backspace") key = "backspace";
+    else if (lower === "del" || lower === "delete") key = "delete";
+
+    return {
+        key,
+        rawChar: lastRaw.length === 1 ? lastRaw : key,
+        ctrl,
+        shift,
+        alt
+    };
+}
+
+function strokeToVimNotation(step) {
+    if (!step) return "";
+    if (!step.ctrl && !step.alt) {
+        if (step.key.length === 1) {
+            return step.shift ? step.key.toUpperCase() : step.key.toLowerCase();
+        }
+        if (step.key === "escape") return "<Esc>";
+        if (step.key === "enter") return "<CR>";
+        if (step.key === "backspace") return "<BS>";
+        if (step.key === "delete") return "<Del>";
+        if (step.key === "tab") return step.shift ? "<S-Tab>" : "<Tab>";
+        if (step.key === " ") return "<Space>";
+    }
+
+    let mods = "";
+    if (step.ctrl) mods += "C-";
+    if (step.alt) mods += "A-";
+    if (step.shift) mods += "S-";
+
+    let keyPart = step.key;
+    if (keyPart === "escape") keyPart = "Esc";
+    else if (keyPart === "enter") keyPart = "CR";
+    else if (keyPart === "backspace") keyPart = "BS";
+    else if (keyPart === "delete") keyPart = "Del";
+    else if (keyPart === "tab") keyPart = "Tab";
+    else if (keyPart === " ") keyPart = "Space";
+
+    return `<${mods}${keyPart}>`;
+}
+
+function strokeToCM6Notation(step) {
+    if (!step) return "";
+    let mods = "";
+    if (step.ctrl) mods += "Ctrl-";
+    if (step.alt) mods += "Alt-";
+    if (step.shift) mods += "Shift-";
+
+    let keyPart = step.key;
+    if (keyPart === "escape") keyPart = "Escape";
+    else if (keyPart === "enter") keyPart = "Enter";
+    else if (keyPart === "backspace") keyPart = "Backspace";
+    else if (keyPart === "delete") keyPart = "Delete";
+    else if (keyPart === "tab") keyPart = "Tab";
+    else if (keyPart === " ") keyPart = "Space";
+
+    return `${mods}${keyPart}`;
+}
+
+function parseShortcutAlternatives(shortcutDef) {
+    if (!shortcutDef || !shortcutDef.trim()) return [];
+    const results = [];
+    const parts = shortcutDef.split(",");
+    for (const part of parts) {
+        const trimmed = part.trim();
+        if (!trimmed) continue;
+        const strokeTokens = splitChordStrokes(trimmed);
+        const steps = strokeTokens.map(parseSingleStroke).filter(Boolean);
+        if (steps.length > 0) {
+            results.push({
+                steps,
+                vimKey: steps.map(strokeToVimNotation).join(""),
+                cmKey: steps.map(strokeToCM6Notation).join(" ")
+            });
+        }
+    }
+    return results;
+}
 
 // --- Markdown Table Formatting Utilities ---
 
@@ -193,7 +393,6 @@ function formatActiveTable(view) {
     }
     afterParts.push({ from: last, to: reformattedLine.length });
 
-    // If original line lacked leading pipe, adjust targetCell index
     let adjustedTargetCell = targetCell;
     if (!line.text.trim().startsWith("|") && reformattedLine.trim().startsWith("|")) {
         adjustedTargetCell = targetCell + 1;
@@ -290,6 +489,13 @@ function getActiveView(cm) {
     return allViews.length > 0 ? allViews[0] : null;
 }
 
+function isInVimNormalMode(view) {
+    if (!view) return false;
+    const cm = (typeof getCM === "function" ? getCM(view) : view.cm);
+    if (!cm || !cm.state || !cm.state.vim) return true;
+    return !cm.state.vim.insertMode && !cm.state.vim.visualMode;
+}
+
 Vim.defineEx("write", "w", function(cm) {
     const view = getActiveView(cm);
     if (!view) return;
@@ -313,6 +519,30 @@ Vim.defineEx("quit", "q", function(cm) {
     }
 });
 
+Vim.defineAction("cmUndo", function(cm, actionArgs) {
+    const view = getActiveView(cm);
+    if (!view) return;
+    const repeat = (actionArgs && actionArgs.repeat) || 1;
+    for (let i = 0; i < repeat; i++) {
+        undo(view);
+    }
+});
+
+Vim.defineAction("cmRedo", function(cm, actionArgs) {
+    const view = getActiveView(cm);
+    if (!view) return;
+    const repeat = (actionArgs && actionArgs.repeat) || 1;
+    for (let i = 0; i < repeat; i++) {
+        redo(view);
+    }
+});
+
+Vim.defineAction("openCommandPalette", function(_cm) {
+    if (typeof window._onOpenSearchCallback === "function") {
+        window._onOpenSearchCallback();
+    }
+});
+
 Vim.defineAction("scrollHalfPageDown", function(cm) {
     const view = getActiveView(cm);
     if (view) scrollHalfPage(view, true);
@@ -328,16 +558,234 @@ Vim.defineAction("insertDateTime", function(cm) {
     if (view) window.insertDateTime(view);
 });
 
-// Half-page navigation commands
-Vim.mapCommand("<C-d>", "action", "scrollHalfPageDown", {}, { context: "normal" });
-Vim.mapCommand("<C-d>", "action", "scrollHalfPageDown", {}, { context: "visual" });
-Vim.mapCommand("<C-u>", "action", "scrollHalfPageUp", {}, { context: "normal" });
-Vim.mapCommand("<C-u>", "action", "scrollHalfPageUp", {}, { context: "visual" });
+// Track dynamically registered Vim mappings so we can cleanly unmap them on live reload
+let activeCustomVimMappings = [];
 
-// DateTime shortcut chord: <C-t><C-s>
-Vim.mapCommand("<C-t><C-s>", "action", "insertDateTime", {}, { context: "normal" });
-Vim.mapCommand("<C-t><C-s>", "action", "insertDateTime", {}, { context: "insert" });
-Vim.mapCommand("<C-t><C-s>", "action", "insertDateTime", {}, { context: "visual" });
+function registerVimMapping(vimKey, actionName, context) {
+    if (!vimKey) return;
+    try {
+        Vim.unmap(vimKey, context);
+    } catch (_) {}
+    Vim.mapCommand(vimKey, "action", actionName, {}, { context });
+    activeCustomVimMappings.push({ keys: vimKey, context });
+}
+
+function buildEditorKeymapExtension(shortcuts) {
+    const saveAlts = parseShortcutAlternatives(shortcuts.save);
+    const dtAlts = parseShortcutAlternatives(shortcuts.insert_datetime);
+    const downAlts = parseShortcutAlternatives(shortcuts.scroll_down);
+    const upAlts = parseShortcutAlternatives(shortcuts.scroll_up);
+    const searchAlts = parseShortcutAlternatives(shortcuts.search);
+    const undoAlts = parseShortcutAlternatives(shortcuts.undo);
+    const redoAlts = parseShortcutAlternatives(shortcuts.redo);
+
+    // Collect first-stroke keys of any multi-stroke chords so we filter them out of defaultKeymap
+    const chordFirstKeys = new Set(["Ctrl-d", "Ctrl-t", "Ctrl-p", "Ctrl-f", "Ctrl-u"]);
+    for (const list of [saveAlts, dtAlts, downAlts, upAlts, searchAlts, undoAlts, redoAlts]) {
+        for (const alt of list) {
+            if (alt.steps.length > 1) {
+                chordFirstKeys.add(strokeToCM6Notation(alt.steps[0]));
+            }
+        }
+    }
+
+    const filteredDefaultKeymap = defaultKeymap.filter(b =>
+        !chordFirstKeys.has(b.key) && !chordFirstKeys.has(b.mac)
+    );
+
+    const customBindings = [
+        {
+            key: "Mod-s",
+            preventDefault: true,
+            run: (view) => {
+                let currentText = view.state.doc.toString();
+                let formatted = formatAllTables(currentText);
+                if (formatted !== currentText) {
+                    view.dispatch({
+                        changes: { from: 0, to: view.state.doc.length, insert: formatted }
+                    });
+                    currentText = formatted;
+                }
+                if (view._onSaveCallback) view._onSaveCallback(currentText);
+                return true;
+            }
+        }
+    ];
+
+    for (const alt of saveAlts) {
+        if (alt.cmKey && alt.cmKey !== "Ctrl-s") {
+            customBindings.push({
+                key: alt.cmKey,
+                preventDefault: true,
+                run: (view) => {
+                    let currentText = view.state.doc.toString();
+                    let formatted = formatAllTables(currentText);
+                    if (formatted !== currentText) {
+                        view.dispatch({
+                            changes: { from: 0, to: view.state.doc.length, insert: formatted }
+                        });
+                        currentText = formatted;
+                    }
+                    if (view._onSaveCallback) view._onSaveCallback(currentText);
+                    return true;
+                }
+            });
+        }
+    }
+
+    // Bind search / open document chord in CM6 keymap (Normal mode only when Vim is enabled)
+    for (const alt of searchAlts) {
+        if (alt.cmKey) {
+            customBindings.push({
+                key: alt.cmKey,
+                preventDefault: true,
+                run: (view) => {
+                    if (!isInVimNormalMode(view)) return false;
+                    if (typeof window._onOpenSearchCallback === "function") {
+                        window._onOpenSearchCallback();
+                    }
+                    return true;
+                }
+            });
+        }
+    }
+
+    for (const alt of dtAlts) {
+        if (alt.cmKey) {
+            customBindings.push({
+                key: alt.cmKey,
+                preventDefault: true,
+                run: (view) => {
+                    window.insertDateTime(view);
+                    return true;
+                }
+            });
+        }
+    }
+
+    for (const alt of downAlts) {
+        if (alt.cmKey) {
+            customBindings.push({
+                key: alt.cmKey,
+                preventDefault: true,
+                run: (view) => {
+                    scrollHalfPage(view, true);
+                    return true;
+                }
+            });
+        }
+    }
+
+    for (const alt of upAlts) {
+        if (alt.cmKey) {
+            customBindings.push({
+                key: alt.cmKey,
+                preventDefault: true,
+                run: (view) => {
+                    scrollHalfPage(view, false);
+                    return true;
+                }
+            });
+        }
+    }
+
+    return keymap.of([
+        ...customBindings,
+        ...filteredDefaultKeymap,
+        ...historyKeymap,
+        indentWithTab
+    ]);
+}
+
+window.applyEditorShortcuts = function() {
+    const shortcuts = loadConfiguredShortcuts();
+
+    // 1. Unmap previously registered custom Vim bindings
+    for (const m of activeCustomVimMappings) {
+        try {
+            Vim.unmap(m.keys, m.context);
+        } catch (_) {}
+    }
+    activeCustomVimMappings = [];
+
+    // Restore standard Vim 'r' replace action and '<C-p>' k motion first before applying custom overrides
+    try {
+        Vim.mapCommand("r", "action", "replace", {}, { context: "normal" });
+        Vim.mapCommand("<C-p>", "motion", "moveByLines", { forward: false, linewise: true }, { context: "normal" });
+    } catch (_) {}
+
+    // 2. Register Undo in Vim Normal mode
+    for (const alt of parseShortcutAlternatives(shortcuts.undo)) {
+        registerVimMapping(alt.vimKey, "cmUndo", "normal");
+    }
+
+    // 3. Register Redo in Vim Normal mode (e.g. 'r' and '<C-r>')
+    for (const alt of parseShortcutAlternatives(shortcuts.redo)) {
+        registerVimMapping(alt.vimKey, "cmRedo", "normal");
+    }
+
+    // 4. Register Search / Open Document chord in Vim Normal mode ONLY (e.g. '<C-p><C-f>')
+    for (const alt of parseShortcutAlternatives(shortcuts.search)) {
+        if (alt.steps.length > 1) {
+            const firstStrokeVim = strokeToVimNotation(alt.steps[0]);
+            try {
+                Vim.unmap(firstStrokeVim, "normal");
+            } catch (_) {}
+        }
+        registerVimMapping(alt.vimKey, "openCommandPalette", "normal");
+    }
+
+    // 5. Register Half-page scrolling in Normal & Visual modes
+    for (const alt of parseShortcutAlternatives(shortcuts.scroll_down)) {
+        registerVimMapping(alt.vimKey, "scrollHalfPageDown", "normal");
+        registerVimMapping(alt.vimKey, "scrollHalfPageDown", "visual");
+    }
+
+    for (const alt of parseShortcutAlternatives(shortcuts.scroll_up)) {
+        registerVimMapping(alt.vimKey, "scrollHalfPageUp", "normal");
+        registerVimMapping(alt.vimKey, "scrollHalfPageUp", "visual");
+    }
+
+    // 6. Register Insert DateTime in Normal, Insert, and Visual modes
+    for (const alt of parseShortcutAlternatives(shortcuts.insert_datetime)) {
+        registerVimMapping(alt.vimKey, "insertDateTime", "normal");
+        registerVimMapping(alt.vimKey, "insertDateTime", "insert");
+        registerVimMapping(alt.vimKey, "insertDateTime", "visual");
+    }
+
+    // 7. Reconfigure any active EditorViews with the updated keymap compartment
+    const newKeymapExt = buildEditorKeymapExtension(shortcuts);
+    for (const id in views) {
+        if (views[id]) {
+            views[id].dispatch({
+                effects: keymapCompartment.reconfigure(newKeymapExt)
+            });
+        }
+    }
+};
+
+// Apply initial shortcuts at module load
+window.applyEditorShortcuts();
+
+window.registerOpenSearchCallback = function(cb) {
+    window._onOpenSearchCallback = cb;
+};
+
+window.triggerUndo = function(elementId) {
+    const view = views[elementId];
+    if (view) {
+        undo(view);
+        view.focus();
+    }
+};
+
+window.triggerRedo = function(elementId) {
+    const view = views[elementId];
+    if (view) {
+        redo(view);
+        view.focus();
+    }
+};
 
 // --- Editor Lifecycle ---
 
@@ -392,9 +840,15 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
 
     let wasInInsertMode = false;
 
+    // Ensure latest shortcuts from LocalStorage are applied
+    window.applyEditorShortcuts();
+    const shortcuts = loadConfiguredShortcuts();
+
     let extensions = [
         lineNumbers(),
         history(),
+        drawSelection(),
+        dropCursor(),
         markdown(),
         syntaxHighlighting(customHighlightStyle),
         EditorView.lineWrapping,
@@ -412,16 +866,45 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
                 fontFamily: "'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                 fontSize: "15px",
                 lineHeight: "1.6",
-                backgroundColor: "var(--editor-bg)",
-                color: "var(--editor-fg)"
+                backgroundColor: "var(--color-canvas-default)",
+                color: "var(--color-fg-default)"
             },
-            ".cm-scroller": { overflow: "auto" },
+            ".cm-scroller": {
+                overflow: "auto",
+                fontFamily: "'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace"
+            },
+            ".cm-content": {
+                caretColor: "var(--color-accent-fg)"
+            },
             ".cm-gutters": {
                 backgroundColor: "var(--color-canvas-subtle)",
                 color: "var(--color-fg-muted)",
                 borderRight: "1px solid var(--color-border-default)"
             },
-            ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--color-fg-default)" }
+            ".cm-cursor, .cm-dropCursor": {
+                borderLeftColor: "var(--color-accent-fg) !important",
+                borderLeftWidth: "2.5px !important"
+            },
+            ".cm-vimCursorLayer": {
+                position: "absolute !important",
+                top: "0 !important",
+                left: "0 !important",
+                width: "100%",
+                height: "100%",
+                pointerEvents: "none",
+                zIndex: "200"
+            },
+            ".cm-fat-cursor": {
+                background: "var(--color-accent-fg) !important",
+                color: "var(--color-canvas-default) !important",
+                minWidth: "0.55em",
+                zIndex: "200"
+            },
+            "&:not(.cm-focused) .cm-fat-cursor": {
+                background: "rgba(88, 166, 255, 0.25) !important",
+                outline: "2px solid var(--color-accent-fg) !important",
+                color: "var(--color-fg-default) !important"
+            }
         }),
         EditorView.updateListener.of((v) => {
             if (v.docChanged) {
@@ -430,7 +913,7 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
                     window._cmChangeCallback();
                 }
             }
-            if (vimMode && !isMobile) {
+            if (vimMode) {
                 const cm = (typeof getCM === "function" ? getCM(v.view) : v.view.cm);
                 const inInsertMode = !!(cm && cm.state && cm.state.vim && cm.state.vim.insertMode);
                 if (wasInInsertMode && !inInsertMode) {
@@ -441,59 +924,12 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         })
     ];
 
-    if (vimMode && !isMobile) {
+    if (vimMode) {
         // Vim plugin must precede standard keymaps
         extensions.push(vim());
     }
 
-    // Filter out Ctrl-d (deleteCharForward) and Ctrl-t (transposeChars) across both key and mac properties
-    const filteredDefaultKeymap = defaultKeymap.filter(b => 
-        b.key !== "Ctrl-d" && b.mac !== "Ctrl-d" &&
-        b.key !== "Ctrl-t" && b.mac !== "Ctrl-t"
-    );
-
-    extensions.push(keymap.of([
-        {
-            key: "Mod-s",
-            preventDefault: true,
-            run: (view) => {
-                let currentText = view.state.doc.toString();
-                let formatted = formatAllTables(currentText);
-                if (formatted !== currentText) {
-                    view.dispatch({
-                        changes: { from: 0, to: view.state.doc.length, insert: formatted }
-                    });
-                    currentText = formatted;
-                }
-                if (view._onSaveCallback) view._onSaveCallback(currentText);
-                return true;
-            }
-        },
-        {
-            key: "Ctrl-t Ctrl-s",
-            run: (view) => {
-                window.insertDateTime(view);
-                return true;
-            }
-        },
-        {
-            key: "Ctrl-d",
-            run: (view) => {
-                scrollHalfPage(view, true);
-                return true;
-            }
-        },
-        {
-            key: "Ctrl-u",
-            run: (view) => {
-                scrollHalfPage(view, false);
-                return true;
-            }
-        },
-        ...filteredDefaultKeymap,
-        ...historyKeymap,
-        indentWithTab
-    ]));
+    extensions.push(keymapCompartment.of(buildEditorKeymapExtension(shortcuts)));
 
     let state = EditorState.create({
         doc: initialContent,
@@ -515,7 +951,10 @@ window.setupEditor = function(elementId, initialContent, onSaveCallback, vimMode
         const safeFocus = () => {
             if (views[elementId] && views[elementId].contentDOM) {
                 const active = document.activeElement;
-                if (!active || active === document.body || views[elementId].dom.contains(active)) {
+                const isOtherInputFocused = active &&
+                    !views[elementId].dom.contains(active) &&
+                    (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+                if (!isOtherInputFocused) {
                     views[elementId].focus();
                 }
             }
@@ -679,3 +1118,9 @@ window.renderDrawio = function(elementId, xmlContent) {
         }
     }
 };
+
+if (Array.isArray(window._pendingSetupEditor)) {
+    const args = window._pendingSetupEditor;
+    window._pendingSetupEditor = null;
+    window.setupEditor(...args);
+}

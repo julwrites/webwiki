@@ -10,14 +10,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=2" />
+    <link rel="stylesheet" href="/style.css?v=5" />
 
     <!-- Diagram Libraries -->
     <!-- Pinning versions for stability -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
-    <script src="https://viewer.diagrams.net/js/viewer-static.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js" defer fetchpriority="low"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js" defer fetchpriority="low"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js" defer fetchpriority="low"></script>
+    <script src="https://viewer.diagrams.net/js/viewer-static.min.js" defer fetchpriority="low"></script>
 
     <!-- Theme Initialization to prevent flash -->
     <script>
@@ -41,10 +41,51 @@
       }
     </script>
     <script type="module">
-        // Cache busting to prevent LinkErrors
-        const v = Date.now();
-        // Import CodeMirror 6 interop first
-        await import(`/editor_interop.js?v=${v}`);
+        // Safe fallbacks so Yew/WASM can mount immediately without waiting on external CDN ESM imports
+        window.registerOpenSearchCallback = window.registerOpenSearchCallback || function(cb) {
+            window._onOpenSearchCallback = cb;
+        };
+        window.applyEditorShortcuts = window.applyEditorShortcuts || function() {};
+        window.setupEditor = window.setupEditor || function(elementId, initialContent, onSaveCallback, vimMode, onQuitCallback) {
+            window._pendingSetupEditor = [elementId, initialContent, onSaveCallback, vimMode, onQuitCallback];
+            const el = document.getElementById(elementId);
+            if (el) el.value = initialContent;
+        };
+        window.destroyEditor = window.destroyEditor || function() {
+            window._pendingSetupEditor = null;
+        };
+        window.focusEditor = window.focusEditor || function(elementId) {
+            const el = document.getElementById(elementId);
+            if (el) el.focus();
+        };
+        window.wrapSelection = window.wrapSelection || function() {};
+        window.insertTextAtCursor = window.insertTextAtCursor || function() {};
+        window.toggleHeader = window.toggleHeader || function() {};
+        window.triggerSave = window.triggerSave || function() {};
+        window.triggerUndo = window.triggerUndo || function() {};
+        window.triggerRedo = window.triggerRedo || function() {};
+        window.insertDateTime = window.insertDateTime || function() {};
+        window.getEditorContent = window.getEditorContent || function(elementId) {
+            const el = document.getElementById(elementId);
+            return el ? el.value : "";
+        };
+        window.onEditorChange = window.onEditorChange || function(elementId, callback) {
+            window._cmChangeCallback = callback;
+        };
+        window.renderMermaid = window.renderMermaid || function() {
+            if (window.mermaid) {
+                if (window.mermaid.run) window.mermaid.run({ nodes: document.querySelectorAll(".mermaid") });
+                else if (window.mermaid.init) window.mermaid.init(undefined, document.querySelectorAll(".mermaid"));
+            }
+        };
+        window.renderGraphviz = window.renderGraphviz || function() {};
+        window.renderDrawio = window.renderDrawio || function() {};
+
+        const v = 'v5';
+        // Load CodeMirror 6 interop in parallel so esm.sh latency/failures never block app startup
+        import(`/editor_interop.js?v=${v}`).catch((err) => {
+            console.error('Failed to load editor_interop.js:', err);
+        });
         const { default: init, run_app } = await import(`/wasm.js?v=${v}`);
         await init(`/wasm_bg.wasm?v=${v}`);
         run_app();

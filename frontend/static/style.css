@@ -697,25 +697,67 @@ textarea:focus {
     flex-wrap: wrap;
 }
 
-/* CodeMirror Adjustments */
-.CodeMirror {
-    height: 600px;
-    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-    font-size: 14px;
+/* CodeMirror 6 & Legacy CodeMirror Adjustments */
+.CodeMirror,
+.cm-editor {
+    font-family: 'Fira Code', ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+    font-size: 15px;
     background: var(--color-canvas-default) !important;
     color: var(--color-fg-default) !important;
 }
 
-.CodeMirror-cursor {
-    border-left: 1px solid var(--color-fg-default) !important;
+.cm-editor .cm-content {
+    caret-color: var(--color-accent-fg) !important;
 }
 
-.CodeMirror-gutters {
+.cm-editor .cm-vimMode .cm-line {
+    caret-color: transparent !important;
+}
+
+.CodeMirror-cursor,
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
+    border-left: 2.5px solid var(--color-accent-fg) !important;
+    margin-left: -1.25px;
+}
+
+.cm-editor:not(.cm-focused) > .cm-scroller > .cm-cursorLayer .cm-cursor {
+    display: block !important;
+    border-left: 2px dashed var(--color-accent-fg) !important;
+}
+
+.cm-editor .cm-vimCursorLayer {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 200;
+}
+
+.cm-editor .cm-fat-cursor {
+    background: var(--color-accent-fg) !important;
+    color: var(--color-canvas-default) !important;
+    border: none !important;
+    min-width: 0.55em;
+    z-index: 200;
+}
+
+.cm-editor:not(.cm-focused) .cm-fat-cursor {
+    background: rgba(88, 166, 255, 0.25) !important;
+    outline: 2px solid var(--color-accent-fg) !important;
+    color: var(--color-fg-default) !important;
+}
+
+.CodeMirror-gutters,
+.cm-editor .cm-gutters {
     background: var(--color-canvas-subtle) !important;
     border-right: 1px solid var(--color-border-default) !important;
 }
 
-.editor-container .CodeMirror {
+.editor-container .CodeMirror,
+.editor-container .cm-editor {
     border: none;
     flex: 1;
     height: 100%;
@@ -852,14 +894,14 @@ textarea:focus {
     border: 1px solid var(--color-border-default);
     border-radius: 6px;
     padding: 24px;
-    width: 500px;
-    max-width: 90%;
+    width: 580px;
+    max-width: 92%;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 16px 32px rgba(0, 0, 0, 0.25);
     color: var(--color-fg-default);
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .modal h2 {
@@ -1136,8 +1178,21 @@ textarea:focus {
 }
 
 .modal-body {
+    flex: 1;
+    min-height: 0;
     max-height: 70vh;
     overflow-y: auto;
+    padding-right: 4px;
+}
+
+.shortcuts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
+.shortcuts-grid .form-group {
+    margin-bottom: 0;
 }
 
 .modal-footer {

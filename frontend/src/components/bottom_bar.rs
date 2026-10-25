@@ -1,6 +1,6 @@
 use crate::components::icons::{
-    IconCopy, IconDownload, IconGitCommit, IconHome, IconMenu, IconMoon,
-    IconPlus, IconSearch, IconSettings, IconSun, IconUpload,
+    IconCopy, IconDownload, IconGitCommit, IconHome, IconMenu, IconMoon, IconPlus, IconSearch,
+    IconSettings, IconSun, IconUpload,
 };
 use yew::prelude::*;
 
@@ -23,6 +23,7 @@ pub struct BottomBarProps {
     pub commits_behind: usize,
     pub uncommitted_files: usize,
     pub is_drawer_open: bool,
+    pub search_shortcut: String,
 }
 
 #[function_component(BottomBar)]
@@ -35,6 +36,8 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
     let on_home = props.on_home.clone();
     let on_new_file = props.on_new_file.clone();
     let on_theme_toggle = props.on_theme_toggle.clone();
+    let search_label = format!("Search files ({})", props.search_shortcut);
+    let search_text = format!("Search files... ({})", props.search_shortcut);
 
     let is_git_menu_open = use_state(|| false);
 
@@ -66,9 +69,9 @@ pub fn bottom_bar(props: &BottomBarProps) -> Html {
             </button>
 
             // Search Trigger (Dominant)
-            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label="Search files (Ctrl+K)" title="Search files (Ctrl+K)">
+            <button class="bottom-bar-search-trigger" onclick={move |_| on_search.emit(())} aria-label={search_label.clone()} title={search_label}>
                 <IconSearch />
-                <span>{"Search files... (Ctrl+K)"}</span>
+                <span>{ search_text }</span>
             </button>
 
             // New File

@@ -98,7 +98,12 @@ impl SessionStore for FileSessionStore {
 
 fn save_record(dir: &Path, record: &Record) -> session_store::Result<()> {
     let final_path = dir.join(format!("{}.json", record.id));
-    let temp_path = dir.join(format!("{}{}-{}.json", TEMP_PREFIX, record.id, Id::default()));
+    let temp_path = dir.join(format!(
+        "{}{}-{}.json",
+        TEMP_PREFIX,
+        record.id,
+        Id::default()
+    ));
 
     let mut record_to_save = record.clone();
 

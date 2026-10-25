@@ -15,58 +15,130 @@ const puppeteer = require('puppeteer');
       
       console.log("Testing Ctrl+E (Edit)");
       await page.keyboard.down('Control');
-      await page.keyboard.press('E');
+      await page.keyboard.press('KeyE');
       await page.keyboard.up('Control');
       await new Promise(r => setTimeout(r, 1000));
       
-      let editor = await page.$('.editor-container');
-      if (!editor) { editor = await page.$('.code-editor-container'); }
-      if (!editor) { editor = await page.$('.cm-editor'); }
-      
+      let editor = await page.$('.cm-editor');
       if (editor) {
-          console.log("Editor opened successfully via Ctrl+E.");
+          console.log("✅ Editor opened successfully via Ctrl+E.");
           await page.screenshot({ path: 'test_key_edit.png' });
-          
-          console.log("Testing Escape (Cancel)");
+
+          // Test Vim Normal mode Undo ('u') and Redo ('r' and '<Ctrl+r>')
+          console.log("Testing Vim Insert + Undo ('u') + Redo ('r' and '<Ctrl+r>')...");
+          await page.keyboard.press('a');
+          await page.keyboard.type('TEST_UNDO_REDO');
           await page.keyboard.press('Escape');
-          await new Promise(r => setTimeout(r, 1000));
-          
-          editor = await page.$('.cm-editor');
-          if (!editor) {
-              console.log("Editor closed successfully via Escape.");
+          await new Promise(r => setTimeout(r, 300));
+
+          let contentAfterInsert = await page.evaluate(() => window.getEditorContent('code-editor'));
+          console.log("Content includes TEST_UNDO_REDO after insert:", contentAfterInsert.includes('TEST_UNDO_REDO'));
+
+          // Press 'u' in Normal mode to undo
+          await page.keyboard.press('u');
+          await new Promise(r => setTimeout(r, 300));
+          let contentAfterUndo = await page.evaluate(() => window.getEditorContent('code-editor'));
+          if (!contentAfterUndo.includes('TEST_UNDO_REDO')) {
+              console.log("✅ Undo ('u') in Vim Normal mode succeeded.");
           } else {
-              console.error("Editor did not close via Escape.");
+              console.error("❌ Undo ('u') did not remove inserted text.");
+          }
+
+          // Press 'r' in Normal mode to redo
+          await page.keyboard.press('r');
+          await new Promise(r => setTimeout(r, 300));
+          let contentAfterRedoR = await page.evaluate(() => window.getEditorContent('code-editor'));
+          if (contentAfterRedoR.includes('TEST_UNDO_REDO')) {
+              console.log("✅ Redo ('r') in Vim Normal mode succeeded.");
+          } else {
+              console.error("❌ Redo ('r') did not restore inserted text.");
+          }
+
+          // Press 'u' again, then test '<Ctrl+r>' redo
+          await page.keyboard.press('u');
+          await new Promise(r => setTimeout(r, 300));
+          await page.keyboard.down('Control');
+          await page.keyboard.press('KeyR');
+          await page.keyboard.up('Control');
+          await new Promise(r => setTimeout(r, 300));
+          let contentAfterRedoCtrlR = await page.evaluate(() => window.getEditorContent('code-editor'));
+          if (contentAfterRedoCtrlR.includes('TEST_UNDO_REDO')) {
+              console.log("✅ Redo ('<Ctrl+r>') in Vim Normal mode succeeded.");
+          } else {
+              console.error("❌ Redo ('<Ctrl+r>') did not restore inserted text.");
+          }
+
+          // Undo cleanup before testing <Ctrl+p><Ctrl+f> in Normal mode
+          await page.keyboard.press('u');
+          await new Promise(r => setTimeout(r, 200));
+
+          // Test <Ctrl+p><Ctrl+f> in Vim Normal mode inside the editor
+          console.log("Testing <Ctrl+p><Ctrl+f> in Vim Normal mode...");
+          await page.keyboard.down('Control');
+          await page.keyboard.press('KeyP');
+          await page.keyboard.press('KeyF');
+          await page.keyboard.up('Control');
+          await new Promise(r => setTimeout(r, 500));
+
+          let paletteInNormal = await page.$('.command-palette-overlay');
+          if (paletteInNormal) {
+              console.log("✅ Command Palette opened via <Ctrl+p><Ctrl+f> in Vim Normal mode.");
+              await page.keyboard.press('Escape');
+              await new Promise(r => setTimeout(r, 300));
+          } else {
+              console.error("❌ Command Palette did NOT open via <Ctrl+p><Ctrl+f> in Vim Normal mode.");
+          }
+
+          // Verify editor is still open after closing Command Palette with Escape!
+          editor = await page.$('.cm-editor');
+          if (editor) {
+              console.log("✅ Editor remained open and focused after closing Command Palette.");
+          } else {
+              console.error("❌ Editor unexpectedly closed when dismissing Command Palette.");
+          }
+
+          // Exit editor via Cancel button
+          const cancelBtn = await page.$('button[aria-label="Cancel editing"]');
+          if (cancelBtn) {
+              await cancelBtn.click();
+              await new Promise(r => setTimeout(r, 500));
           }
       } else {
-          console.error("Editor did not open via Ctrl+E.");
+          console.error("❌ Editor did not open via Ctrl+E.");
       }
 
       console.log("Testing Ctrl+B (Drawer Toggle)");
       await page.keyboard.down('Control');
-      await page.keyboard.press('B');
+      await page.keyboard.press('KeyB');
       await page.keyboard.up('Control');
       await new Promise(r => setTimeout(r, 1000));
       
       let drawer = await page.$('.drawer.open');
       if (drawer) {
-          console.log("Drawer opened successfully via Ctrl+B.");
+          console.log("✅ Drawer opened successfully via Ctrl+B.");
           await page.screenshot({ path: 'test_key_drawer.png' });
+          // Close drawer
+          await page.keyboard.down('Control');
+          await page.keyboard.press('KeyB');
+          await page.keyboard.up('Control');
+          await new Promise(r => setTimeout(r, 500));
       } else {
-          console.error("Drawer did not open via Ctrl+B.");
+          console.error("❌ Drawer did not open via Ctrl+B.");
       }
 
-      console.log("Testing Ctrl+K (Search)");
+      console.log("Testing <Ctrl+p><Ctrl+f> (Global Search / Open Document)");
       await page.keyboard.down('Control');
-      await page.keyboard.press('K');
+      await page.keyboard.press('KeyP');
+      await page.keyboard.press('KeyF');
       await page.keyboard.up('Control');
       await new Promise(r => setTimeout(r, 1000));
       
       let commandPalette = await page.$('.command-palette-overlay');
       if (commandPalette) {
-          console.log("Command Palette opened successfully via Ctrl+K.");
+          console.log("✅ Command Palette opened successfully via <Ctrl+p><Ctrl+f>.");
           await page.screenshot({ path: 'test_key_search.png' });
       } else {
-          console.error("Command Palette did not open via Ctrl+K.");
+          console.error("❌ Command Palette did not open via <Ctrl+p><Ctrl+f>.");
       }
 
   } catch(e) {

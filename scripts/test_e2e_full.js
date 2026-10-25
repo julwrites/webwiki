@@ -13,19 +13,20 @@ const puppeteer = require('puppeteer');
         await page.goto('http://localhost:3000', { waitUntil: 'networkidle0' });
         await new Promise(r => setTimeout(r, 1000));
         
-        // --- 1. Global Keybindings (Ctrl+K / Search) ---
-        console.log("Testing Global Keybindings (Ctrl+K)...");
-        // We use Control+K. On Mac, we might need Meta+K, but let's try Control first
+        // --- 1. Global Keybindings (<Ctrl+p><Ctrl+f> / Search) ---
+        console.log("Testing Global Keybindings (<Ctrl+p><Ctrl+f>)...");
         await page.keyboard.down('Control');
-        await page.keyboard.press('KeyK');
+        await page.keyboard.press('KeyP');
+        await page.keyboard.press('KeyF');
         await page.keyboard.up('Control');
         await new Promise(r => setTimeout(r, 500));
         
         let searchInput = await page.$('input[aria-label="Command palette input"]');
         if (!searchInput) {
-            console.log("Ctrl+K didn't open the command palette. Trying Meta+K...");
+            console.log("Ctrl+P Ctrl+F didn't open the command palette. Trying Meta+P Meta+F...");
             await page.keyboard.down('Meta');
-            await page.keyboard.press('KeyK');
+            await page.keyboard.press('KeyP');
+            await page.keyboard.press('KeyF');
             await page.keyboard.up('Meta');
             await new Promise(r => setTimeout(r, 500));
             searchInput = await page.$('input[aria-label="Command palette input"]');
