@@ -9,6 +9,7 @@ use axum::{
 use common::User;
 use serde::Deserialize;
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 use tower_sessions::Session;
 
 pub const USER_SESSION_KEY: &str = "user";
@@ -34,7 +35,10 @@ pub async fn login(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    if payload.username == expected_username && payload.password == expected_password {
+    let username_match: bool = payload.username.as_bytes().ct_eq(expected_username.as_bytes()).into();
+    let password_match: bool = payload.password.as_bytes().ct_eq(expected_password.as_bytes()).into();
+
+    if username_match && password_match {
         // For single user mode, we grant 'rw' to all configured volumes
         let mut permissions = std::collections::HashMap::new();
 
