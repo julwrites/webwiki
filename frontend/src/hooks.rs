@@ -36,7 +36,7 @@ impl Default for Shortcuts {
             toggle_drawer: "Ctrl+B".to_string(),
             copy_link: "Ctrl+Shift+C".to_string(),
             undo: "u".to_string(),
-            redo: "r, <Ctrl+r>".to_string(),
+            redo: "<Ctrl+r>".to_string(),
             scroll_down: "<Ctrl+d>".to_string(),
             scroll_up: "<Ctrl+u>".to_string(),
             insert_datetime: "<Ctrl+t><Ctrl+s>".to_string(),
@@ -48,8 +48,16 @@ impl Shortcuts {
     /// Load shortcuts from LocalStorage, migrating legacy default search binding if present.
     pub fn load() -> Self {
         let mut s = LocalStorage::get::<Shortcuts>("shortcuts").unwrap_or_default();
+        let mut changed = false;
         if s.search.trim() == "Ctrl+K, Ctrl+P" {
             s.search = "<Ctrl+p><Ctrl+f>".to_string();
+            changed = true;
+        }
+        if s.redo.trim() == "r, <Ctrl+r>" {
+            s.redo = "<Ctrl+r>".to_string();
+            changed = true;
+        }
+        if changed {
             let _ = LocalStorage::set("shortcuts", s.clone());
         }
         s
@@ -747,19 +755,10 @@ mod tests {
             }]]
         );
 
-        let redo_seqs = parse_shortcut_sequences("r, <Ctrl+r>").unwrap();
-        assert_eq!(redo_seqs.len(), 2);
+        let redo_seqs = parse_shortcut_sequences("<Ctrl+r>").unwrap();
+        assert_eq!(redo_seqs.len(), 1);
         assert_eq!(
             redo_seqs[0],
-            vec![KeyStep {
-                key: "r".to_string(),
-                ctrl: false,
-                shift: false,
-                alt: false,
-            }]
-        );
-        assert_eq!(
-            redo_seqs[1],
             vec![KeyStep {
                 key: "r".to_string(),
                 ctrl: true,
@@ -847,7 +846,7 @@ mod tests {
         let legacy_json = r#"{"edit":"Ctrl+E","save":"Ctrl+S","cancel":"Escape","search":"Ctrl+K, Ctrl+P","toggle_drawer":"Ctrl+B","copy_link":"Ctrl+Shift+C"}"#;
         let parsed: Shortcuts = serde_json::from_str(legacy_json).unwrap();
         assert_eq!(parsed.undo, "u");
-        assert_eq!(parsed.redo, "r, <Ctrl+r>");
+        assert_eq!(parsed.redo, "<Ctrl+r>");
         assert_eq!(parsed.insert_datetime, "<Ctrl+t><Ctrl+s>");
 
         // Invalid syntax

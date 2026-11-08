@@ -1243,7 +1243,7 @@ fn editor(props: &EditorProps) -> Html {
             <div class="editor-toolbar-actions">
                 <div class="btn-group">
                     <button class="btn" onclick={on_undo_click} title="Undo (u)" aria-label="Undo">{"Undo"}</button>
-                    <button class="btn" onclick={on_redo_click} title="Redo (r / Ctrl+R)" aria-label="Redo">{"Redo"}</button>
+                    <button class="btn" onclick={on_redo_click} title="Redo (Ctrl+R)" aria-label="Redo">{"Redo"}</button>
                 </div>
                 <div class="btn-group">
                     <button class="btn" onclick={on_bold_click} title="Bold" aria-label="Bold"><strong>{"B"}</strong></button>
@@ -1269,7 +1269,7 @@ fn editor(props: &EditorProps) -> Html {
                 <div class="editor-pane">
                     <textarea id="code-editor" aria-label="Markdown editor" />
                     <p class="editor-help">
-                        { if vim_mode { "Vim Mode: u to undo, r / Ctrl+R to redo, :w or Ctrl+S to save" } else { "Ctrl+S to save" } }
+                        { if vim_mode { "Vim Mode: u to undo, Ctrl+R to redo, :w or Ctrl+S to save" } else { "Ctrl+S to save" } }
                     </p>
                 </div>
                 { preview_html }

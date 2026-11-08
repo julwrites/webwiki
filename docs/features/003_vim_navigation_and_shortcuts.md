@@ -3,7 +3,7 @@
 ## Overview
 
 This specification details the keyboard navigation and shortcut architecture for WebWiki:
-1. **Vim Undo & Redo (`u`, `r`, `<Ctrl+r>`)**: Supporting undo and redo in Vim Normal mode and via the editor toolbar, bridged directly to CodeMirror 6's history commands.
+1. **Vim Undo & Redo (`u`, `<Ctrl+r>`)**: Supporting undo (`u`) and redo (`<Ctrl+r>`) in Vim Normal mode and via the editor toolbar, bridged directly to CodeMirror 6's history commands, preserving standard Vim single-character replace (`r`).
 2. **Document Opener / Search Chord (`<Ctrl+p><Ctrl+f>`)**: Opening the Command Palette / document search via the two-stroke chord `<Ctrl+p><Ctrl+f>` both globally (View Mode) and in Vim Normal mode inside the editor.
 3. **Vim Half-Page Navigation (`<Ctrl+d>` and `<Ctrl+u>`)**: Smooth half-page scrolling in Normal, Visual, and non-Vim modes.
 4. **DateTime Insertion Chord (`<Ctrl+t><Ctrl+s>`)**: Multi-stroke chord to insert the current timestamp directly at the cursor location.
@@ -11,11 +11,11 @@ This specification details the keyboard navigation and shortcut architecture for
 
 ---
 
-## 1. Vim Undo & Redo (`u` and `r, <Ctrl+r>`)
+## 1. Vim Undo & Redo (`u` and `<Ctrl+r>`)
 
 - **Default Bindings**:
   - **Undo**: `u` (in Vim Normal mode)
-  - **Redo**: `r, <Ctrl+r>` (in Vim Normal mode)
+  - **Redo**: `<Ctrl+r>` (in Vim Normal mode; `r` is preserved for standard Vim character replacement)
 - **Implementation**:
   - `cmUndo` and `cmRedo` custom Vim actions invoke `@codemirror/commands`'s `undo(view)` and `redo(view)` (supporting count repeats via `actionArgs.repeat`).
   - Toolbar **Undo** and **Redo** buttons invoke `window.triggerUndo("code-editor")` and `window.triggerRedo("code-editor")`.

@@ -39,7 +39,7 @@ const DEFAULT_SHORTCUTS = {
     toggle_drawer: "Ctrl+B",
     copy_link: "Ctrl+Shift+C",
     undo: "u",
-    redo: "r, <Ctrl+r>",
+    redo: "<Ctrl+r>",
     scroll_down: "<Ctrl+d>",
     scroll_up: "<Ctrl+u>",
     insert_datetime: "<Ctrl+t><Ctrl+s>"
@@ -51,8 +51,16 @@ function loadConfiguredShortcuts() {
         if (!raw) return { ...DEFAULT_SHORTCUTS };
         const parsed = JSON.parse(raw);
         const merged = { ...DEFAULT_SHORTCUTS, ...parsed };
+        let changed = false;
         if (merged.search && merged.search.trim() === "Ctrl+K, Ctrl+P") {
             merged.search = "<Ctrl+p><Ctrl+f>";
+            changed = true;
+        }
+        if (merged.redo && merged.redo.trim() === "r, <Ctrl+r>") {
+            merged.redo = "<Ctrl+r>";
+            changed = true;
+        }
+        if (changed) {
             localStorage.setItem("shortcuts", JSON.stringify(merged));
         }
         return merged;
@@ -496,8 +504,13 @@ function isInVimNormalMode(view) {
     return !cm.state.vim.insertMode && !cm.state.vim.visualMode;
 }
 
-Vim.defineEx("write", "w", function(cm) {
-    const view = getActiveView(cm);
+function isInVimInsertMode(view) {
+    if (!view) return false;
+    const cm = (typeof getCM === "function" ? getCM(view) : view.cm);
+    return !!(cm && cm.state && cm.state.vim && cm.state.vim.insertMode);
+}
+
+function saveEditorDocument(view) {
     if (!view) return;
     let currentText = view.state.doc.toString();
     let formatted = formatAllTables(currentText);
@@ -510,9 +523,39 @@ Vim.defineEx("write", "w", function(cm) {
     if (view._onSaveCallback) {
         view._onSaveCallback(currentText);
     }
+}
+
+Vim.defineEx("write", "w", function(cm) {
+    const view = getActiveView(cm);
+    saveEditorDocument(view);
 });
 
 Vim.defineEx("quit", "q", function(cm) {
+    const view = getActiveView(cm);
+    if (view && view._onQuitCallback) {
+        view._onQuitCallback();
+    }
+});
+
+Vim.defineEx("wq", "wq", function(cm) {
+    const view = getActiveView(cm);
+    if (!view) return;
+    saveEditorDocument(view);
+    if (view._onQuitCallback) {
+        view._onQuitCallback();
+    }
+});
+
+Vim.defineEx("x", "x", function(cm) {
+    const view = getActiveView(cm);
+    if (!view) return;
+    saveEditorDocument(view);
+    if (view._onQuitCallback) {
+        view._onQuitCallback();
+    }
+});
+
+Vim.defineEx("q!", "q!", function(cm) {
     const view = getActiveView(cm);
     if (view && view._onQuitCallback) {
         view._onQuitCallback();
@@ -580,7 +623,7 @@ function buildEditorKeymapExtension(shortcuts) {
     const redoAlts = parseShortcutAlternatives(shortcuts.redo);
 
     // Collect first-stroke keys of any multi-stroke chords so we filter them out of defaultKeymap
-    const chordFirstKeys = new Set(["Ctrl-d", "Ctrl-t", "Ctrl-p", "Ctrl-f", "Ctrl-u"]);
+    const chordFirstKeys = new Set(["Ctrl-d", "Ctrl-t", "Ctrl-p", "Ctrl-f", "Ctrl-u", "Ctrl-b"]);
     for (const list of [saveAlts, dtAlts, downAlts, upAlts, searchAlts, undoAlts, redoAlts]) {
         for (const alt of list) {
             if (alt.steps.length > 1) {
@@ -669,6 +712,11 @@ function buildEditorKeymapExtension(shortcuts) {
                 key: alt.cmKey,
                 preventDefault: true,
                 run: (view) => {
+                    if (isInVimInsertMode(view)) {
+                        const cm = (typeof getCM === "function" ? getCM(view) : view.cm);
+                        if (cm) return Vim.handleKey(cm, "<C-d>");
+                        return false;
+                    }
                     scrollHalfPage(view, true);
                     return true;
                 }
@@ -682,6 +730,11 @@ function buildEditorKeymapExtension(shortcuts) {
                 key: alt.cmKey,
                 preventDefault: true,
                 run: (view) => {
+                    if (isInVimInsertMode(view)) {
+                        const cm = (typeof getCM === "function" ? getCM(view) : view.cm);
+                        if (cm) return Vim.handleKey(cm, "<C-u>");
+                        return false;
+                    }
                     scrollHalfPage(view, false);
                     return true;
                 }
@@ -708,10 +761,12 @@ window.applyEditorShortcuts = function() {
     }
     activeCustomVimMappings = [];
 
-    // Restore standard Vim 'r' replace action and '<C-p>' k motion first before applying custom overrides
+    // Restore standard Vim 'r<character>' replace action
     try {
-        Vim.mapCommand("r", "action", "replace", {}, { context: "normal" });
-        Vim.mapCommand("<C-p>", "motion", "moveByLines", { forward: false, linewise: true }, { context: "normal" });
+        Vim.unmap("r", "normal");
+    } catch (_) {}
+    try {
+        Vim.mapCommand("r<character>", "action", "replace", {}, { isEdit: true });
     } catch (_) {}
 
     // 2. Register Undo in Vim Normal mode

@@ -44,19 +44,7 @@ const puppeteer = require('puppeteer');
               console.error("❌ Undo ('u') did not remove inserted text.");
           }
 
-          // Press 'r' in Normal mode to redo
-          await page.keyboard.press('r');
-          await new Promise(r => setTimeout(r, 300));
-          let contentAfterRedoR = await page.evaluate(() => window.getEditorContent('code-editor'));
-          if (contentAfterRedoR.includes('TEST_UNDO_REDO')) {
-              console.log("✅ Redo ('r') in Vim Normal mode succeeded.");
-          } else {
-              console.error("❌ Redo ('r') did not restore inserted text.");
-          }
-
-          // Press 'u' again, then test '<Ctrl+r>' redo
-          await page.keyboard.press('u');
-          await new Promise(r => setTimeout(r, 300));
+          // Test '<Ctrl+r>' redo in Normal mode
           await page.keyboard.down('Control');
           await page.keyboard.press('KeyR');
           await page.keyboard.up('Control');
@@ -66,6 +54,19 @@ const puppeteer = require('puppeteer');
               console.log("✅ Redo ('<Ctrl+r>') in Vim Normal mode succeeded.");
           } else {
               console.error("❌ Redo ('<Ctrl+r>') did not restore inserted text.");
+          }
+
+          // Test 'r' in Normal mode performs replace character (e.g. 'r' then 'X')
+          await page.keyboard.press('u');
+          await new Promise(r => setTimeout(r, 300));
+          await page.keyboard.press('r');
+          await page.keyboard.press('X');
+          await new Promise(r => setTimeout(r, 300));
+          let contentAfterReplace = await page.evaluate(() => window.getEditorContent('code-editor'));
+          if (contentAfterReplace.includes('X')) {
+              console.log("✅ Replace ('r<char>') in Vim Normal mode succeeded.");
+          } else {
+              console.error("❌ Replace ('r<char>') did not replace character.");
           }
 
           // Undo cleanup before testing <Ctrl+p><Ctrl+f> in Normal mode
