@@ -53,8 +53,19 @@ impl Shortcuts {
             s.search = "<Ctrl+p><Ctrl+f>".to_string();
             changed = true;
         }
-        if s.redo.trim() == "r, <Ctrl+r>" {
-            s.redo = "<Ctrl+r>".to_string();
+        let cleaned_redo: Vec<&str> = s
+            .redo
+            .split(',')
+            .map(|part| part.trim())
+            .filter(|part| !part.is_empty() && part.to_ascii_lowercase() != "r")
+            .collect();
+        let new_redo = if cleaned_redo.is_empty() {
+            "<Ctrl+r>".to_string()
+        } else {
+            cleaned_redo.join(", ")
+        };
+        if new_redo != s.redo {
+            s.redo = new_redo;
             changed = true;
         }
         if changed {

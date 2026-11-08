@@ -56,9 +56,14 @@ function loadConfiguredShortcuts() {
             merged.search = "<Ctrl+p><Ctrl+f>";
             changed = true;
         }
-        if (merged.redo && merged.redo.trim() === "r, <Ctrl+r>") {
-            merged.redo = "<Ctrl+r>";
-            changed = true;
+        if (merged.redo) {
+            const parts = merged.redo.split(',').map(s => s.trim()).filter(s => s && s.toLowerCase() !== 'r');
+            if (parts.length === 0) parts.push('<Ctrl+r>');
+            const cleanRedo = parts.join(', ');
+            if (cleanRedo !== merged.redo) {
+                merged.redo = cleanRedo;
+                changed = true;
+            }
         }
         if (changed) {
             localStorage.setItem("shortcuts", JSON.stringify(merged));
@@ -774,8 +779,9 @@ window.applyEditorShortcuts = function() {
         registerVimMapping(alt.vimKey, "cmUndo", "normal");
     }
 
-    // 3. Register Redo in Vim Normal mode (e.g. 'r' and '<C-r>')
+    // 3. Register Redo in Vim Normal mode (e.g. '<C-r>')
     for (const alt of parseShortcutAlternatives(shortcuts.redo)) {
+        if (alt.vimKey === "r") continue;
         registerVimMapping(alt.vimKey, "cmRedo", "normal");
     }
 

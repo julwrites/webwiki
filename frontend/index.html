@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=5" />
+    <link rel="stylesheet" href="/style.css?v=6" />
 
     <!-- Diagram Libraries -->
     <!-- Pinning versions for stability -->
@@ -81,7 +81,7 @@
         window.renderGraphviz = window.renderGraphviz || function() {};
         window.renderDrawio = window.renderDrawio || function() {};
 
-        const v = 'v5';
+        const v = 'v6';
         // Load CodeMirror 6 interop in parallel so esm.sh latency/failures never block app startup
         import(`/editor_interop.js?v=${v}`).catch((err) => {
             console.error('Failed to load editor_interop.js:', err);
